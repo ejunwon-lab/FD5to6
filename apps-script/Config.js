@@ -25,11 +25,13 @@ const CONFIG = {
   //   운용중 데이터 끝 = ACTIVE_TOTAL 행 - 1
   //   매도완료 데이터 끝 = SOLD_HEADER 다음 행부터 A열 마지막 데이터 행
   NAMED_RANGES: {
-    ACTIVE_HEADER: 'TRACKER_ACTIVE_HEADER', // 헤더 행 (고정)
-    ACTIVE_TOTAL:  'TRACKER_ACTIVE_TOTAL',  // 합계 행 (고정)
-    SOLD_HEADER:   'TRACKER_SOLD_HEADER',   // 매도완료 헤더 행(들) (고정)
-    FX_USD:        'FX_USD',               // 환율 USD 셀
-    FX_GBP:        'FX_GBP',               // 환율 GBP 셀
+    ACTIVE_HEADER:  'TRACKER_ACTIVE_HEADER', // 헤더 행 (고정)
+    ACTIVE_TOTAL:   'TRACKER_ACTIVE_TOTAL',  // 합계 행 (고정)
+    SOLD_HEADER:    'TRACKER_SOLD_HEADER',   // 매도완료 헤더 행(들) (고정)
+    FX_USD:         'FX_USD',               // 환율 USD 셀
+    FX_GBP:         'FX_GBP',               // 환율 GBP 셀
+    TREND_OP_TOTAL:   'TREND_OP_TOTAL',     // 추이 기록 원천: 운용 합계 셀
+    TREND_PEND_TOTAL: 'TREND_PEND_TOTAL',   // 추이 기록 원천: 대기 합계 셀
   },
 
   // ── 헤더 행 번호 (Named Range 미설정 시 폴백용) ───────────────────
@@ -68,11 +70,12 @@ const CONFIG = {
 
   // ── 추이 기록 시트 구조 ────────────────────────────────────────────
   TREND: {
-    START_COL:       2,
-    DAILY_START_COL: 14,
-    DAILY_START_ROW: 5,
-    PROFIT_START_COL: 21,
-    PROFIT_START_ROW: 5
+    START_COL:             2,
+    DAILY_START_COL:       14,
+    DAILY_START_ROW:       5,
+    PROFIT_START_COL:      21,
+    PROFIT_START_ROW:      5,
+    PROFIT_CHART_START:    '2025-10-20', // 수익 차트 시작일
   },
 
   // ── 종목 코드 분류 ─────────────────────────────────────────────────
@@ -104,11 +107,6 @@ const CONFIG = {
     PROFIT: 'X',
   },
 
-  // ── 추이 기록 원천 셀 (추이 기록 시트 내 고정 위치) ─────────────
-  TREND_SRC_CELLS: {
-    OP_TOTAL:   'AL11',
-    PEND_TOTAL: 'AK21',
-  },
 };
 
 // 하위 호환성 별칭

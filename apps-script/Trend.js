@@ -13,8 +13,8 @@ function logToTrendSheet(ss) {
   const timeStr = Utilities.formatDate(now, tz, 'a h시 m분 s초').replace('AM', '오전').replace('PM', '오후');
 
   // 공통 원천 값
-  const opTotal   = toNumberLoose(track.getRange(CONFIG.TREND_SRC_CELLS.OP_TOTAL).getValue());
-  const pendTotal = toNumberLoose(track.getRange(CONFIG.TREND_SRC_CELLS.PEND_TOTAL).getValue());
+  const opTotal   = toNumberLoose(getNamedRange(sys, CONFIG.NAMED_RANGES.TREND_OP_TOTAL).getValue());
+  const pendTotal = toNumberLoose(getNamedRange(sys, CONFIG.NAMED_RANGES.TREND_PEND_TOTAL).getValue());
   const sumTotal = opTotal + pendTotal;
 
   /***********************
@@ -295,8 +295,9 @@ function drawTrendChart() {
       // U=0, ..., X(Confirmed Profit)=3, ..., AB(Operating Profit)=7 (relative to U)
       const pSourceData = dataSheet.getRange(pStartRow, pStartCol, pDataRows, 10).getValues();
       
-      // 날짜 비교를 위한 기준일 설정 (시간 성분 제거)
-      const targetDate = new Date(2025, 9, 20); // Month is 0-indexed: 9 = Oct
+      // 날짜 비교를 위한 기준일 설정 (Config.TREND.PROFIT_CHART_START 기준)
+      const [cy, cm, cd] = CONFIG.TREND.PROFIT_CHART_START.split('-').map(Number);
+      const targetDate = new Date(cy, cm - 1, cd);
       targetDate.setHours(0, 0, 0, 0);
 
       const filteredData = pSourceData

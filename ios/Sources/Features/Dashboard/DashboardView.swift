@@ -4,10 +4,10 @@ struct DashboardView: View {
     @EnvironmentObject var vm: PortfolioViewModel
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.pageBg.ignoresSafeArea()
-
+        ZStack {
+            Color.pageBg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                dashboardHeader
                 ScrollView {
                     VStack(spacing: 20) {
                         summaryCard
@@ -18,32 +18,38 @@ struct DashboardView: View {
                     }
                     .padding()
                 }
-                .refreshable { await vm.fetchPortfolio() }
-
-                if vm.isUpdating {
-                    updateOverlay
-                }
             }
-            .navigationTitle("JUN & SOO 투자 현황")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 8) {
-                        circleButton(icon: "bolt.fill",          action: { await vm.updateHoldingsFast() })
-                        circleButton(icon: "square.grid.2x2.fill", action: { await vm.updateHoldingsFull() })
-                        circleButton(icon: "wand.and.stars",     action: { await vm.updateAll() })
-                    }
-                    .disabled(vm.isUpdating)
-                }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("로그아웃") {
-                        AuthManager.shared.signOut()
-                    }
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                }
+            if vm.isUpdating {
+                updateOverlay
             }
         }
+    }
+
+    private var dashboardHeader: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button("로그아웃") { AuthManager.shared.signOut() }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                HStack(spacing: 8) {
+                    circleButton(icon: "bolt.fill",            action: { await vm.updateHoldingsFast() })
+                    circleButton(icon: "square.grid.2x2.fill", action: { await vm.updateHoldingsFull() })
+                    circleButton(icon: "wand.and.stars",       action: { await vm.updateAll() })
+                }
+                .disabled(vm.isUpdating)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+
+            Text("JUN & SOO 투자 현황")
+                .font(.largeTitle).fontWeight(.bold)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+        }
+        .background(Color.pageBg)
     }
 
     private var summaryCard: some View {

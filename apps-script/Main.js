@@ -14,11 +14,13 @@ function setupNamedRanges() {
   const sheetName = CONFIG.SHEET_NAMES.TRACKER;
 
   const definitions = [
-    { name: CONFIG.NAMED_RANGES.ACTIVE_HEADER, a1: `${sheetName}!A5:Z5`   },
-    { name: CONFIG.NAMED_RANGES.ACTIVE_TOTAL,  a1: `${sheetName}!A40:Z40` },
-    { name: CONFIG.NAMED_RANGES.SOLD_HEADER,   a1: `${sheetName}!A42:Z43` },
-    { name: CONFIG.NAMED_RANGES.FX_USD,        a1: `${sheetName}!Q2`      },
-    { name: CONFIG.NAMED_RANGES.FX_GBP,        a1: `${sheetName}!Q1`      },
+    { name: CONFIG.NAMED_RANGES.ACTIVE_HEADER,    a1: `${sheetName}!A5:Z5`   },
+    { name: CONFIG.NAMED_RANGES.ACTIVE_TOTAL,     a1: `${sheetName}!A40:Z40` },
+    { name: CONFIG.NAMED_RANGES.SOLD_HEADER,      a1: `${sheetName}!A42:Z43` },
+    { name: CONFIG.NAMED_RANGES.FX_USD,           a1: `${sheetName}!Q2`      },
+    { name: CONFIG.NAMED_RANGES.FX_GBP,           a1: `${sheetName}!Q1`      },
+    { name: CONFIG.NAMED_RANGES.TREND_OP_TOTAL,   a1: `${sheetName}!AL11`    },
+    { name: CONFIG.NAMED_RANGES.TREND_PEND_TOTAL, a1: `${sheetName}!AK21`    },
   ];
 
   // 기존 Named Range 목록 (이름 기준 맵)

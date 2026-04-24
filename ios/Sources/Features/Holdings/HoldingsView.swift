@@ -64,34 +64,30 @@ struct HoldingsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.pageBg.ignoresSafeArea()
-                VStack(spacing: 0) {
-                    titleBar
-                    filterBar
-                    sortBar
-                    summaryBar
-                    if vm.isLoading && vm.portfolio == nil {
-                        Spacer()
-                        ProgressView("불러오는 중...").padding()
-                        Spacer()
-                    } else {
-                        List(filtered) { holding in
-                            HoldingCard(holding: holding, sortKey: sortKey, expandedId: $expandedHoldingId)
-                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                        }
-                        .listStyle(.plain)
-                        .refreshable { await vm.fetchPortfolio() }
+        ZStack {
+            Color.pageBg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                titleBar
+                filterBar
+                sortBar
+                summaryBar
+                if vm.isLoading && vm.portfolio == nil {
+                    Spacer()
+                    ProgressView("불러오는 중...").padding()
+                    Spacer()
+                } else {
+                    List(filtered) { holding in
+                        HoldingCard(holding: holding, sortKey: sortKey, expandedId: $expandedHoldingId)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
                     }
+                    .listStyle(.plain)
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .safeAreaInset(edge: .bottom) {
-                searchBar
-            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            searchBar
         }
     }
 

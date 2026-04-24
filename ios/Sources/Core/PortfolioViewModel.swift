@@ -20,12 +20,14 @@ class PortfolioViewModel: ObservableObject {
     }
 
     func fetchPortfolio() async {
-        guard !isUpdating else { return }
+        guard !isLoading, !isUpdating else { return }
         isLoading = true
         errorMessage = nil
         do {
             let result = try await ScriptAPIService.shared.getPortfolio()
             applyResult(result)
+        } catch is CancellationError {
+            // pull-to-refresh 취소는 에러 아님 — 무시
         } catch {
             errorMessage = error.localizedDescription
         }
