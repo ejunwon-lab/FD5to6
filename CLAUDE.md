@@ -17,7 +17,15 @@ FD5to6/
 │       ├── Features/  # Dashboard, Holdings, Analysis
 │       ├── Models/    # PortfolioModels
 │       └── Shared/    # Extensions, Colors
+├── memory/            # Claude 메모리 파일 백업 (GitHub 동기화용)
 └── docs/
+```
+
+## 새 컴퓨터 세팅
+클론 후 Claude 메모리를 복원하려면:
+```bash
+mkdir -p ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6-ios/memory
+cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6-ios/memory/
 ```
 
 ## 핵심 규칙
