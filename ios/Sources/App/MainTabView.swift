@@ -25,16 +25,15 @@ struct MainTabView: View {
     private var customTabBar: some View {
         HStack(spacing: 0) {
             tabBarButton(index: 0, label: "대시보드", icon: "chart.bar.fill")
-            tabBarButton(index: 1, label: "종목",   icon: "list.bullet.rectangle.portrait.fill")
-            tabBarButton(index: 2, label: "분석",   icon: "chart.pie.fill")
+            tabBarButton(index: 1, label: "종목",    icon: "list.bullet.rectangle.portrait.fill")
+            tabBarButton(index: 2, label: "분석",    icon: "chart.pie.fill")
         }
-        .frame(height: 49)
-        .background(
-            Color.clear
-                .background(.ultraThinMaterial)
-                .ignoresSafeArea(edges: .bottom)
-        )
-        .overlay(Divider().opacity(0.4), alignment: .top)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().stroke(Color(UIColor.separator).opacity(0.3), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.12), radius: 16, y: 4)
+        .padding(.bottom, 4)
     }
 
     private func tabBarButton(index: Int, label: String, icon: String) -> some View {
@@ -44,12 +43,13 @@ struct MainTabView: View {
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 22, weight: isSelected ? .semibold : .regular))
                 Text(label)
                     .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
             }
             .foregroundColor(isSelected ? .accent : Color(.systemGray))
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 20)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

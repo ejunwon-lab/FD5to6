@@ -81,6 +81,7 @@ struct HoldingCard: View {
                         .animation(.easeInOut(duration: 0.2), value: expanded)
                 }
                 .padding(16)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 

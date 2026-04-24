@@ -5,9 +5,15 @@ struct AnalysisView: View {
     @EnvironmentObject var vm: PortfolioViewModel
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.pageBg.ignoresSafeArea()
+        ZStack {
+            Color.pageBg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                Text("분석")
+                    .font(.largeTitle).fontWeight(.bold)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color.pageBg)
                 ScrollView {
                     VStack(spacing: 20) {
                         if let byCategory = vm.portfolio?.byCategory, !byCategory.isEmpty {
@@ -20,10 +26,7 @@ struct AnalysisView: View {
                     }
                     .padding()
                 }
-                .refreshable { await vm.fetchPortfolio() }
             }
-            .navigationTitle("분석")
-            .navigationBarTitleDisplayMode(.large)
         }
     }
 
