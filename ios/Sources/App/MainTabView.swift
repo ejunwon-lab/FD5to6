@@ -6,12 +6,14 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            DashboardView()
+            IndicatorsView()
                 .tag(0)
-            HoldingsView()
+            DashboardView()
                 .tag(1)
-            AnalysisView()
+            HoldingsView()
                 .tag(2)
+            AnalysisView()
+                .tag(3)
         }
         .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -24,11 +26,12 @@ struct MainTabView: View {
 
     private var customTabBar: some View {
         HStack(spacing: 0) {
-            tabBarButton(index: 0, label: "대시보드", icon: "chart.bar.fill")
-            tabBarButton(index: 1, label: "종목",    icon: "list.bullet.rectangle.portrait.fill")
-            tabBarButton(index: 2, label: "분석",    icon: "chart.pie.fill")
+            tabBarButton(index: 0, label: "참고지표", icon: "chart.line.uptrend.xyaxis")
+            tabBarButton(index: 1, label: "대시보드", icon: "chart.bar.fill")
+            tabBarButton(index: 2, label: "종목",    icon: "list.bullet.rectangle.portrait.fill")
+            tabBarButton(index: 3, label: "분석",    icon: "chart.pie.fill")
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 18)
         .padding(.vertical, 10)
         .background(.ultraThinMaterial, in: Capsule())
         .overlay(Capsule().stroke(Color(UIColor.separator).opacity(0.3), lineWidth: 0.5))
@@ -48,7 +51,7 @@ struct MainTabView: View {
                     .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
             }
             .foregroundColor(isSelected ? .accent : Color(.systemGray))
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 14)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

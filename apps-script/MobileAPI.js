@@ -307,3 +307,292 @@ function mobileUpdateAll() {
 function _round2(n) {
   return Math.round(n * 100) / 100;
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// 참고지표 (Reference Indicators)
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * 참고지표 시트 구조:
+ *   참고지표 (요약):  A=키, B=지표명, C=카테고리, D=현재값, E=등락, F=등락률(%), G=갱신시간
+ *   참고지표_히스토리: A=날짜(yyyy-MM-dd), B=시간(HH:mm:ss), C~P=각 지표 현재값 (REFERENCE_INDICATORS 순서)
+ */
+
+/**
+ * iOS 앱용: 참고지표 조회 + 갱신 + JSON 반환
+ *
+ * 호출 시마다:
+ *   1. KIS API / GOOGLEFINANCE로 현재값 조회
+ *   2. `참고지표` 시트 업데이트
+ *   3. `참고지표_히스토리` 시트에 오늘 날짜 행 upsert
+ *   4. 최종 결과 JSON 반환
+ */
+function mobileGetReferenceIndicators() {
+  _IS_MOBILE_CALL = true;
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    KIS_API.ensureToken();
+
+    // 시트 확보 (없으면 생성)
+    const summarySheet = _ensureIndicatorsSummarySheet(ss);
+    const historySheet = _ensureIndicatorsHistorySheet(ss);
+
+    // 각 지표 조회
+    const results = [];
+    const tz = 'Asia/Seoul';
+    const now = new Date();
+    const updatedAt = Utilities.formatDate(now, tz, 'yyyy-MM-dd HH:mm:ss');
+    const today     = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+    const hhmmss    = Utilities.formatDate(now, tz, 'HH:mm:ss');
+
+    for (const def of REFERENCE_INDICATORS) {
+      let info = null;
+
+      try {
+        if (def.source === 'kis_domestic_index') {
+          info = KIS_API.getDomesticIndex(def.code);
+        } else if (def.source === 'kis_overseas_index') {
+          info = KIS_API.getOverseasIndex(def.code, def.excd || 'NAS');
+        } else if (def.source === 'kis_domestic_futures') {
+          info = KIS_API.getDomesticFutures(def.code);
+        } else if (def.source === 'yahoo_finance') {
+          info = _getYahooFinanceQuote(def.ySymbol);
+        }
+        // 'googlefinance'는 아래 fallback 블록에서 시트 수식으로 처리
+      } catch (e) {
+        Logger.log(`지표 ${def.key} 조회 오류: ${e}`);
+      }
+
+      results.push({
+        key: def.key,
+        name: def.name,
+        category: def.category,
+        value: info ? info.value : 0,
+        change: info ? info.change : 0,
+        changePct: info ? info.changePct : 0,
+        source: def.source,
+        gfSymbol: def.gfSymbol || ''
+      });
+    }
+
+    // GOOGLEFINANCE fallback: Temp 영역에서 수식 계산
+    _fillGoogleFinanceIndicators(ss, results);
+
+    // KIS 실패한 지표도 GOOGLEFINANCE로 보완 시도
+    _fillMissingWithGoogleFinance(ss, results);
+
+    // 참고지표 시트 업데이트 (A~G열)
+    const summaryRows = results.map(r => [
+      r.key, r.name, r.category,
+      r.value, r.change, r.changePct,
+      updatedAt
+    ]);
+    // 헤더 확보 (1행)
+    summarySheet.getRange(1, 1, 1, 7).setValues([
+      ['키', '지표명', '카테고리', '현재값', '등락', '등락률(%)', '갱신시간']
+    ]);
+    if (summaryRows.length > 0) {
+      summarySheet.getRange(2, 1, summaryRows.length, 7).setValues(summaryRows);
+    }
+
+    // 참고지표_히스토리 upsert
+    _upsertIndicatorsHistory(historySheet, today, hhmmss, results);
+
+    SpreadsheetApp.flush();
+
+    return JSON.stringify({
+      success: true,
+      updatedAt,
+      indicators: results.map(r => ({
+        key: r.key,
+        name: r.name,
+        category: r.category,
+        value: r.value,
+        change: r.change,
+        changePct: r.changePct
+      }))
+    });
+  } catch (e) {
+    return JSON.stringify({ success: false, error: e.message });
+  } finally {
+    _IS_MOBILE_CALL = false;
+  }
+}
+
+/**
+ * onOpen 메뉴용: 참고지표만 갱신 (JSON 반환 안 함)
+ */
+function updateReferenceIndicators() {
+  mobileGetReferenceIndicators();
+}
+
+function _ensureIndicatorsSummarySheet(ss) {
+  let sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.INDICATORS);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEET_NAMES.INDICATORS);
+    sheet.getRange(1, 1, 1, 7).setValues([
+      ['키', '지표명', '카테고리', '현재값', '등락', '등락률(%)', '갱신시간']
+    ]).setFontWeight('bold').setBackground('#f0f0f0');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function _ensureIndicatorsHistorySheet(ss) {
+  let sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.INDICATORS_HISTORY);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEET_NAMES.INDICATORS_HISTORY);
+    const header = ['날짜', '시간', ...REFERENCE_INDICATORS.map(d => d.name)];
+    sheet.getRange(1, 1, 1, header.length).setValues([header])
+      .setFontWeight('bold').setBackground('#f0f0f0');
+    sheet.setFrozenRows(1);
+  } else {
+    // 헤더 개수가 바뀌면 보강
+    const expectedLen = 2 + REFERENCE_INDICATORS.length;
+    const lastCol = sheet.getLastColumn();
+    if (lastCol < expectedLen) {
+      const header = ['날짜', '시간', ...REFERENCE_INDICATORS.map(d => d.name)];
+      sheet.getRange(1, 1, 1, header.length).setValues([header])
+        .setFontWeight('bold').setBackground('#f0f0f0');
+    }
+  }
+  return sheet;
+}
+
+/**
+ * GOOGLEFINANCE 수식으로 지표값 보완 (Temp 영역 사용)
+ */
+function _fillGoogleFinanceIndicators(ss, results) {
+  const gfItems = results.filter(r => r.source === 'googlefinance');
+  if (gfItems.length === 0) return;
+
+  // Temp 시트 확보
+  let tempSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.TEMP);
+  if (!tempSheet) {
+    tempSheet = ss.insertSheet(CONFIG.SHEET_NAMES.TEMP);
+    tempSheet.hideSheet();
+  }
+
+  // 작업 영역: AA1부터 시작 (기존 Temp 데이터 침범 방지)
+  const START_COL = 27; // AA
+  const START_ROW = 1;
+
+  // 각 항목당 3칸: price, change, changePct
+  const formulas = gfItems.map(item => [
+    `=IFERROR(GOOGLEFINANCE("${item.gfSymbol}","price"),"")`,
+    `=IFERROR(GOOGLEFINANCE("${item.gfSymbol}","change"),"")`,
+    `=IFERROR(GOOGLEFINANCE("${item.gfSymbol}","changepct"),"")`
+  ]);
+
+  tempSheet.getRange(START_ROW, START_COL, formulas.length, 3).setFormulas(formulas);
+  SpreadsheetApp.flush();
+  Utilities.sleep(1500); // GOOGLEFINANCE 로딩 대기
+
+  const values = tempSheet.getRange(START_ROW, START_COL, formulas.length, 3).getValues();
+
+  gfItems.forEach((item, idx) => {
+    const v = values[idx];
+    const price = toNumberLoose(v[0]);
+    if (price && price > 0) {
+      item.value = price;
+      item.change = toNumberLoose(v[1]);
+      item.changePct = toNumberLoose(v[2]);
+    }
+  });
+
+  // Temp 영역 비움
+  tempSheet.getRange(START_ROW, START_COL, formulas.length, 3).clearContent();
+}
+
+/**
+ * Yahoo Finance API로 선물/현물 시세 조회
+ * ES=F, NQ=F 등 GOOGLEFINANCE 미지원 심볼용
+ */
+function _getYahooFinanceQuote(symbol) {
+  if (!symbol) return null;
+  try {
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent`;
+    const res = UrlFetchApp.fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GoogleAppsScript)' },
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 200) return null;
+    const data = JSON.parse(res.getContentText());
+    const quote = data?.quoteResponse?.result?.[0];
+    if (!quote || !quote.regularMarketPrice) return null;
+    return {
+      value:     quote.regularMarketPrice,
+      change:    quote.regularMarketChange    || 0,
+      changePct: quote.regularMarketChangePercent || 0
+    };
+  } catch (e) {
+    Logger.log(`Yahoo Finance 오류(${symbol}): ${e}`);
+    return null;
+  }
+}
+
+/**
+ * KIS 실패한 지표를 GOOGLEFINANCE로 추가 보완
+ */
+function _fillMissingWithGoogleFinance(ss, results) {
+  const missing = results.filter(r =>
+    r.source !== 'googlefinance' && (!r.value || r.value <= 0) && r.gfSymbol
+  );
+  if (missing.length === 0) return;
+
+  let tempSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.TEMP);
+  if (!tempSheet) {
+    tempSheet = ss.insertSheet(CONFIG.SHEET_NAMES.TEMP);
+    tempSheet.hideSheet();
+  }
+
+  const START_COL = 31; // AE
+  const START_ROW = 1;
+
+  const formulas = missing.map(item => [
+    `=IFERROR(GOOGLEFINANCE("${item.gfSymbol}","price"),"")`,
+    `=IFERROR(GOOGLEFINANCE("${item.gfSymbol}","change"),"")`,
+    `=IFERROR(GOOGLEFINANCE("${item.gfSymbol}","changepct"),"")`
+  ]);
+
+  tempSheet.getRange(START_ROW, START_COL, formulas.length, 3).setFormulas(formulas);
+  SpreadsheetApp.flush();
+  Utilities.sleep(1500);
+
+  const values = tempSheet.getRange(START_ROW, START_COL, formulas.length, 3).getValues();
+
+  missing.forEach((item, idx) => {
+    const v = values[idx];
+    const price = toNumberLoose(v[0]);
+    if (price && price > 0) {
+      item.value = price;
+      item.change = toNumberLoose(v[1]);
+      item.changePct = toNumberLoose(v[2]);
+    }
+  });
+
+  tempSheet.getRange(START_ROW, START_COL, formulas.length, 3).clearContent();
+}
+
+/**
+ * 참고지표_히스토리 시트에 오늘 날짜 행 upsert (같은 날 덮어쓰기)
+ */
+function _upsertIndicatorsHistory(sheet, today, hhmmss, results) {
+  const lastRow = sheet.getLastRow();
+
+  // 데이터 행이 있으면 A열(날짜) 스캔
+  let existingRow = 0;
+  if (lastRow >= 2) {
+    const dates = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (let i = 0; i < dates.length; i++) {
+      if (String(dates[i][0]) === today) {
+        existingRow = i + 2; // 1-based + 헤더
+        break;
+      }
+    }
+  }
+
+  const row = [today, hhmmss, ...results.map(r => r.value)];
+  const targetRow = existingRow || (lastRow + 1);
+  sheet.getRange(targetRow, 1, 1, row.length).setValues([row]);
+}

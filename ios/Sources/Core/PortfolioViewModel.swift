@@ -10,6 +10,12 @@ class PortfolioViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var lastUpdated: String = "아직 갱신 안됨"
 
+    // 참고지표
+    @Published var indicators: [ReferenceIndicator] = []
+    @Published var isLoadingIndicators = false
+    @Published var indicatorsUpdatedAt: String = "-"
+    @Published var indicatorsError: String?
+
     private init() {
         // 캐시 즉시 표시 후 백그라운드 조회
         if let cached = CacheService.shared.load() {
@@ -61,6 +67,26 @@ class PortfolioViewModel: ObservableObject {
             errorMessage = "갱신 실패: \(error.localizedDescription)"
         }
         isUpdating = false
+    }
+
+    func fetchIndicators() async {
+        guard !isLoadingIndicators else { return }
+        isLoadingIndicators = true
+        indicatorsError = nil
+        do {
+            let result = try await ScriptAPIService.shared.getIndicators()
+            if result.success == true {
+                indicators = result.indicators ?? []
+                indicatorsUpdatedAt = result.updatedAt ?? "-"
+            } else {
+                indicatorsError = result.error ?? "알 수 없는 오류"
+            }
+        } catch is CancellationError {
+            // 무시
+        } catch {
+            indicatorsError = "지표 갱신 실패: \(error.localizedDescription)"
+        }
+        isLoadingIndicators = false
     }
 
     private func applyResult(_ result: PortfolioResponse) {

@@ -716,12 +716,146 @@ const KIS_API = {
     // 1. Broadcom(AVGO) 등 특정 종목 예외 처리
     // AVGO는 나스닥(NAS)에 있지만 API에서 가끔 조회가 안 될 때가 있음.
     // 하지만 기본적으로 NAS임.
-    
+
     const exchanges = ['NAS', 'NYS', 'AMS'];
     for (const ex of exchanges) {
       const info = this.getOverseasStockInfo(code, ex);
       if (info) return info;
     }
     return null;
+  },
+
+  /**
+   * [신규] 국내 지수 현재값 조회 (KOSPI, KOSDAQ, KOSPI200 등)
+   * @param {string} code 업종코드 (KOSPI=0001, KOSDAQ=1001, KOSPI200=2001)
+   * @return {object|null} { value, change, changePct } — 실패 시 null
+   */
+  getDomesticIndex: function(code) {
+    if (!code) return null;
+    const token = this.getAccessToken();
+    // 국내업종 현재지수 API
+    // tr_id: FHPUP02100000 — 국내업종 현재지수
+    const url = `${SECRET.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-index-price?FID_COND_MRKT_DIV_CODE=U&FID_INPUT_ISCD=${code}`;
+    const headers = {
+      "content-type": "application/json; charset=utf-8",
+      "authorization": "Bearer " + token,
+      "appkey": SECRET.KIS_APP_KEY,
+      "appsecret": SECRET.KIS_APP_SECRET,
+      "tr_id": "FHPUP02100000"
+    };
+    try {
+      const res = UrlFetchApp.fetch(url, { headers, muteHttpExceptions: true });
+      const data = JSON.parse(res.getContentText());
+      if (data.rt_cd === "0" && data.output) {
+        const out = data.output;
+        return {
+          value:     parseFloat(out.bstp_nmix_prpr) || 0,    // 업종지수 현재가
+          change:    parseFloat(out.bstp_nmix_prdy_vrss) || 0, // 전일대비
+          changePct: parseFloat(out.bstp_nmix_prdy_ctrt) || 0  // 전일대비율(%)
+        };
+      } else {
+        Logger.log(`국내지수 조회 실패(${code}): ${data.msg1}`);
+        return null;
+      }
+    } catch (e) {
+      Logger.log(`국내지수 API 오류(${code}): ${e}`);
+      return null;
+    }
+  },
+
+  /**
+   * [신규] 해외 지수 현재값 조회 (S&P500, NASDAQ100, 다우, SOX 등)
+   * @param {string} code 심볼 (SPX, NDX, DJI, SOX 등)
+   * @param {string} excd 거래소 코드 (SPI=S&P, NAS=나스닥, NYS=NYSE 등)
+   * @return {object|null} { value, change, changePct } — 실패 시 null
+   *
+   * TODO: KIS 해외지수 API(HHDFS76410000)의 정확한 파라미터 확인 필요.
+   *       실패 시 MobileAPI에서 GOOGLEFINANCE fallback 사용.
+   */
+  getOverseasIndex: function(code, excd = 'NAS') {
+    if (!code) return null;
+    const token = this.getAccessToken();
+    // 해외지수는 해외주식 현재가 API로 조회 시도
+    const url = `${SECRET.KIS_BASE_URL}/uapi/overseas-price/v1/quotations/price?AUTH=&EXCD=${excd}&SYMB=${code}`;
+    const headers = {
+      "content-type": "application/json; charset=utf-8",
+      "authorization": "Bearer " + token,
+      "appkey": SECRET.KIS_APP_KEY,
+      "appsecret": SECRET.KIS_APP_SECRET,
+      "tr_id": "HHDFS00000300"
+    };
+    try {
+      const res = UrlFetchApp.fetch(url, { headers, muteHttpExceptions: true });
+      const data = JSON.parse(res.getContentText());
+      if (data.rt_cd === "0" && data.output) {
+        const out = data.output;
+        const value = parseFloat(out.last) || 0;
+        if (value <= 0) return null;
+        return {
+          value,
+          change:    parseFloat(out.diff) || 0,
+          changePct: parseFloat(out.rate) || 0
+        };
+      } else {
+        Logger.log(`해외지수 조회 실패(${code}, ${excd}): ${data.msg1}`);
+        return null;
+      }
+    } catch (e) {
+      Logger.log(`해외지수 API 오류(${code}): ${e}`);
+      return null;
+    }
+  },
+
+  /**
+   * 코스피200 선물 최근월물 종목코드 계산 (101W + YYMM)
+   * 분기물(3·6·9·12월) 기준 — 당월이 만기 전이면 당월, 이후면 다음 분기
+   */
+  getNearestKospi200Code: function() {
+    const now = new Date();
+    let year = now.getFullYear();
+    let month = now.getMonth() + 1; // 1~12
+    const quarters = [3, 6, 9, 12];
+    let contractMonth = quarters.find(q => q >= month);
+    if (!contractMonth) { contractMonth = 3; year++; }
+    return '101W' + String(year).slice(-2) + String(contractMonth).padStart(2, '0');
+  },
+
+  /**
+   * [신규] 국내 선물 현재값 조회 (코스피200 선물)
+   * @param {string} code 선물코드 또는 'NEAREST' (자동 계산)
+   * @return {object|null} { value, change, changePct } — 실패 시 null
+   */
+  getDomesticFutures: function(code) {
+    if (!code) return null;
+    const actualCode = code === 'NEAREST' ? this.getNearestKospi200Code() : code;
+    const token = this.getAccessToken();
+    const url = `${SECRET.KIS_BASE_URL}/uapi/domestic-futureoption/v1/quotations/inquire-price?FID_COND_MRKT_DIV_CODE=F&FID_INPUT_ISCD=${actualCode}`;
+    const headers = {
+      "content-type": "application/json; charset=utf-8",
+      "authorization": "Bearer " + token,
+      "appkey": SECRET.KIS_APP_KEY,
+      "appsecret": SECRET.KIS_APP_SECRET,
+      "tr_id": "FHMIF10000000"
+    };
+    try {
+      const res = UrlFetchApp.fetch(url, { headers, muteHttpExceptions: true });
+      const data = JSON.parse(res.getContentText());
+      if (data.rt_cd === "0" && data.output1) {
+        const out = data.output1;
+        const value = parseFloat(out.futs_prpr) || 0;
+        if (value <= 0) return null;
+        return {
+          value,
+          change:    parseFloat(out.futs_prdy_vrss) || 0,
+          changePct: parseFloat(out.futs_prdy_ctrt) || 0
+        };
+      } else {
+        Logger.log(`국내선물 조회 실패(${code}): ${data.msg1}`);
+        return null;
+      }
+    } catch (e) {
+      Logger.log(`국내선물 API 오류(${code}): ${e}`);
+      return null;
+    }
   }
 };
