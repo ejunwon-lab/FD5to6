@@ -99,7 +99,7 @@ struct HoldingCard: View {
         }
         .background(Color.cardBg)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.18), lineWidth: 0.8))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(holding.change.profitColor.opacity(0.6), lineWidth: 1.8))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
     }
 
@@ -196,7 +196,7 @@ struct HoldingCard: View {
         }
         .background(Color.cardBg)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.18), lineWidth: 0.8))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(holding.change.profitColor.opacity(0.6), lineWidth: 1.8))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
     }
 

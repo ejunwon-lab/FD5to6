@@ -55,6 +55,17 @@ struct IndicatorsResponse: Codable {
     let indicators: [ReferenceIndicator]?
 }
 
+struct TrendEntry: Codable {
+    let date: String        // "2026-04-25"
+    let totalProfit: Double
+}
+
+struct TrendHistoryResponse: Codable {
+    let success: Bool
+    let error: String?
+    let entries: [TrendEntry]?
+}
+
 struct Holding: Codable, Identifiable {
     var id: String { "\(code)-\(broker)-\(accountType)" }
     let code: String

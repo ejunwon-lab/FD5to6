@@ -15,6 +15,7 @@
 		43ECDA7094A86E910E368B9D /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F71B65F63A8620C39FB1081 /* MainTabView.swift */; };
 		56FE521069D7D4778868E9BA /* HoldingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32294F253EB4ED820C2CA04A /* HoldingCard.swift */; };
 		6A9E0841B4860288B728AACD /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 572AFAE2337A882867A10414 /* AuthManager.swift */; };
+		87232CB58E74E7A8B66C642A /* ProfitHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FFB093C98A9A65BAC4C61DD /* ProfitHistoryView.swift */; };
 		88E574EBAFD309E43C42A53C /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42F775919615AB0B49C18D11 /* SignInView.swift */; };
 		8E910D91411A6410DAF874CE /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = F137E08175121C87C59AAAA1 /* GoogleSignIn */; };
 		911586D3DF418056B6DE4528 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D1F2D68780F957CF4155C9D5 /* Assets.xcassets */; };
@@ -27,6 +28,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1FFB093C98A9A65BAC4C61DD /* ProfitHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfitHistoryView.swift; sourceTree = "<group>"; };
 		221E9FC34384F62F21CF8B2C /* AnalysisView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisView.swift; sourceTree = "<group>"; };
 		32294F253EB4ED820C2CA04A /* HoldingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldingCard.swift; sourceTree = "<group>"; };
 		3430B011FA23825C7EB24909 /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
@@ -128,6 +130,7 @@
 			isa = PBXGroup;
 			children = (
 				A9B2E8C9B55CB166148F3413 /* DashboardView.swift */,
+				1FFB093C98A9A65BAC4C61DD /* ProfitHistoryView.swift */,
 			);
 			path = Dashboard;
 			sourceTree = "<group>";
@@ -254,6 +257,7 @@
 				43ECDA7094A86E910E368B9D /* MainTabView.swift in Sources */,
 				0B901906F0EAFE364A4C1AE6 /* PortfolioModels.swift in Sources */,
 				A61D8745C8CA7CAF47024B1F /* PortfolioViewModel.swift in Sources */,
+				87232CB58E74E7A8B66C642A /* ProfitHistoryView.swift in Sources */,
 				A0393A7B7685631DF221E229 /* ScriptAPIService.swift in Sources */,
 				88E574EBAFD309E43C42A53C /* SignInView.swift in Sources */,
 			);

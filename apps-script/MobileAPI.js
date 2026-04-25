@@ -424,6 +424,36 @@ function mobileGetReferenceIndicators() {
 }
 
 /**
+ * 추이 기록 Section C에서 날짜별 합계 수익 히스토리 반환
+ */
+function mobileGetProfitHistory() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const trendSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.TREND);
+    if (!trendSheet) return JSON.stringify({ success: false, error: '추이 기록 시트 없음' });
+
+    const startRow = CONFIG.TREND.PROFIT_START_ROW;
+    const startCol = CONFIG.TREND.PROFIT_START_COL;
+    const lastRow  = trendSheet.getLastRow();
+    const numRows  = Math.max(0, lastRow - startRow + 1);
+    if (numRows === 0) return JSON.stringify({ success: true, entries: [] });
+
+    const data = trendSheet.getRange(startRow, startCol, numRows, 10).getValues();
+    const entries = data
+      .filter(row => String(row[0] || '').match(/\d{4}-\d{2}-\d{2}/))
+      .map(row => {
+        const m = String(row[0]).match(/(\d{4}-\d{2}-\d{2})/);
+        return { date: m[1], totalProfit: toNumberLoose(row[9]) };
+      })
+      .slice(-180); // 최근 180개
+
+    return JSON.stringify({ success: true, entries });
+  } catch (e) {
+    return JSON.stringify({ success: false, error: e.message });
+  }
+}
+
+/**
  * onOpen 메뉴용: 참고지표만 갱신 (JSON 반환 안 함)
  */
 function updateReferenceIndicators() {
@@ -498,8 +528,10 @@ function _fillGoogleFinanceIndicators(ss, results) {
     const v = values[idx];
     const price = toNumberLoose(v[0]);
     if (price && price > 0) {
-      item.value = price;
-      item.change = toNumberLoose(v[1]);
+      // TNX: GOOGLEFINANCE가 ×10 값으로 반환 (4.32% → 43.2)
+      const divisor = item.key === 'TNX' ? 10 : 1;
+      item.value = price / divisor;
+      item.change = toNumberLoose(v[1]) / divisor;
       item.changePct = toNumberLoose(v[2]);
     }
   });
@@ -515,20 +547,24 @@ function _fillGoogleFinanceIndicators(ss, results) {
 function _getYahooFinanceQuote(symbol) {
   if (!symbol) return null;
   try {
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent`;
+    // v8/chart: crumb 불필요, v7보다 접근성 높음
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d&includePrePost=false`;
     const res = UrlFetchApp.fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GoogleAppsScript)' },
       muteHttpExceptions: true
     });
-    if (res.getResponseCode() !== 200) return null;
+    if (res.getResponseCode() !== 200) {
+      Logger.log(`Yahoo Finance ${symbol} HTTP ${res.getResponseCode()}`);
+      return null;
+    }
     const data = JSON.parse(res.getContentText());
-    const quote = data?.quoteResponse?.result?.[0];
-    if (!quote || !quote.regularMarketPrice) return null;
-    return {
-      value:     quote.regularMarketPrice,
-      change:    quote.regularMarketChange    || 0,
-      changePct: quote.regularMarketChangePercent || 0
-    };
+    const meta = data?.chart?.result?.[0]?.meta;
+    if (!meta || !meta.regularMarketPrice) return null;
+    const price = meta.regularMarketPrice;
+    const prev  = meta.chartPreviousClose || meta.previousClose || price;
+    const change    = price - prev;
+    const changePct = prev > 0 ? (change / prev) * 100 : 0;
+    return { value: price, change, changePct };
   } catch (e) {
     Logger.log(`Yahoo Finance 오류(${symbol}): ${e}`);
     return null;

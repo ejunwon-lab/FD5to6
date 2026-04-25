@@ -16,6 +16,10 @@ class PortfolioViewModel: ObservableObject {
     @Published var indicatorsUpdatedAt: String = "-"
     @Published var indicatorsError: String?
 
+    // 수익 히스토리
+    @Published var trendHistory: [TrendEntry] = []
+    @Published var isLoadingTrend = false
+
     private init() {
         // 포트폴리오 캐시 즉시 표시 후 백그라운드 조회
         if let cached = CacheService.shared.load() {
@@ -94,6 +98,26 @@ class PortfolioViewModel: ObservableObject {
             indicatorsError = "지표 갱신 실패: \(error.localizedDescription)"
         }
         isLoadingIndicators = false
+    }
+
+    func fetchTrendHistory() async {
+        guard !isLoadingTrend, trendHistory.isEmpty else { return }
+        isLoadingTrend = true
+        do {
+            let result = try await ScriptAPIService.shared.getProfitHistory()
+            if result.success { trendHistory = result.entries ?? [] }
+        } catch {}
+        isLoadingTrend = false
+    }
+
+    func profitChange(forDays days: Int) -> (amount: Double, startDate: String)? {
+        guard let current = portfolio?.summary?.trendTotalProfit,
+              !trendHistory.isEmpty else { return nil }
+        let target = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
+        let targetStr = fmt.string(from: target)
+        let past = trendHistory.last(where: { $0.date <= targetStr }) ?? trendHistory.first!
+        return (amount: current - past.totalProfit, startDate: past.date)
     }
 
     private func applyResult(_ result: PortfolioResponse) {

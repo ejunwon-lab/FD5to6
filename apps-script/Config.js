@@ -128,22 +128,22 @@ const REFERENCE_INDICATORS = [
   { key: 'KOSPI',  name: 'KOSPI',  category: '한국시장', source: 'kis_domestic_index', code: '0001' },
   { key: 'KOSDAQ', name: 'KOSDAQ', category: '한국시장', source: 'kis_domestic_index', code: '1001' },
   // 한국선물 (KIS 국내선물 — code 'NEAREST'는 런타임에 최근월물 자동 계산)
-  { key: 'K200F', name: '코스피200선물', category: '한국선물', source: 'kis_domestic_futures', code: 'NEAREST' },
+  { key: 'K200F', name: '코스피200선물', category: '한국선물', source: 'kis_domestic_futures', code: 'NEAREST', gfSymbol: 'KRX:KOSPI200' },
   // 미국시장 (KIS 해외지수 → 실패 시 GOOGLEFINANCE fallback)
-  { key: 'SPX', name: 'S&P500',        category: '미국시장', source: 'kis_overseas_index', code: 'SPX', excd: 'SPI', gfSymbol: 'INDEXSP:.INX' },
+  { key: 'SPX', name: 'S&P500',        category: '미국시장', source: 'kis_overseas_index', code: 'SPX', excd: 'NYS', gfSymbol: 'INDEXSP:.INX' },
   { key: 'NDX', name: 'NASDAQ100',     category: '미국시장', source: 'kis_overseas_index', code: 'NDX', excd: 'NAS', gfSymbol: 'INDEXNASDAQ:NDX' },
   { key: 'DJI', name: '다우존스',       category: '미국시장', source: 'kis_overseas_index', code: 'DJI', excd: 'NYS', gfSymbol: 'INDEXDJX:.DJI' },
-  { key: 'SOX', name: '필라델피아반도체', category: '미국시장', source: 'kis_overseas_index', code: 'SOX', excd: 'NAS', gfSymbol: 'INDEXNASDAQ:PHLX', ySymbol: '^SOX' },
-  // 미국선물 (Yahoo Finance)
-  { key: 'ES', name: 'S&P500선물',  category: '미국선물', source: 'yahoo_finance', ySymbol: 'ES=F' },
-  { key: 'NQ', name: 'NASDAQ선물',  category: '미국선물', source: 'yahoo_finance', ySymbol: 'NQ=F' },
-  // 상품 (Yahoo Finance — GOOGLEFINANCE는 선물 심볼 미지원)
-  { key: 'GC', name: '금',      category: '상품', source: 'yahoo_finance', ySymbol: 'GC=F' },
-  { key: 'CL', name: 'WTI원유', category: '상품', source: 'yahoo_finance', ySymbol: 'CL=F' },
+  { key: 'SOX', name: '필라델피아반도체', category: '미국시장', source: 'kis_overseas_index', code: 'SOX', excd: 'NAS', gfSymbol: 'NASDAQ:SOXX', ySymbol: '^SOX' },
+  // 미국선물 (Yahoo Finance → GOOGLEFINANCE fallback)
+  { key: 'ES', name: 'S&P500선물',  category: '미국선물', source: 'yahoo_finance', ySymbol: 'ES=F',  gfSymbol: 'INDEXSP:.INX' },
+  { key: 'NQ', name: 'NASDAQ선물',  category: '미국선물', source: 'yahoo_finance', ySymbol: 'NQ=F',  gfSymbol: 'INDEXNASDAQ:NDX' },
+  // 상품 (Yahoo Finance → GOOGLEFINANCE fallback)
+  { key: 'GC', name: '금',      category: '상품', source: 'yahoo_finance', ySymbol: 'GC=F',  gfSymbol: 'COMEX:GC1!' },
+  { key: 'CL', name: 'WTI원유', category: '상품', source: 'yahoo_finance', ySymbol: 'CL=F',  gfSymbol: 'NYMEX:CL1!' },
   // 매크로
   { key: 'VIX', name: 'VIX',       category: '매크로', source: 'googlefinance', gfSymbol: 'INDEXCBOE:VIX' },
   { key: 'TNX', name: '미국10년물', category: '매크로', source: 'googlefinance', gfSymbol: 'TNX' },
-  { key: 'DXY', name: '달러인덱스', category: '매크로', source: 'yahoo_finance', ySymbol: 'DX-Y.NYB' },
+  { key: 'DXY', name: '달러인덱스', category: '매크로', source: 'yahoo_finance', ySymbol: 'DX-Y.NYB', gfSymbol: 'CURRENCYCOM:DXY' },
 ];
 
 // 하위 호환성 별칭

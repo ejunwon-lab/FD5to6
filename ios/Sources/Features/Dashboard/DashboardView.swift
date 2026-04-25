@@ -4,23 +4,41 @@ struct DashboardView: View {
     @EnvironmentObject var vm: PortfolioViewModel
 
     var body: some View {
+        GeometryReader { geo in
+            ScrollView(.vertical) {
+                LazyVStack(spacing: 0) {
+                    page1
+                        .frame(width: geo.size.width, height: geo.size.height)
+                    ProfitHistoryView()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
+            }
+            .scrollTargetBehavior(.paging)
+            .scrollIndicators(.hidden)
+        }
+        .ignoresSafeArea()
+        .overlay { if vm.isUpdating { updateOverlay } }
+    }
+
+    private var page1: some View {
         ZStack {
             Color.pageBg.ignoresSafeArea()
             VStack(spacing: 0) {
                 dashboardHeader
-                ScrollView {
-                    VStack(spacing: 20) {
-                        summaryCard
-                        fxCard
-                        if let msg = vm.errorMessage {
-                            errorBanner(msg)
-                        }
-                    }
-                    .padding()
+                VStack(spacing: 20) {
+                    summaryCard
+                    fxCard
+                    if let msg = vm.errorMessage { errorBanner(msg) }
                 }
-            }
-            if vm.isUpdating {
-                updateOverlay
+                .padding()
+                Spacer()
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.down")
+                    Text("아래로 스와이프 — 기간별 수익")
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.bottom, 16)
             }
         }
     }
