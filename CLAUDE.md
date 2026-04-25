@@ -39,6 +39,27 @@ cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6-ios
 - XcodeGen 프로젝트 — VS Code SourceKit 에러는 대부분 false positive
 - 실제 빌드는 Xcode에서 확인
 
+## 세션 키워드
+
+| 키워드 | 동작 |
+|---|---|
+| `새 세션 시작해` | `docs/pending.md`, `docs/features.md` 읽고 현황 한 문단 요약 |
+| `중간 저장해` | 현재까지 작업 내용을 세션 문서에 저장 |
+| `동기화해` | 세션 문서 작성 + memory 복사 + git add/commit/push |
+
+## 문서 관리 규칙
+
+- **미완료 항목**은 `docs/pending.md`에만 기록. 세션 문서에서 중복 작성 안 함
+- **설계 결정**은 `docs/decisions.md`에 이유와 함께 기록
+- **에러 해결**은 `docs/errors.md`에 증상·원인·해결 기록
+- 세션 문서는 `docs/sessions/YYYY-MM-DD-주제.md` 형식. 같은 날 여러 세션이면 주제로 구분
+- `docs/architecture.md`, `docs/features.md`, `docs/api-reference.md` 수정 시 `last updated` 날짜 갱신
+
+## memory vs docs 역할 구분
+
+- **memory** (`~/.claude/projects/.../memory/`) → Claude 행동 지침 (피드백, 작업 방식, 사용자 성향)
+- **docs** (`FD5to6/docs/`) → 프로젝트 내용 (기능, 이슈, 설계 결정, API)
+
 ## 자동 메모리 저장 지시
 대화 중 아래 상황이 발생하면 메모리 파일을 자동으로 저장/업데이트:
 - 새로운 기능이 완성될 때

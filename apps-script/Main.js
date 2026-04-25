@@ -215,7 +215,16 @@ function runFullUpdate() {
     if (!_IS_MOBILE_CALL) ss.toast("추이 그래프를 생성 중입니다...", "📈 그래프 생성");
     drawTrendChart();
     SpreadsheetApp.flush();
-    
+
+    // [추가] 참고지표 갱신
+    if (!_IS_MOBILE_CALL) ss.toast("참고지표를 갱신 중입니다...", "📊 참고지표");
+    try {
+      updateReferenceIndicators();
+      SpreadsheetApp.flush();
+    } catch (e) {
+      Logger.log("참고지표 갱신 실패: " + e);
+    }
+
     if (!_IS_MOBILE_CALL) {
       let msg = "✅ 통합 업데이트 완료!\n(가격·종목현황·추이·성과·그래프 모두 최신화되었습니다.)";
       if (fallbackList && fallbackList.length > 0) {
@@ -243,6 +252,8 @@ function onOpen() {
     .addItem('✅ 종목 현황 업데이트 (전체)', 'updateStockStatusAuto')
     .addItem('🔵 종목현황 업데이트 (빠른)', 'updateStockStatusQuick')
     .addItem('📊 추이 그래프 그리기', 'drawTrendChart')
+    .addSeparator()
+    .addItem('🌐 참고지표 갱신', 'updateReferenceIndicators')
     .addToUi();
   // 프리미엄 도구 메뉴
   ui.createMenu('✨ 프리미엄 도구')

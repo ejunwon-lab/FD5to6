@@ -12,12 +12,14 @@
 const CONFIG = {
   // ── 시트 이름 ──────────────────────────────────────────────────────
   SHEET_NAMES: {
-    TRACKER:     '투자수익 트래커',
-    TREND:       '추이 기록',
-    CHART:       '추이 그래프',
-    TEMP:        'Temp',
-    ANALYSIS:    '투자 분석',
-    TRANSACTION: '거래 입력'
+    TRACKER:           '투자수익 트래커',
+    TREND:             '추이 기록',
+    CHART:             '추이 그래프',
+    TEMP:              'Temp',
+    ANALYSIS:          '투자 분석',
+    TRANSACTION:       '거래 입력',
+    INDICATORS:        '참고지표',
+    INDICATORS_HISTORY:'참고지표_히스토리'
   },
 
   // ── Named Range 이름 (구글 시트 → 데이터 → 이름이 지정된 범위) ────
@@ -108,6 +110,41 @@ const CONFIG = {
   },
 
 };
+
+// ── 참고지표 정의 ─────────────────────────────────────────────────────
+// source 종류:
+//   'kis_domestic_index'  : KIS 국내지수 (KOSPI, KOSDAQ)
+//   'kis_domestic_futures': KIS 국내선물 (코스피200 선물)
+//   'kis_overseas_index'  : KIS 해외지수 (SPX, NDX 등)
+//   'googlefinance'       : GOOGLEFINANCE 수식 (VIX, DXY, TNX 등)
+//
+// code: 소스별 조회 코드
+//   KIS 국내지수: 0001(KOSPI), 1001(KOSDAQ), 2001(KOSPI200)
+//   KIS 국내선물: 101W0000(코스피200선물 최근월물) 등
+//   KIS 해외지수: .SPX, .IXIC, .DJI, .SOX, ES=F, NQ=F, CL=F, GC=F 등
+//   GOOGLEFINANCE: 그대로 티커
+const REFERENCE_INDICATORS = [
+  // 한국시장 (KIS 국내지수)
+  { key: 'KOSPI',  name: 'KOSPI',  category: '한국시장', source: 'kis_domestic_index', code: '0001' },
+  { key: 'KOSDAQ', name: 'KOSDAQ', category: '한국시장', source: 'kis_domestic_index', code: '1001' },
+  // 한국선물 (KIS 국내선물 — code 'NEAREST'는 런타임에 최근월물 자동 계산)
+  { key: 'K200F', name: '코스피200선물', category: '한국선물', source: 'kis_domestic_futures', code: 'NEAREST' },
+  // 미국시장 (KIS 해외지수 → 실패 시 GOOGLEFINANCE fallback)
+  { key: 'SPX', name: 'S&P500',        category: '미국시장', source: 'kis_overseas_index', code: 'SPX', excd: 'SPI', gfSymbol: 'INDEXSP:.INX' },
+  { key: 'NDX', name: 'NASDAQ100',     category: '미국시장', source: 'kis_overseas_index', code: 'NDX', excd: 'NAS', gfSymbol: 'INDEXNASDAQ:NDX' },
+  { key: 'DJI', name: '다우존스',       category: '미국시장', source: 'kis_overseas_index', code: 'DJI', excd: 'NYS', gfSymbol: 'INDEXDJX:.DJI' },
+  { key: 'SOX', name: '필라델피아반도체', category: '미국시장', source: 'kis_overseas_index', code: 'SOX', excd: 'NAS', gfSymbol: 'INDEXNASDAQ:PHLX' },
+  // 미국선물 (Yahoo Finance — GOOGLEFINANCE는 선물 미지원)
+  { key: 'ES', name: 'S&P500선물',  category: '미국선물', source: 'yahoo_finance', ySymbol: 'ES=F', gfSymbol: 'INDEXSP:.INX' },
+  { key: 'NQ', name: 'NASDAQ선물',  category: '미국선물', source: 'yahoo_finance', ySymbol: 'NQ=F', gfSymbol: 'INDEXNASDAQ:NDX' },
+  // 상품 (GOOGLEFINANCE)
+  { key: 'GC', name: '금',      category: '상품', source: 'googlefinance', gfSymbol: 'COMEX:GC1!' },
+  { key: 'CL', name: 'WTI원유', category: '상품', source: 'googlefinance', gfSymbol: 'NYMEX:CL1!' },
+  // 매크로 (GOOGLEFINANCE)
+  { key: 'VIX', name: 'VIX',       category: '매크로', source: 'googlefinance', gfSymbol: 'INDEXCBOE:VIX' },
+  { key: 'TNX', name: '미국10년물', category: '매크로', source: 'googlefinance', gfSymbol: 'TNX' },
+  { key: 'DXY', name: '달러인덱스', category: '매크로', source: 'googlefinance', gfSymbol: 'DX-Y.NYB' },
+];
 
 // 하위 호환성 별칭
 const SHEET_NAMES      = CONFIG.SHEET_NAMES;

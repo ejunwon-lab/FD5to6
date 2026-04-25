@@ -36,6 +36,25 @@ struct GroupStat: Codable {
     let pct: Double
 }
 
+struct ReferenceIndicator: Codable, Identifiable {
+    var id: String { key }
+    let key: String
+    let name: String
+    let category: String
+    let value: Double
+    let change: Double
+    let changePct: Double
+
+    var isUp: Bool { change >= 0 }
+}
+
+struct IndicatorsResponse: Codable {
+    let success: Bool
+    let error: String?
+    let updatedAt: String?
+    let indicators: [ReferenceIndicator]?
+}
+
 struct Holding: Codable, Identifiable {
     var id: String { "\(code)-\(broker)-\(accountType)" }
     let code: String
