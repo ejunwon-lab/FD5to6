@@ -138,25 +138,33 @@ function _buildPortfolioJSON(ss) {
   _addPct(byCategory);
   _addPct(byAccount);
 
-  // 추이 기록 시트에서 합계/확정/운용 수익 읽기 (U2:AG2 배치 1회)
+  // 추이 기록 시트에서 합계/확정/운용 수익 읽기 (U2:AI2 배치 1회)
   let trendTotalProfit = 0, confirmedProfit = 0, trendOperatingProfit = 0, dayChangAmount = 0, dayChangePct = '0%';
   let totalProfitRate = 0, confirmedProfitRate = 0, operatingProfitRate = 0;
   try {
     const trendSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.TREND);
     if (trendSheet) {
       const pCol = CONFIG.TREND.PROFIT_START_COL; // 21 = U열
-      const tr = trendSheet.getRange(2, pCol, 1, 13).getValues()[0]; // U2:AG2 한 번에
+      const tr = trendSheet.getRange(2, pCol, 1, 15).getValues()[0]; // U2:AI2 한 번에
       trendTotalProfit     = toNumberLoose(tr[9]);   // AD2
       confirmedProfit      = toNumberLoose(tr[3]);   // X2
       trendOperatingProfit = toNumberLoose(tr[7]);   // AB2
-      dayChangAmount       = toNumberLoose(tr[10]);  // AE2
-      const _rawDayPct     = tr[11];                 // AF2
-      dayChangePct = typeof _rawDayPct === 'number'
-        ? (_rawDayPct >= 0 ? '+' : '') + _round2(_rawDayPct * 100).toFixed(2) + '%'
-        : String(_rawDayPct || '0%');
       confirmedProfitRate  = _round2(toNumberLoose(tr[4])  * 100); // Y2
       operatingProfitRate  = _round2(toNumberLoose(tr[8])  * 100); // AC2
       totalProfitRate      = _round2(toNumberLoose(tr[12]) * 100); // AG2
+
+      // 주말이면 AH2:AI2(마지막 거래일 캐시) 사용, 평일이면 AE2:AF2 사용
+      // AH2가 비어있으면(초기 배포) AE2로 자동 fallback
+      const nowDow = new Date().getDay(); // 0=일, 6=토
+      const isWeekend = nowDow === 0 || nowDow === 6;
+      const hasWeekdayCache = tr[13] !== '' && tr[13] !== null && tr[13] !== undefined;
+      const rawDiffAmt = (isWeekend && hasWeekdayCache) ? tr[13] : tr[10]; // AH2 or AE2
+      const rawDiffPct = (isWeekend && hasWeekdayCache) ? tr[14] : tr[11]; // AI2 or AF2
+
+      dayChangAmount = toNumberLoose(rawDiffAmt);
+      dayChangePct = typeof rawDiffPct === 'number'
+        ? (_round2(rawDiffPct * 100) >= 0 ? '+' : '') + _round2(rawDiffPct * 100).toFixed(2) + '%'
+        : String(rawDiffPct || '0%');
     }
   } catch (_) {}
 
@@ -273,7 +281,7 @@ function _logToTrendSheetLite(ss) {
   const diffProfit = totalProfit - prevTotalProfit;
   const diffRate   = prevTotalProfit ? (diffProfit / prevTotalProfit) * 100 : 0;
 
-  // 4. U2:AF2만 갱신 (1회 write, 히스토리 추가 없음)
+  // 4. U2:AF2 갱신 (1회 write, 히스토리 추가 없음)
   const dateStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd (EEE)');
   const timeStr = Utilities.formatDate(now, tz, 'a h시 m분 s초').replace('AM', '오전').replace('PM', '오후');
   trend.getRange(2, pCol, 1, 12).setValues([[
@@ -285,6 +293,12 @@ function _logToTrendSheetLite(ss) {
     fmtNum(totalProfit),    fmtNum(diffProfit),
     fmtPct(diffRate)
   ]]);
+
+  // 5. 평일이면 AH2:AI2에 "마지막 거래일 diff" 캐시 (iOS 주말 표시용)
+  const dayOfWeek = now.getDay(); // 0=일, 6=토
+  if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+    trend.getRange(2, pCol + 13, 1, 2).setValues([[fmtNum(diffProfit), fmtPct(diffRate)]]);
+  }
 }
 
 /**
@@ -306,6 +320,40 @@ function mobileUpdateAll() {
 
 function _round2(n) {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * AH2:AI2 마지막 거래일 diff 캐시 초기화 (최초 1회 GAS 에디터에서 실행)
+ * Section C 히스토리에서 마지막 평일 행을 찾아 AH2:AI2에 기록한다.
+ */
+function initWeekdayDiffCache() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const trend = ss.getSheetByName(CONFIG.SHEET_NAMES.TREND);
+  if (!trend) { Logger.log('추이 시트 없음'); return; }
+  const pCol = CONFIG.TREND.PROFIT_START_COL;
+  const pFirstRow = CONFIG.TREND.PROFIT_START_ROW;
+
+  const lastRow = trend.getLastRow();
+  const histH = Math.max(lastRow - pFirstRow + 1, 0);
+  if (histH > 0) {
+    const histVals = trend.getRange(pFirstRow, pCol, histH, 12).getValues();
+    for (let i = histVals.length - 1; i >= 0; i--) {
+      const rowDate = String(histVals[i][0] || '');
+      const dayMatch = rowDate.match(/\((Mon|Tue|Wed|Thu|Fri|Sat|Sun)\)/);
+      if (dayMatch && !['Sat', 'Sun'].includes(dayMatch[1])) {
+        const diffAmt = histVals[i][10];
+        const diffPct = histVals[i][11];
+        trend.getRange(2, pCol + 13, 1, 2).setValues([[diffAmt, diffPct]]);
+        Logger.log('완료 — 히스토리 기준: ' + rowDate + ' / ' + diffAmt + ' / ' + diffPct);
+        return;
+      }
+    }
+  }
+
+  // 히스토리 없으면 AE2:AF2 fallback (경고 출력)
+  const src = trend.getRange(2, pCol + 10, 1, 2).getValues();
+  trend.getRange(2, pCol + 13, 1, 2).setValues(src);
+  Logger.log('경고: 히스토리 평일 행 없음 — AE2:AF2로 초기화: ' + JSON.stringify(src));
 }
 
 // ══════════════════════════════════════════════════════════════════════
