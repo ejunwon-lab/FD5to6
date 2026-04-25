@@ -174,6 +174,7 @@ struct ProfitHistoryView: View {
             statCell(
                 label: "일평균",
                 value: (avg >= 0 ? "+" : "") + avg.krwFormatted,
+                sub: " ",
                 color: avg >= 0 ? Color(red: 0.85, green: 0.10, blue: 0.10) : Color(red: 0.05, green: 0.35, blue: 0.85)
             )
             statCell(
@@ -186,17 +187,17 @@ struct ProfitHistoryView: View {
                 label: "최저 하루",
                 value: worst.change.krwFormatted,
                 sub: formattedDate(worst.date),
-                color: Color(red: 0.05, green: 0.35, blue: 0.85)
+                color: worst.change < 0 ? Color(red: 0.05, green: 0.35, blue: 0.85) : Color(red: 0.85, green: 0.10, blue: 0.10)
             )
         }
     }
 
     private func statCell(label: String, value: String, sub: String? = nil, color: Color) -> some View {
         VStack(spacing: 4) {
-            Text(label).font(.caption2).foregroundColor(.secondary)
-            Text(value).font(.caption).fontWeight(.semibold).foregroundColor(color)
+            Text(label).font(.footnote).foregroundColor(.secondary)
+            Text(value).font(.subheadline).fontWeight(.semibold).foregroundColor(color)
                 .lineLimit(1).minimumScaleFactor(0.7)
-            if let sub { Text(sub).font(.caption2).foregroundColor(.secondary) }
+            if let sub { Text(sub).font(.footnote).foregroundColor(.secondary) }
         }
         .frame(maxWidth: .infinity).padding(.vertical, 10)
         .background(Color.cardBg)
