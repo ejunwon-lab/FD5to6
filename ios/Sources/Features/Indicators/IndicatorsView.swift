@@ -34,18 +34,10 @@ struct IndicatorsView: View {
                     }
                     .padding()
                 }
-                .refreshable {
-                    await vm.fetchIndicators()
-                }
             }
 
             if vm.isLoadingIndicators {
                 loadingOverlay
-            }
-        }
-        .task {
-            if vm.indicators.isEmpty {
-                await vm.fetchIndicators()
             }
         }
     }

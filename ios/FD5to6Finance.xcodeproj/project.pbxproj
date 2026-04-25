@@ -17,9 +17,11 @@
 		6A9E0841B4860288B728AACD /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 572AFAE2337A882867A10414 /* AuthManager.swift */; };
 		88E574EBAFD309E43C42A53C /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42F775919615AB0B49C18D11 /* SignInView.swift */; };
 		8E910D91411A6410DAF874CE /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = F137E08175121C87C59AAAA1 /* GoogleSignIn */; };
+		911586D3DF418056B6DE4528 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D1F2D68780F957CF4155C9D5 /* Assets.xcassets */; };
 		A0393A7B7685631DF221E229 /* ScriptAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EEA14071FF9B511EBB80775 /* ScriptAPIService.swift */; };
 		A61D8745C8CA7CAF47024B1F /* PortfolioViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED39F469647665BA80AB7A24 /* PortfolioViewModel.swift */; };
 		B23434C6DCF7650437DA0C1B /* CacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5E05DAC0D44225F96A4A59F /* CacheService.swift */; };
+		BF25D24E55157721795B1A30 /* IndicatorsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A624075426C0CD6EFA44B061 /* IndicatorsView.swift */; };
 		D8862210CC4D533765E55557 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9B2E8C9B55CB166148F3413 /* DashboardView.swift */; };
 		DB364D4F8268F63DF0BE35C0 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3430B011FA23825C7EB24909 /* Extensions.swift */; };
 /* End PBXBuildFile section */
@@ -36,8 +38,10 @@
 		7A1450337206CA58D1AFACD5 /* FD5to6FinanceApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FD5to6FinanceApp.swift; sourceTree = "<group>"; };
 		7F71B65F63A8620C39FB1081 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		9EEA14071FF9B511EBB80775 /* ScriptAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptAPIService.swift; sourceTree = "<group>"; };
+		A624075426C0CD6EFA44B061 /* IndicatorsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndicatorsView.swift; sourceTree = "<group>"; };
 		A9B2E8C9B55CB166148F3413 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		B44D4B3D0C0D32430530A6FA /* PortfolioModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioModels.swift; sourceTree = "<group>"; };
+		D1F2D68780F957CF4155C9D5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D7A19E9BF2B7DF11ECB3A75F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		ED39F469647665BA80AB7A24 /* PortfolioViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioViewModel.swift; sourceTree = "<group>"; };
 		F5E05DAC0D44225F96A4A59F /* CacheService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheService.swift; sourceTree = "<group>"; };
@@ -82,6 +86,7 @@
 		4C0702D67145A7AEA0CE27E4 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				D1F2D68780F957CF4155C9D5 /* Assets.xcassets */,
 				D7A19E9BF2B7DF11ECB3A75F /* Info.plist */,
 				C73F564E923BD87C16FC62B4 /* App */,
 				8B6DA138585AF18B76E83B03 /* Core */,
@@ -114,6 +119,7 @@
 				23FDCF9A3DB4C6BADEDC9CBF /* Analysis */,
 				8054EB753D0838150153A01E /* Dashboard */,
 				B4D17B7A7B54E7FD7C7336FD /* Holdings */,
+				9C184E81484DF59E8881C262 /* Indicators */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -136,6 +142,14 @@
 				9EEA14071FF9B511EBB80775 /* ScriptAPIService.swift */,
 			);
 			path = Core;
+			sourceTree = "<group>";
+		};
+		9C184E81484DF59E8881C262 /* Indicators */ = {
+			isa = PBXGroup;
+			children = (
+				A624075426C0CD6EFA44B061 /* IndicatorsView.swift */,
+			);
+			path = Indicators;
 			sourceTree = "<group>";
 		};
 		B4D17B7A7B54E7FD7C7336FD /* Holdings */ = {
@@ -165,6 +179,7 @@
 			buildConfigurationList = F1F4E8393DE72F2BC162AFF1 /* Build configuration list for PBXNativeTarget "FD5to6Finance" */;
 			buildPhases = (
 				27A6EB9E847322B534E9FAF4 /* Sources */,
+				FD8DDB828B8748FF37B41385 /* Resources */,
 				E406D105A33ECFEBC0F25514 /* Frameworks */,
 			);
 			buildRules = (
@@ -210,6 +225,17 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		FD8DDB828B8748FF37B41385 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				911586D3DF418056B6DE4528 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		27A6EB9E847322B534E9FAF4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -224,6 +250,7 @@
 				261773E66898155B4A1AA496 /* FD5to6FinanceApp.swift in Sources */,
 				56FE521069D7D4778868E9BA /* HoldingCard.swift in Sources */,
 				1603F7CAA21E69E1D87A3CF1 /* HoldingsView.swift in Sources */,
+				BF25D24E55157721795B1A30 /* IndicatorsView.swift in Sources */,
 				43ECDA7094A86E910E368B9D /* MainTabView.swift in Sources */,
 				0B901906F0EAFE364A4C1AE6 /* PortfolioModels.swift in Sources */,
 				A61D8745C8CA7CAF47024B1F /* PortfolioViewModel.swift in Sources */,

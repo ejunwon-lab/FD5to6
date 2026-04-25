@@ -17,12 +17,18 @@ class PortfolioViewModel: ObservableObject {
     @Published var indicatorsError: String?
 
     private init() {
-        // 캐시 즉시 표시 후 백그라운드 조회
+        // 포트폴리오 캐시 즉시 표시 후 백그라운드 조회
         if let cached = CacheService.shared.load() {
             portfolio = cached
             lastUpdated = cached.updatedAt ?? "-"
         }
         Task { await fetchPortfolio() }
+
+        // 참고지표 캐시 즉시 표시 (수동 갱신 전까지 유지)
+        if let cached = CacheService.shared.loadIndicators() {
+            indicators = cached.indicators ?? []
+            indicatorsUpdatedAt = cached.updatedAt ?? "-"
+        }
     }
 
     func fetchPortfolio() async {
@@ -78,6 +84,7 @@ class PortfolioViewModel: ObservableObject {
             if result.success == true {
                 indicators = result.indicators ?? []
                 indicatorsUpdatedAt = result.updatedAt ?? "-"
+                CacheService.shared.saveIndicators(result)
             } else {
                 indicatorsError = result.error ?? "알 수 없는 오류"
             }

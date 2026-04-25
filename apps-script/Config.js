@@ -133,17 +133,17 @@ const REFERENCE_INDICATORS = [
   { key: 'SPX', name: 'S&P500',        category: '미국시장', source: 'kis_overseas_index', code: 'SPX', excd: 'SPI', gfSymbol: 'INDEXSP:.INX' },
   { key: 'NDX', name: 'NASDAQ100',     category: '미국시장', source: 'kis_overseas_index', code: 'NDX', excd: 'NAS', gfSymbol: 'INDEXNASDAQ:NDX' },
   { key: 'DJI', name: '다우존스',       category: '미국시장', source: 'kis_overseas_index', code: 'DJI', excd: 'NYS', gfSymbol: 'INDEXDJX:.DJI' },
-  { key: 'SOX', name: '필라델피아반도체', category: '미국시장', source: 'kis_overseas_index', code: 'SOX', excd: 'NAS', gfSymbol: 'INDEXNASDAQ:PHLX' },
-  // 미국선물 (Yahoo Finance — GOOGLEFINANCE는 선물 미지원)
-  { key: 'ES', name: 'S&P500선물',  category: '미국선물', source: 'yahoo_finance', ySymbol: 'ES=F', gfSymbol: 'INDEXSP:.INX' },
-  { key: 'NQ', name: 'NASDAQ선물',  category: '미국선물', source: 'yahoo_finance', ySymbol: 'NQ=F', gfSymbol: 'INDEXNASDAQ:NDX' },
-  // 상품 (GOOGLEFINANCE)
-  { key: 'GC', name: '금',      category: '상품', source: 'googlefinance', gfSymbol: 'COMEX:GC1!' },
-  { key: 'CL', name: 'WTI원유', category: '상품', source: 'googlefinance', gfSymbol: 'NYMEX:CL1!' },
-  // 매크로 (GOOGLEFINANCE)
+  { key: 'SOX', name: '필라델피아반도체', category: '미국시장', source: 'kis_overseas_index', code: 'SOX', excd: 'NAS', gfSymbol: 'INDEXNASDAQ:PHLX', ySymbol: '^SOX' },
+  // 미국선물 (Yahoo Finance)
+  { key: 'ES', name: 'S&P500선물',  category: '미국선물', source: 'yahoo_finance', ySymbol: 'ES=F' },
+  { key: 'NQ', name: 'NASDAQ선물',  category: '미국선물', source: 'yahoo_finance', ySymbol: 'NQ=F' },
+  // 상품 (Yahoo Finance — GOOGLEFINANCE는 선물 심볼 미지원)
+  { key: 'GC', name: '금',      category: '상품', source: 'yahoo_finance', ySymbol: 'GC=F' },
+  { key: 'CL', name: 'WTI원유', category: '상품', source: 'yahoo_finance', ySymbol: 'CL=F' },
+  // 매크로
   { key: 'VIX', name: 'VIX',       category: '매크로', source: 'googlefinance', gfSymbol: 'INDEXCBOE:VIX' },
   { key: 'TNX', name: '미국10년물', category: '매크로', source: 'googlefinance', gfSymbol: 'TNX' },
-  { key: 'DXY', name: '달러인덱스', category: '매크로', source: 'googlefinance', gfSymbol: 'DX-Y.NYB' },
+  { key: 'DXY', name: '달러인덱스', category: '매크로', source: 'yahoo_finance', ySymbol: 'DX-Y.NYB' },
 ];
 
 // 하위 호환성 별칭
