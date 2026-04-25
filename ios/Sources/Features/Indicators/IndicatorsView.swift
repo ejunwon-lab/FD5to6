@@ -70,11 +70,23 @@ struct IndicatorsView: View {
 
     // MARK: - Section Card
 
+    private func categoryBorderColor(_ cat: String) -> Color {
+        switch cat {
+        case "한국시장": return Color(red: 0.25, green: 0.35, blue: 0.90)
+        case "한국선물": return Color(red: 0.10, green: 0.60, blue: 0.75)
+        case "미국시장": return Color(red: 0.85, green: 0.10, blue: 0.10)
+        case "미국선물": return Color(red: 0.95, green: 0.45, blue: 0.10)
+        case "상품":    return Color(red: 0.70, green: 0.50, blue: 0.10)
+        default:        return Color(red: 0.55, green: 0.20, blue: 0.75)
+        }
+    }
+
     private func sectionCard(title: String, items: [ReferenceIndicator]) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let borderColor = categoryBorderColor(title)
+        return VStack(alignment: .leading, spacing: 0) {
             Text(title)
                 .font(.headline)
-                .foregroundColor(.secondary)
+                .foregroundColor(borderColor)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
                 .padding(.bottom, 8)
@@ -90,7 +102,8 @@ struct IndicatorsView: View {
         }
         .background(Color.cardBg)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(borderColor, lineWidth: 2.5))
+        .shadow(color: borderColor.opacity(0.15), radius: 8, y: 2)
     }
 
     private func indicatorRow(_ item: ReferenceIndicator) -> some View {

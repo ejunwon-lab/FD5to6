@@ -25,12 +25,13 @@ struct DashboardView: View {
             Color.pageBg.ignoresSafeArea()
             VStack(spacing: 0) {
                 dashboardHeader
-                VStack(spacing: 20) {
+                VStack(spacing: 12) {
                     summaryCard
                     fxCard
                     if let msg = vm.errorMessage { errorBanner(msg) }
                 }
-                .padding()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
                 Spacer()
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.down")
@@ -144,7 +145,7 @@ struct DashboardView: View {
                 Divider().frame(height: 36)
                 fxItem(currency: "GBP/KRW", rate: vm.portfolio?.gbpRate ?? 0)
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 10)
 
             Divider()
 
@@ -156,7 +157,7 @@ struct DashboardView: View {
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
-            .padding(.vertical, 12)
+            .padding(.vertical, 8)
         }
         .background(Color.cardBg)
         .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -195,11 +196,11 @@ struct DashboardView: View {
 
     private func statItem(title: String, value: String, rate: Double? = nil, color: Color = .primary) -> some View {
         VStack(spacing: 3) {
-            Text(title).font(.caption).foregroundColor(.secondary)
-            Text(value).font(.subheadline).fontWeight(.semibold).foregroundColor(color)
+            Text(title).font(.subheadline).foregroundColor(.secondary)
+            Text(value).font(.callout).fontWeight(.semibold).foregroundColor(color)
             if let rate {
                 Text(rate.pctFormatted)
-                    .font(.footnote)
+                    .font(.body)
                     .foregroundColor(rate.profitColor)
             }
         }
@@ -208,8 +209,8 @@ struct DashboardView: View {
 
     private func fxItem(currency: String, rate: Double) -> some View {
         VStack(spacing: 4) {
-            Text(currency).font(.caption).foregroundColor(.secondary)
-            Text(Int(rate).formatted()).font(.subheadline).fontWeight(.semibold)
+            Text(currency).font(.subheadline).foregroundColor(.secondary)
+            Text(Int(rate).formatted()).font(.callout).fontWeight(.semibold)
         }
         .frame(maxWidth: .infinity)
     }
