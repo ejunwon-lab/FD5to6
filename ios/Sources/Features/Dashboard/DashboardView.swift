@@ -108,6 +108,10 @@ struct DashboardView: View {
                     Text(dayPct.asChangePct)
                         .font(.headline)
                         .foregroundColor(.white.opacity(0.85))
+                    Text(effectiveTradingDateString)
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.65))
+                        .padding(.top, 2)
                 }
                 .padding(.vertical, 28)
                 .frame(maxWidth: .infinity)
@@ -175,6 +179,18 @@ struct DashboardView: View {
             .padding(.bottom, 16)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var effectiveTradingDateString: String {
+        let calendar = Calendar.current
+        var date = Date()
+        let weekday = calendar.component(.weekday, from: date) // 1=일, 7=토
+        if weekday == 1 { date = calendar.date(byAdding: .day, value: -2, to: date) ?? date }
+        else if weekday == 7 { date = calendar.date(byAdding: .day, value: -1, to: date) ?? date }
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "ko_KR")
+        fmt.dateFormat = "yyyy년 M월 d일 EEEE"
+        return fmt.string(from: date)
     }
 
     private func statItem(title: String, value: String, rate: Double? = nil, color: Color = .primary) -> some View {
