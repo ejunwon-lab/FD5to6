@@ -24,8 +24,8 @@ FD5to6/
 ## 새 컴퓨터 세팅
 클론 후 Claude 메모리를 복원하려면:
 ```bash
-mkdir -p ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6-ios/memory
-cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6-ios/memory/
+mkdir -p ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6/memory
+cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6/memory/
 ```
 
 ## 핵심 규칙
@@ -68,4 +68,4 @@ cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6-ios
 - 버그 원인과 해결책을 발견했을 때
 - 사용자가 작업 방식에 대한 피드백을 줄 때
 
-메모리 위치: `/Users/halcyon/.claude/projects/-Users-halcyon-Documents-Claude-2026-FD5to6-ios/memory/`
+메모리 위치: `/Users/halcyon/.claude/projects/-Users-halcyon-Documents-Claude-2026-FD5to6/memory/`
