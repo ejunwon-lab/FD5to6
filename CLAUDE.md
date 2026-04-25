@@ -51,7 +51,7 @@ cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6-ios
 
 - **미완료 항목**은 `docs/pending.md`에만 기록. 세션 문서에서 중복 작성 안 함
 - **설계 결정**은 `docs/decisions.md`에 이유와 함께 기록
-- **에러 해결**은 `docs/errors.md`에 증상·원인·해결 기록
+- **에러 해결**은 즉시 `docs/errors.md`에 증상·원인·해결 자동 기록 (별도 지시 없어도)
 - 세션 문서는 `docs/sessions/YYYY-MM-DD-주제.md` 형식. 같은 날 여러 세션이면 주제로 구분
 - `docs/architecture.md`, `docs/features.md`, `docs/api-reference.md` 수정 시 `last updated` 날짜 갱신
 

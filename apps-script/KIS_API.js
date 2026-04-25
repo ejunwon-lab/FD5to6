@@ -840,8 +840,10 @@ const KIS_API = {
     try {
       const res = UrlFetchApp.fetch(url, { headers, muteHttpExceptions: true });
       const data = JSON.parse(res.getContentText());
+      Logger.log(`국내선물 응답(${actualCode}): rt_cd=${data.rt_cd}, msg=${data.msg1}, keys=${Object.keys(data).join(',')}`);
       if (data.rt_cd === "0" && data.output1) {
         const out = data.output1;
+        Logger.log(`국내선물 output1 keys: ${Object.keys(out).join(',')}`);
         const value = parseFloat(out.futs_prpr) || 0;
         if (value <= 0) return null;
         return {
@@ -850,7 +852,7 @@ const KIS_API = {
           changePct: parseFloat(out.futs_prdy_ctrt) || 0
         };
       } else {
-        Logger.log(`국내선물 조회 실패(${code}): ${data.msg1}`);
+        Logger.log(`국내선물 조회 실패(${actualCode}): rt_cd=${data.rt_cd}, msg=${data.msg1}`);
         return null;
       }
     } catch (e) {

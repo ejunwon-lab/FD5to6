@@ -328,6 +328,7 @@ function _round2(n) {
  *   4. 최종 결과 JSON 반환
  */
 function mobileGetReferenceIndicators() {
+  const _prevMobileCall = _IS_MOBILE_CALL;
   _IS_MOBILE_CALL = true;
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -378,7 +379,10 @@ function mobileGetReferenceIndicators() {
     // GOOGLEFINANCE fallback: Temp 영역에서 수식 계산
     _fillGoogleFinanceIndicators(ss, results);
 
-    // KIS 실패한 지표도 GOOGLEFINANCE로 보완 시도
+    // KIS 실패한 지표 → Yahoo Finance로 보완
+    _fillMissingWithYahooFinance(results);
+
+    // KIS 실패한 지표 → GOOGLEFINANCE로 추가 보완
     _fillMissingWithGoogleFinance(ss, results);
 
     // 참고지표 시트 업데이트 (A~G열)
@@ -415,7 +419,7 @@ function mobileGetReferenceIndicators() {
   } catch (e) {
     return JSON.stringify({ success: false, error: e.message });
   } finally {
-    _IS_MOBILE_CALL = false;
+    _IS_MOBILE_CALL = _prevMobileCall; // 호출 전 상태로 복원 (중첩 호출 시 덮어쓰기 방지)
   }
 }
 
@@ -528,6 +532,21 @@ function _getYahooFinanceQuote(symbol) {
   } catch (e) {
     Logger.log(`Yahoo Finance 오류(${symbol}): ${e}`);
     return null;
+  }
+}
+
+/**
+ * KIS 실패한 지표를 Yahoo Finance로 보완 (ySymbol 있는 항목)
+ */
+function _fillMissingWithYahooFinance(results) {
+  const missing = results.filter(r => (!r.value || r.value <= 0) && r.ySymbol);
+  for (const item of missing) {
+    const quote = _getYahooFinanceQuote(item.ySymbol);
+    if (quote && quote.value > 0) {
+      item.value     = quote.value;
+      item.change    = quote.change;
+      item.changePct = quote.changePct;
+    }
   }
 }
 

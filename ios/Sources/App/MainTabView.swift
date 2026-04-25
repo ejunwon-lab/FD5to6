@@ -2,7 +2,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @StateObject private var vm = PortfolioViewModel.shared
-    @State private var selectedTab = 0
+    @State private var selectedTab = 1
 
     var body: some View {
         TabView(selection: $selectedTab) {

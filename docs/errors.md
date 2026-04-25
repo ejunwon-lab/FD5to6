@@ -20,6 +20,12 @@
 - **원인**: SwiftUI의 `Color(.separator)`는 특정 버전에서 모호한 오버로드
 - **해결**: `Color(UIColor.separator)`로 변경
 
+### _IS_MOBILE_CALL 전역변수 중첩 호출 덮어쓰기
+- **증상**: 앱에서 "Cannot read properties of null (reading 'alert')" 에러
+- **원인**: `mobileUpdateAll()` → `runFullUpdate()` → `updateReferenceIndicators()` → `mobileGetReferenceIndicators()` 중첩 호출 시, 내부 함수의 `finally { _IS_MOBILE_CALL = false }` 가 외부 호출의 `true` 상태를 덮어씀. 이후 `runFullUpdate()`에서 `ui = null` 인데 `ui.alert()` 호출
+- **해결**: `mobileGetReferenceIndicators()` 시작 시 `_prevMobileCall` 에 현재 값 저장, `finally` 에서 `false` 대신 저장값으로 복원
+- **교훈**: 전역 플래그를 여러 함수가 공유할 때 중첩 호출 시 덮어쓰기 위험. 항상 이전 값을 저장·복원하는 패턴 사용
+
 ### GAS 지표 대부분 0 반환
 - **증상**: 참고지표_히스토리에서 KOSPI/KOSDAQ 외 모두 0
 - **원인 1**: 미국선물 심볼 `ES=F`, `NQ=F`는 GOOGLEFINANCE 미지원
