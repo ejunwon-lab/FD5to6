@@ -841,10 +841,12 @@ const KIS_API = {
       const res = UrlFetchApp.fetch(url, { headers, muteHttpExceptions: true });
       const data = JSON.parse(res.getContentText());
       Logger.log(`국내선물 응답(${actualCode}): rt_cd=${data.rt_cd}, msg=${data.msg1}, keys=${Object.keys(data).join(',')}`);
-      if (data.rt_cd === "0" && data.output1) {
-        const out = data.output1;
-        Logger.log(`국내선물 output1 keys: ${Object.keys(out).join(',')}`);
-        const value = parseFloat(out.futs_prpr) || 0;
+      if (data.rt_cd === "0") {
+        // output2는 기초자산 지수 — 선물 데이터는 output1에만 있음
+        const out = (data.output1 && Object.keys(data.output1).length > 0) ? data.output1 : null;
+        Logger.log(`국내선물 output1: ${out ? JSON.stringify(out).slice(0,200) : 'empty(장마감)'}`);
+        if (!out) return null;
+        const value = parseFloat(out.futs_prpr) || parseFloat(out.futs_clpr) || 0;
         if (value <= 0) return null;
         return {
           value,

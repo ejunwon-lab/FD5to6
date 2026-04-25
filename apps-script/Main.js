@@ -255,16 +255,6 @@ function onOpen() {
     .addSeparator()
     .addItem('🌐 참고지표 갱신', 'updateReferenceIndicators')
     .addToUi();
-  // 프리미엄 도구 메뉴
-  ui.createMenu('✨ 프리미엄 도구')
-    .addItem('📊 프리미엄 대시보드', 'showDashboard')
-    .addItem('🎯 매매 신호 분석', 'analyzeTradingSignals')
-    .addItem('📱 모바일 최적화 뷰', 'showMobileView')
-    .addSeparator()
-    .addItem('📧 이메일 알림 설정', 'setupAlertTriggers')
-    .addItem('🔕 이메일 알림 끄기', 'disableAlertTriggers')
-    .addItem('📅 일일 리포트 수동 발송', 'sendDailyReport')
-    .addToUi();
   // 투자 분석 메뉴
   ui.createMenu("💹 투자 분석 도구")
     .addItem("🧩 데이터 새로고침", "refreshInvestmentAnalysis")

@@ -46,6 +46,7 @@ cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6-ios
 | `새 세션 시작해` | `docs/pending.md`, `docs/features.md` 읽고 현황 한 문단 요약 |
 | `중간 저장해` | 현재까지 작업 내용을 세션 문서에 저장 |
 | `동기화해` | 세션 문서 작성 + memory 복사 + git add/commit/push |
+| `저장!` | `중간 저장해` + `동기화해` 합쳐서 한 번에 실행 |
 
 ## 문서 관리 규칙
 

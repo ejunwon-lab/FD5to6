@@ -32,6 +32,29 @@ actor ScriptAPIService {
         return try await callIndicatorsFunction("mobileGetReferenceIndicators", useBackground: true)
     }
 
+    func getProfitHistory() async throws -> TrendHistoryResponse {
+        let data = try await rawCall("mobileGetProfitHistory", useBackground: false)
+        let rawStr = String(data: data, encoding: .utf8) ?? "(empty)"
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw APIError.gasError(String(rawStr.prefix(500)))
+        }
+        if let error = raw["error"] as? [String: Any] {
+            throw APIError.gasError(error["message"] as? String ?? "GAS 오류")
+        }
+        guard let responseDict = raw["response"] as? [String: Any] else {
+            throw APIError.gasError("응답 없음")
+        }
+        if let resultStr = responseDict["result"] as? String,
+           let resultData = resultStr.data(using: .utf8) {
+            return try JSONDecoder().decode(TrendHistoryResponse.self, from: resultData)
+        }
+        if let resultObj = responseDict["result"] {
+            let resultData = try JSONSerialization.data(withJSONObject: resultObj)
+            return try JSONDecoder().decode(TrendHistoryResponse.self, from: resultData)
+        }
+        throw APIError.gasError("result 없음")
+    }
+
     private func callIndicatorsFunction(_ name: String, useBackground: Bool = false) async throws -> IndicatorsResponse {
         let data = try await rawCall(name, useBackground: useBackground)
         let rawStr = String(data: data, encoding: .utf8) ?? "(empty)"
