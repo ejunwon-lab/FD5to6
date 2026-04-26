@@ -24,8 +24,8 @@ FD5to6/
 ## 새 컴퓨터 세팅
 클론 후 Claude 메모리를 복원하려면:
 ```bash
-mkdir -p ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6/memory
-cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6/memory/
+mkdir -p ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-mini-FD5to6/memory
+cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-mini-FD5to6/memory/
 ```
 
 ## 핵심 규칙
@@ -47,6 +47,18 @@ cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6/mem
 | `중간 저장해` | 현재까지 작업 내용을 세션 문서에 저장 |
 | `동기화해` | 세션 문서 작성 + memory 복사 + git add/commit/push |
 | `저장!` | `중간 저장해` + `동기화해` 합쳐서 한 번에 실행 |
+| `실행@` | git pull + memory 복원 (`FD5to6/memory/` → `~/.claude/.../memory/`) + `docs/pending.md` 읽고 현황 요약 |
+
+## 실행@ 절차
+
+`실행@` 입력 시 아래 순서대로 실행:
+
+1. `git pull` — 최신 코드 및 memory 백업 받아오기
+2. memory 복원:
+   ```bash
+   cp ~/Documents/Claude\ 2026_mini/FD5to6/memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-mini-FD5to6/memory/
+   ```
+3. `docs/pending.md`, `docs/features.md` 읽고 현황 한 문단 요약
 
 ## 문서 관리 규칙
 
@@ -68,4 +80,4 @@ cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6/mem
 - 버그 원인과 해결책을 발견했을 때
 - 사용자가 작업 방식에 대한 피드백을 줄 때
 
-메모리 위치: `/Users/halcyon/.claude/projects/-Users-halcyon-Documents-Claude-2026-FD5to6/memory/`
+메모리 위치: `~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-mini-FD5to6/memory/`
