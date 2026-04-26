@@ -14,7 +14,7 @@ final class BackgroundNetworkSession: NSObject {
     private let lock = NSLock()
 
     private(set) lazy var session: URLSession = {
-        let config = URLSessionConfiguration.background(withIdentifier: "com.jw.fd5to6finance.gas-update")
+        let config = URLSessionConfiguration.background(withIdentifier: "com.jun.fd5to6finance.gas-update")
         config.sessionSendsLaunchEvents = true
         config.isDiscretionary = false
         config.timeoutIntervalForRequest = 300
