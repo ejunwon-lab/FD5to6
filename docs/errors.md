@@ -26,6 +26,18 @@
 - **해결**: `mobileGetReferenceIndicators()` 시작 시 `_prevMobileCall` 에 현재 값 저장, `finally` 에서 `false` 대신 저장값으로 복원
 - **교훈**: 전역 플래그를 여러 함수가 공유할 때 중첩 호출 시 덮어쓰기 위험. 항상 이전 값을 저장·복원하는 패턴 사용
 
+---
+
+## 2026-04-26
+
+### iOS 앱 타기기 설치 시 서명 에러 (0xe8008016)
+- **증상**: `The executable was signed with invalid entitlements` — 설치 실패
+- **원인**: `Info.plist`의 `CFBundleIdentifier`가 `com.jw.fd5to6finance`로 하드코딩되어 있었고, 코드사인은 `com.jun.fd5to6finance`로 서명 → 불일치
+- **해결**: `CFBundleIdentifier`를 `$(PRODUCT_BUNDLE_IDENTIFIER)`로 변경. `project.pbxproj` 및 `BackgroundNetworkSession.swift`의 구 번들 ID도 함께 수정
+- **교훈**: Info.plist의 CFBundleIdentifier는 반드시 `$(PRODUCT_BUNDLE_IDENTIFIER)` 변수로 지정해야 빌드 설정과 일치함
+
+---
+
 ### GAS 지표 대부분 0 반환
 - **증상**: 참고지표_히스토리에서 KOSPI/KOSDAQ 외 모두 0
 - **원인 1**: 미국선물 심볼 `ES=F`, `NQ=F`는 GOOGLEFINANCE 미지원
