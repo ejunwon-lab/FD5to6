@@ -22,10 +22,15 @@ FD5to6/
 ```
 
 ## 새 컴퓨터 세팅
-클론 후 Claude 메모리를 복원하려면:
+클론 후 아래 순서대로 실행:
 ```bash
+# 1. Claude 메모리 복원
 mkdir -p ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-mini-FD5to6/memory
 cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-mini-FD5to6/memory/
+
+# 2. 전역 Claude 설정 (저장!/실행@ 자동 적용)
+mkdir -p ~/.claude
+cp config/global-claude.md ~/.claude/CLAUDE.md
 ```
 
 ## 핵심 규칙
