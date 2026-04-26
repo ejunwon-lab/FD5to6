@@ -63,7 +63,11 @@ cp config/global-claude.md ~/.claude/CLAUDE.md
    ```bash
    cp ~/Documents/Claude\ 2026_mini/FD5to6/memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-mini-FD5to6/memory/
    ```
-3. `docs/pending.md`, `docs/features.md` 읽고 현황 한 문단 요약
+3. 전역 CLAUDE.md 없으면 자동 복사:
+   ```bash
+   [ ! -f ~/.claude/CLAUDE.md ] && mkdir -p ~/.claude && cp ~/Documents/Claude\ 2026_mini/FD5to6/config/global-claude.md ~/.claude/CLAUDE.md
+   ```
+4. `docs/pending.md`, `docs/features.md` 읽고 현황 한 문단 요약
 
 ## 문서 관리 규칙
 
