@@ -2,6 +2,22 @@
 
 ---
 
+## 2026-04-27
+
+### iOS 콜드 런치 "더 이상 사용할 수 없음" — 번들 ID 변경 후 구 앱 잔존
+- **증상**: 앱 아이콘 탭 시 "Finance를 더 이상 사용할 수 없음" 다이얼로그. Xcode 실행·앱 스위처 재개는 정상
+- **원인**: 번들 ID 변경(`com.jun` → `com.junwon`) 시 Xcode가 새 앱만 설치하고 구 앱은 삭제하지 않음. 홈 화면에 두 개의 Finance 앱이 생겨, 탭하던 아이콘이 만료된 구 앱이었음
+- **해결**: 기기에서 구 앱 직접 삭제
+- **교훈**: 번들 ID 변경 시 빌드 전에 기기에서 기존 앱 먼저 삭제 안내 필수
+
+### iOS 서명 설정 누락 — XcodeGen 재생성 시 CODE_SIGN_STYLE 유실
+- **증상**: 콜드 런치 실패 (위 에러와 복합)
+- **원인**: XcodeGen 재생성 시 project.yml에 없던 `CODE_SIGN_STYLE = Automatic`이 pbxproj에서 삭제됨. DEVELOPMENT_TEAM도 이전 Mac 팀 ID(44DWWF283N) 잔류
+- **해결**: project.yml에 `CODE_SIGN_STYLE: Automatic`, `DEVELOPMENT_TEAM: 3N9UDPW4BP` 명시
+- **교훈**: XcodeGen 재생성 전 서명 설정이 project.yml에 모두 명시되어 있는지 확인
+
+---
+
 ## 2026-04-24
 
 ### NavigationStack + PageTabViewStyle 충돌
