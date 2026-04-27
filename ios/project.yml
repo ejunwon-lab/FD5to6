@@ -21,7 +21,6 @@ targets:
       path: Sources/Info.plist
       properties:
         CFBundleDisplayName: Finance
-        CFBundleIdentifier: com.jw.fd5to6finance
         CFBundleShortVersionString: "1.0"
         CFBundleVersion: "1"
         LSRequiresIPhoneOS: true
@@ -40,4 +39,4 @@ targets:
       base:
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
-        PRODUCT_BUNDLE_IDENTIFIER: com.jw.fd5to6finance
+        PRODUCT_BUNDLE_IDENTIFIER: com.junwon.fd5to6finance

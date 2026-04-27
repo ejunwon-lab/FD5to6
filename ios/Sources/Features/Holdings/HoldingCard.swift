@@ -23,67 +23,63 @@ struct HoldingCard: View {
 
     private var standardCard: some View {
         VStack(spacing: 0) {
-            Button { toggleExpand() } label: {
-                HStack(alignment: .center, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(holding.name)
-                            .font(.subheadline).fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                            .lineLimit(1)
-                        Text(holding.code)
-                            .font(.caption2).foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    VStack(alignment: .trailing, spacing: 4) {
-                        switch sortKey {
-                        case .profitRate:
-                            Text(holding.profitRate.pctFormatted)
-                                .font(.headline).fontWeight(.bold)
-                                .foregroundColor(holding.opProfit.profitColor)
-                            Text(holding.opProfit.krwFormatted)
-                                .font(.caption)
-                                .foregroundColor(holding.opProfit.profitColor)
-                        case .opProfit:
-                            Text(holding.opProfit.krwFormatted)
-                                .font(.headline).fontWeight(.bold)
-                                .foregroundColor(holding.opProfit.profitColor)
-                            Text(holding.profitRate.pctFormatted)
-                                .font(.caption)
-                                .foregroundColor(holding.opProfit.profitColor)
-                        case .opCurrent:
-                            Text(holding.opCurrent.krwFormatted)
-                                .font(.headline).fontWeight(.bold)
-                                .foregroundColor(.primary)
-                            Text(holding.profitRate.pctFormatted)
-                                .font(.caption)
-                                .foregroundColor(holding.opProfit.profitColor)
-                        case .change:
-                            let total = holding.change * holding.quantity
-                            let perShareStr = (holding.change >= 0 ? "+" : "") + "\(Int(holding.change).formatted())"
-                            let totalStr = (total >= 0 ? "+" : "") + "\(Int(total).formatted())"
-                            Text("\(perShareStr) (\(holding.dailyChangePct.pctFormatted)) × \(Int(holding.quantity).formatted())주")
-                                .font(.caption2).fontWeight(.semibold)
-                                .foregroundColor(holding.change.profitColor)
-                            Text(totalStr)
-                                .font(.headline).fontWeight(.bold)
-                                .foregroundColor(holding.change.profitColor)
-                            Text(holding.dailyChangePct.pctFormatted)
-                                .font(.caption)
-                                .foregroundColor(holding.change.profitColor)
-                        case .allInfo:
-                            EmptyView()
-                        }
-                    }
-
-                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(holding.name)
+                        .font(.subheadline).fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                    Text(holding.code)
                         .font(.caption2).foregroundColor(.secondary)
-                        .animation(.easeInOut(duration: 0.2), value: expanded)
                 }
-                .padding(16)
-                .contentShape(Rectangle())
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    switch sortKey {
+                    case .profitRate:
+                        Text(holding.profitRate.pctFormatted)
+                            .font(.headline).fontWeight(.bold)
+                            .foregroundColor(holding.opProfit.profitColor)
+                        Text(holding.opProfit.krwFormatted)
+                            .font(.caption)
+                            .foregroundColor(holding.opProfit.profitColor)
+                    case .opProfit:
+                        Text(holding.opProfit.krwFormatted)
+                            .font(.headline).fontWeight(.bold)
+                            .foregroundColor(holding.opProfit.profitColor)
+                        Text(holding.profitRate.pctFormatted)
+                            .font(.caption)
+                            .foregroundColor(holding.opProfit.profitColor)
+                    case .opCurrent:
+                        Text(holding.opCurrent.krwFormatted)
+                            .font(.headline).fontWeight(.bold)
+                            .foregroundColor(.primary)
+                        Text(holding.profitRate.pctFormatted)
+                            .font(.caption)
+                            .foregroundColor(holding.opProfit.profitColor)
+                    case .change:
+                        let total = holding.change * holding.quantity
+                        let perShareStr = (holding.change >= 0 ? "+" : "") + "\(Int(holding.change).formatted())"
+                        let totalStr = (total >= 0 ? "+" : "") + "\(Int(total).formatted())"
+                        Text("\(perShareStr) (\(holding.dailyChangePct.pctFormatted)) × \(Int(holding.quantity).formatted())주")
+                            .font(.caption2).fontWeight(.semibold)
+                            .foregroundColor(holding.change.profitColor)
+                        Text(totalStr)
+                            .font(.headline).fontWeight(.bold)
+                            .foregroundColor(holding.change.profitColor)
+                        Text(holding.dailyChangePct.pctFormatted)
+                            .font(.caption)
+                            .foregroundColor(holding.change.profitColor)
+                    case .allInfo:
+                        EmptyView()
+                    }
+                }
+
+                Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                    .font(.caption2).foregroundColor(.secondary)
+                    .animation(.easeInOut(duration: 0.2), value: expanded)
             }
-            .buttonStyle(.plain)
+            .padding(16)
 
             VStack(spacing: 0) {
                 if expanded {
@@ -97,6 +93,8 @@ struct HoldingCard: View {
                 value: expanded
             )
         }
+        .contentShape(Rectangle())
+        .onTapGesture { toggleExpand() }
         .background(Color.cardBg)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(holding.change.profitColor.opacity(0.6), lineWidth: 1.8))
@@ -107,34 +105,30 @@ struct HoldingCard: View {
 
     private var allInfoCard: some View {
         VStack(spacing: 0) {
-            Button { toggleExpand() } label: {
-                HStack(spacing: 0) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(holding.name)
-                            .font(.subheadline).fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                            .lineLimit(1)
-                        Text(holding.code).font(.caption2).foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.caption2).foregroundColor(.secondary)
-                        .frame(width: 28)
-                        .animation(.easeInOut(duration: 0.2), value: expanded)
-
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("현재가").font(.caption2).foregroundColor(.secondary)
-                        Text(holding.currentPrice.krwFullFormatted)
-                            .font(.subheadline).fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+            HStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(holding.name)
+                        .font(.subheadline).fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                    Text(holding.code).font(.caption2).foregroundColor(.secondary)
                 }
-                .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
-                .contentShape(Rectangle())
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                    .font(.caption2).foregroundColor(.secondary)
+                    .frame(width: 28)
+                    .animation(.easeInOut(duration: 0.2), value: expanded)
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("현재가").font(.caption2).foregroundColor(.secondary)
+                    Text(holding.currentPrice.krwFullFormatted)
+                        .font(.subheadline).fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
 
             Divider().padding(.horizontal, 14)
 
@@ -194,6 +188,8 @@ struct HoldingCard: View {
                 value: expanded
             )
         }
+        .contentShape(Rectangle())
+        .onTapGesture { toggleExpand() }
         .background(Color.cardBg)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(holding.change.profitColor.opacity(0.6), lineWidth: 1.8))

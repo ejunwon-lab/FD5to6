@@ -38,13 +38,19 @@
 
 ---
 
-## 2026-04-27
+## 2026-04-27 (2)
 
 ### 모바일 앱 갱신 실패 — KIS 토큰 만료 시 재발급 실패
 - **증상**: 모바일 앱에서 업데이트 시 "토큰 익스파이어" 에러. 시트에서 직접 "가격 갱신" 후에는 모바일이 정상 동작
 - **원인**: KIS Access Token 24시간 만료 시, Apps Script API 실행 컨텍스트에서는 토큰 재발급이 간헐적으로 실패. 시트 직접 실행은 성공하여 Properties에 저장 → 이후 모바일은 유효 토큰 사용
 - **해결**: 매일 오전 8:30 `runFullUpdate` 자동 트리거 등록 (`setupDailyTrigger()`). 장 시작 전 토큰을 사전 갱신하여 모바일 호출 시 항상 유효한 상태 보장
 - **교훈**: GAS를 Apps Script API로 호출할 때 외부 API 토큰 재발급이 실패할 수 있음. 직접 실행 컨텍스트와 차이가 있을 수 있으므로 시간 트리거로 사전 갱신하는 패턴이 안전
+
+### iOS 번들 ID 불일치로 설치 실패 (0xe8008016) — 재발
+- **증상**: 다른 폰에 설치 시 "The executable was signed with invalid entitlements" (0xe8008016)
+- **원인**: `PRODUCT_BUNDLE_IDENTIFIER`를 `com.junwon.fd5to6finance`로 변경했으나, `Sources/Info.plist`와 `project.yml info.properties`의 `CFBundleIdentifier`가 `com.jw.fd5to6finance`로 하드코딩 → 코드서명과 불일치
+- **해결**: `Sources/Info.plist`의 `CFBundleIdentifier`를 `$(PRODUCT_BUNDLE_IDENTIFIER)` 변수로 변경. `project.yml`의 `info.properties`에서 `CFBundleIdentifier` 항목 제거 후 XcodeGen 재생성
+- **교훈**: `CFBundleIdentifier`는 항상 `$(PRODUCT_BUNDLE_IDENTIFIER)` 변수로만 지정. 번들 ID 변경은 `project.yml`의 `PRODUCT_BUNDLE_IDENTIFIER` 한 곳만 수정
 
 ---
 
