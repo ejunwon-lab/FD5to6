@@ -280,6 +280,9 @@ function onOpen() {
     .addItem("🔑 토큰 강제 갱신", "forceRefreshToken")
     .addItem("📡 API 연결 테스트", "testApiConnection")
     .addItem("📋 토큰 상태 확인", "checkCurrentToken")
+    .addSeparator()
+    .addItem("⏰ 매일 8:30 자동실행 등록", "setupDailyTrigger")
+    .addItem("🗑️ 자동실행 트리거 삭제", "deleteDailyTrigger")
     .addToUi();
   // 1. 매번 새로 시작할 때, 투자수익 트래커 시트에서 시작
   const trackerSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('투자수익 트래커');
@@ -287,6 +290,37 @@ function onOpen() {
     trackerSheet.activate();
   }
 }
+/**
+ * 매일 오전 8:30 통합 업데이트 트리거 등록
+ * 시스템 관리 메뉴에서 1회 실행 (이후 자동 반복)
+ */
+function setupDailyTrigger() {
+  // 기존 runFullUpdate 트리거 삭제 (중복 방지)
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'runFullUpdate')
+    .forEach(t => ScriptApp.deleteTrigger(t));
+
+  ScriptApp.newTrigger('runFullUpdate')
+    .timeBased()
+    .everyDays(1)
+    .atHour(8)
+    .nearMinute(30)
+    .inTimezone('Asia/Seoul')
+    .create();
+
+  SpreadsheetApp.getUi().alert('✅ 매일 오전 8:30 통합 업데이트 트리거가 등록되었습니다.');
+}
+
+/**
+ * 매일 자동 통합 업데이트 트리거 삭제
+ */
+function deleteDailyTrigger() {
+  const triggers = ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'runFullUpdate');
+  triggers.forEach(t => ScriptApp.deleteTrigger(t));
+  SpreadsheetApp.getUi().alert(`🗑️ runFullUpdate 트리거 ${triggers.length}개 삭제 완료`);
+}
+
 function onEdit(e) {
   const sheet = e.range.getSheet();
   const sheetName = sheet.getName();
