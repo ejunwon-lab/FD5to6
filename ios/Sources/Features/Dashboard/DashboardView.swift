@@ -97,10 +97,11 @@ struct DashboardView: View {
                     )
                 )
 
-                let dayAmt = vm.portfolio?.summary?.dayChangAmount ?? 0
-                let dayPct = vm.portfolio?.summary?.dayChangePct ?? "0%"
+                let summary = vm.portfolio?.summary
+                let dayAmt = isBeforeMarketWindow ? (summary?.prevDayChangAmount ?? 0) : (summary?.dayChangAmount ?? 0)
+                let dayPct = isBeforeMarketWindow ? (summary?.prevDayChangePct ?? "0%") : (summary?.dayChangePct ?? "0%")
                 VStack(spacing: 6) {
-                    Text("오늘의 수익")
+                    Text(isBeforeMarketWindow ? "전일 수익" : "오늘의 수익")
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.8))
                     Text(dayAmt.krwFormatted)
@@ -182,12 +183,28 @@ struct DashboardView: View {
         .frame(maxWidth: .infinity)
     }
 
+    private var isBeforeMarketWindow: Bool {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        let now = Date()
+        let hour = cal.component(.hour, from: now)
+        let minute = cal.component(.minute, from: now)
+        return hour < 8 || (hour == 8 && minute <= 50)
+    }
+
     private var effectiveTradingDateString: String {
         let calendar = Calendar.current
         var date = Date()
-        let weekday = calendar.component(.weekday, from: date) // 1=일, 7=토
+        var weekday = calendar.component(.weekday, from: date) // 1=일, 7=토
         if weekday == 1 { date = calendar.date(byAdding: .day, value: -2, to: date) ?? date }
         else if weekday == 7 { date = calendar.date(byAdding: .day, value: -1, to: date) ?? date }
+        // 8:51 이전이면 전일 거래일 기준
+        if isBeforeMarketWindow {
+            date = calendar.date(byAdding: .day, value: -1, to: date) ?? date
+            weekday = calendar.component(.weekday, from: date)
+            if weekday == 1 { date = calendar.date(byAdding: .day, value: -2, to: date) ?? date }
+            else if weekday == 7 { date = calendar.date(byAdding: .day, value: -1, to: date) ?? date }
+        }
         let fmt = DateFormatter()
         fmt.locale = Locale(identifier: "ko_KR")
         fmt.dateFormat = "yyyy년 M월 d일 EEEE"

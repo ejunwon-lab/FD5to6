@@ -171,6 +171,13 @@ function logToTrendSheet(ss) {
       fmtPct(diffRate)
     ];
 
+    // 날짜가 바뀌면 기존 U2의 diff(AE2/AF2)를 AJ2/AK2에 백업 (iOS 8:51 이전 표시용)
+    if (!todayRow) {
+      const u2Row = trend.getRange(2, pStartCol, 1, 12).getValues()[0];
+      if (u2Row[0]) {
+        trend.getRange(2, pStartCol + 15, 1, 2).setValues([[u2Row[10], u2Row[11]]]);
+      }
+    }
     trend.getRange(writeRow, pStartCol, 1, pCols).setValues([profitRow]);
     trend.getRange('U2:AF2').setValues([profitRow]);
   }

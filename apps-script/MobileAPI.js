@@ -140,12 +140,13 @@ function _buildPortfolioJSON(ss) {
 
   // 추이 기록 시트에서 합계/확정/운용 수익 읽기 (U2:AI2 배치 1회)
   let trendTotalProfit = 0, confirmedProfit = 0, trendOperatingProfit = 0, dayChangAmount = 0, dayChangePct = '0%';
+  let prevDayChangAmount = 0, prevDayChangePct = '0%';
   let totalProfitRate = 0, confirmedProfitRate = 0, operatingProfitRate = 0;
   try {
     const trendSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.TREND);
     if (trendSheet) {
       const pCol = CONFIG.TREND.PROFIT_START_COL; // 21 = U열
-      const tr = trendSheet.getRange(2, pCol, 1, 15).getValues()[0]; // U2:AI2 한 번에
+      const tr = trendSheet.getRange(2, pCol, 1, 17).getValues()[0]; // U2:AK2 한 번에
       trendTotalProfit     = toNumberLoose(tr[9]);   // AD2
       confirmedProfit      = toNumberLoose(tr[3]);   // X2
       trendOperatingProfit = toNumberLoose(tr[7]);   // AB2
@@ -165,6 +166,14 @@ function _buildPortfolioJSON(ss) {
       dayChangePct = typeof rawDiffPct === 'number'
         ? (_round2(rawDiffPct * 100) >= 0 ? '+' : '') + _round2(rawDiffPct * 100).toFixed(2) + '%'
         : String(rawDiffPct || '0%');
+
+      // AJ2/AK2: 날짜 변경 시 백업된 전일 diff (8:51 이전 iOS 표시용)
+      const rawPrevAmt = tr[15]; // AJ2
+      const rawPrevPct = tr[16]; // AK2
+      prevDayChangAmount = toNumberLoose(rawPrevAmt);
+      prevDayChangePct = typeof rawPrevPct === 'number'
+        ? (_round2(rawPrevPct * 100) >= 0 ? '+' : '') + _round2(rawPrevPct * 100).toFixed(2) + '%'
+        : String(rawPrevPct || '0%');
     }
   } catch (_) {}
 
@@ -185,7 +194,9 @@ function _buildPortfolioJSON(ss) {
       trendOperatingProfit,
       operatingProfitRate,
       dayChangAmount,
-      dayChangePct
+      dayChangePct,
+      prevDayChangAmount,
+      prevDayChangePct
     },
     byCategory,
     byAccount,
@@ -236,6 +247,7 @@ function mobileUpdateHoldingsFast() {
  * logToTrendSheet 대비 ~70% 빠름: 컬럼 스캔·히스토리 추가(Section A/B) 생략
  */
 function _logToTrendSheetLite(ss) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   const trend = ss.getSheetByName(CONFIG.SHEET_NAMES.TREND);
   const track = ss.getSheetByName(CONFIG.SHEET_NAMES.TRACKER);
   if (!trend || !track) return;
@@ -265,15 +277,19 @@ function _logToTrendSheetLite(ss) {
   const confirmedRate = confirmedBuy ? (confirmedProfit / confirmedBuy) * 100 : 0;
   const totalProfit   = confirmedProfit + operatingProfit;
 
-  // 3. 전일 대비 계산: 현재 U2:AE2 배치 읽기 (1회)로 기준값 복원
+  // 3. 전일 대비 계산: 현재 U2:AF2 배치 읽기 (1회)로 기준값 복원
   const pCol = CONFIG.TREND.PROFIT_START_COL; // 21 = U
-  const existing = trend.getRange(2, pCol, 1, 11).getValues()[0]; // U2:AE2
+  const existing = trend.getRange(2, pCol, 1, 12).getValues()[0]; // U2:AF2
   const existingDate = String(existing[0] || '');
   const existingAD   = toNumberLoose(existing[9]);  // AD2 = 마지막 totalProfit
   const existingAE   = toNumberLoose(existing[10]); // AE2 = 마지막 diffProfit
   const tz = 'Asia/Seoul';
   const now = new Date();
   const todayStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  // 날짜가 바뀌면 어제 diff(AE2/AF2)를 AJ2/AK2에 백업 (iOS 8:51 이전 표시용)
+  if (!existingDate.startsWith(todayStr) && existingDate !== '') {
+    trend.getRange(2, pCol + 15, 1, 2).setValues([[existing[10], existing[11]]]);
+  }
   // 오늘 이미 기록됐으면 AD-AE = 어제 기준, 아니면 AD = 어제(마지막) 기준
   const prevTotalProfit = existingDate.startsWith(todayStr)
     ? (existingAD - existingAE)
