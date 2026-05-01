@@ -16,13 +16,12 @@ extension Color {
 }
 
 extension String {
-    // GSheets가 반환하는 다양한 % 형식 정규화: "(0.0515)" → "-5.15%", "0.0515" → "+5.15%", "5.15%" → "+5.15%"
+    // GSheets가 반환하는 % 형식 정규화: "0.87%" → "+0.87%", "-5.15%" → "-5.15%", "(2.30%)" → "-2.30%"
     var asChangePct: String {
         let isNeg = hasPrefix("(") || hasPrefix("-")
         let digits = filter { $0.isNumber || $0 == "." }
         guard let val = Double(digits), val != 0 else { return "+0.00%" }
-        let pct = val < 1.0 ? val * 100 : val
-        return String(format: "%+.2f%%", isNeg ? -pct : pct)
+        return String(format: "%+.2f%%", isNeg ? -val : val)
     }
 }
 

@@ -25,6 +25,8 @@ struct Summary: Codable {
     let operatingProfitRate: Double?
     let dayChangAmount: Double?
     let dayChangePct: String?
+    let prevDayChangAmount: Double?
+    let prevDayChangePct: String?
 }
 
 struct GroupStat: Codable {
