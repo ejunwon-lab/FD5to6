@@ -127,7 +127,9 @@ struct DashboardView: View {
                 .onLongPressGesture(minimumDuration: 0, pressing: { pressing in
                     dayCardPressed = pressing
                     if pressing { hapticTrigger.toggle() }
-                }, perform: {})
+                }, perform: {
+                    Task { await vm.updateAll() }
+                })
                 .sensoryFeedback(.impact(weight: .medium), trigger: hapticTrigger)
             }
             .clipShape(RoundedRectangle(cornerRadius: 20))
