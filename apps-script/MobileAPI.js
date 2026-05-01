@@ -39,6 +39,38 @@ function mobileTriggerUpdate() {
 }
 
 /**
+ * 한국 KRX 공휴일 여부 반환 (매년 업데이트 필요)
+ * 추석/설날 음력 기준 날짜는 연도마다 확인 요망
+ */
+function _isKoreanHoliday(date) {
+  const dateStr = Utilities.formatDate(date, 'Asia/Seoul', 'yyyy-MM-dd');
+  const HOLIDAYS = [
+    // 2025
+    '2025-01-01',
+    '2025-01-28', '2025-01-29', '2025-01-30', // 설날 연휴
+    '2025-03-01', '2025-05-01', '2025-05-05', '2025-06-06',
+    '2025-08-15',
+    '2025-10-03', '2025-10-05', '2025-10-06', '2025-10-07', '2025-10-09', // 추석 + 개천절 + 한글날
+    '2025-12-25',
+    // 2026
+    '2026-01-01',
+    '2026-02-16', '2026-02-17', '2026-02-18', // 설날 연휴
+    '2026-03-01', '2026-03-02', // 삼일절 + 대체공휴일 (삼일절이 일요일)
+    '2026-05-01', // 근로자의 날
+    '2026-05-05', // 어린이날
+    '2026-05-25', // 부처님오신날 (음력 4월 8일)
+    '2026-06-06', // 현충일
+    '2026-08-15', // 광복절
+    // 추석 연휴 2026: 음력 8월 15일 기준 — 확인 후 추가 필요
+    '2026-10-03', // 개천절
+    '2026-10-09', // 한글날
+    '2026-12-25', // 크리스마스
+    '2026-12-31', // KRX 연말 휴장
+  ];
+  return HOLIDAYS.includes(dateStr);
+}
+
+/**
  * 포트폴리오 전체 데이터 객체 빌드
  * — collectDashboardStats() 확장 버전 (전체 필드 포함)
  */
@@ -154,13 +186,15 @@ function _buildPortfolioJSON(ss) {
       operatingProfitRate  = _round2(toNumberLoose(tr[8])  * 100); // AC2
       totalProfitRate      = _round2(toNumberLoose(tr[12]) * 100); // AG2
 
-      // 주말이면 AH2:AI2(마지막 거래일 캐시) 사용, 평일이면 AE2:AF2 사용
+      // 비거래일(주말·공휴일)이면 AH2:AI2(마지막 거래일 캐시) 사용, 거래일이면 AE2:AF2 사용
       // AH2가 비어있으면(초기 배포) AE2로 자동 fallback
-      const nowDow = new Date().getDay(); // 0=일, 6=토
+      const _now = new Date();
+      const nowDow = _now.getDay(); // 0=일, 6=토
       const isWeekend = nowDow === 0 || nowDow === 6;
+      const isNonTradingDay = isWeekend || _isKoreanHoliday(_now);
       const hasWeekdayCache = tr[13] !== '' && tr[13] !== null && tr[13] !== undefined;
-      const rawDiffAmt = (isWeekend && hasWeekdayCache) ? tr[13] : tr[10]; // AH2 or AE2
-      const rawDiffPct = (isWeekend && hasWeekdayCache) ? tr[14] : tr[11]; // AI2 or AF2
+      const rawDiffAmt = (isNonTradingDay && hasWeekdayCache) ? tr[13] : tr[10]; // AH2 or AE2
+      const rawDiffPct = (isNonTradingDay && hasWeekdayCache) ? tr[14] : tr[11]; // AI2 or AF2
 
       dayChangAmount = toNumberLoose(rawDiffAmt);
       dayChangePct = typeof rawDiffPct === 'number'
@@ -196,7 +230,8 @@ function _buildPortfolioJSON(ss) {
       dayChangAmount,
       dayChangePct,
       prevDayChangAmount,
-      prevDayChangePct
+      prevDayChangePct,
+      isMarketDay: !isNonTradingDay
     },
     byCategory,
     byAccount,
