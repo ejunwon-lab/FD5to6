@@ -8,3 +8,4 @@
 - [저장! 명령어](feedback_save_command.md) — "저장!" = 중간 저장 + 동기화 한 번에 실행
 - [번들 ID 변경 시 구 앱 삭제](feedback_bundle_id_change.md) — 번들 ID 변경 시 빌드 전에 기기에서 구 앱 삭제 안내 필수
 - [XcodeGen 재생성 시 서명 설정](feedback_xcodegen_signing.md) — xcodegen 전 project.yml에 CODE_SIGN_STYLE 등 서명 설정 명시 확인
+- [옵션 먼저 설명](feedback_options_first.md) — 설정/방법 제안 시 선택지와 trade-off 먼저 설명, 결정은 사용자에게

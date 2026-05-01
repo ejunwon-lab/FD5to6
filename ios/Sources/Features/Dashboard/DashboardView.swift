@@ -98,10 +98,10 @@ struct DashboardView: View {
                 )
 
                 let summary = vm.portfolio?.summary
-                let dayAmt = isBeforeMarketWindow ? (summary?.prevDayChangAmount ?? 0) : (summary?.dayChangAmount ?? 0)
-                let dayPct = isBeforeMarketWindow ? (summary?.prevDayChangePct ?? "0%") : (summary?.dayChangePct ?? "0%")
+                let dayAmt = showPrevDayProfit ? (summary?.prevDayChangAmount ?? 0) : (summary?.dayChangAmount ?? 0)
+                let dayPct = showPrevDayProfit ? (summary?.prevDayChangePct ?? "0%") : (summary?.dayChangePct ?? "0%")
                 VStack(spacing: 6) {
-                    Text(isBeforeMarketWindow ? "전일 수익" : "오늘의 수익")
+                    Text(showPrevDayProfit ? "전일 수익" : "오늘의 수익")
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.8))
                     Text(dayAmt.krwFormatted)
@@ -192,14 +192,19 @@ struct DashboardView: View {
         return hour < 8 || (hour == 8 && minute <= 50)
     }
 
+    // GAS가 비거래일(공휴일·주말) 판정 또는 장 개시 전이면 전일 수익 표시
+    private var showPrevDayProfit: Bool {
+        isBeforeMarketWindow || (vm.portfolio?.summary?.isMarketDay == false)
+    }
+
     private var effectiveTradingDateString: String {
         let calendar = Calendar.current
         var date = Date()
         var weekday = calendar.component(.weekday, from: date) // 1=일, 7=토
         if weekday == 1 { date = calendar.date(byAdding: .day, value: -2, to: date) ?? date }
         else if weekday == 7 { date = calendar.date(byAdding: .day, value: -1, to: date) ?? date }
-        // 8:51 이전이면 전일 거래일 기준
-        if isBeforeMarketWindow {
+        // 전일 수익 표시 중이면 전일 거래일 기준
+        if showPrevDayProfit {
             date = calendar.date(byAdding: .day, value: -1, to: date) ?? date
             weekday = calendar.component(.weekday, from: date)
             if weekday == 1 { date = calendar.date(byAdding: .day, value: -2, to: date) ?? date }
