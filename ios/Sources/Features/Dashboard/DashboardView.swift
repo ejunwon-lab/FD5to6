@@ -1,7 +1,10 @@
 import SwiftUI
+import UIKit
 
 struct DashboardView: View {
     @EnvironmentObject var vm: PortfolioViewModel
+    @State private var dayCardPressed = false
+    @State private var hapticTrigger = false
 
     var body: some View {
         GeometryReader { geo in
@@ -118,6 +121,14 @@ struct DashboardView: View {
                 .padding(.vertical, 28)
                 .frame(maxWidth: .infinity)
                 .background(dayAmt >= 0 ? Color(red: 0.85, green: 0.10, blue: 0.10) : Color(red: 0.05, green: 0.35, blue: 0.85))
+                .scaleEffect(dayCardPressed ? 0.97 : 1.0)
+                .animation(.easeInOut(duration: 0.12), value: dayCardPressed)
+                .contentShape(Rectangle())
+                .onLongPressGesture(minimumDuration: 0, pressing: { pressing in
+                    dayCardPressed = pressing
+                    if pressing { hapticTrigger.toggle() }
+                }, perform: {})
+                .sensoryFeedback(.impact(weight: .medium), trigger: hapticTrigger)
             }
             .clipShape(RoundedRectangle(cornerRadius: 20))
             .shadow(color: .black.opacity(0.10), radius: 12, y: 4)
@@ -239,6 +250,7 @@ struct DashboardView: View {
 
     private func circleButton(icon: String, action: @escaping () async -> Void) -> some View {
         Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             Task { await action() }
         } label: {
             Image(systemName: icon)
