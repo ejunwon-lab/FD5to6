@@ -174,6 +174,9 @@ function _buildPortfolioJSON(ss) {
   let trendTotalProfit = 0, confirmedProfit = 0, trendOperatingProfit = 0, dayChangAmount = 0, dayChangePct = '0%';
   let prevDayChangAmount = 0, prevDayChangePct = '0%';
   let totalProfitRate = 0, confirmedProfitRate = 0, operatingProfitRate = 0;
+  const _now = new Date();
+  const _nowDow = _now.getDay();
+  const isNonTradingDay = _nowDow === 0 || _nowDow === 6 || _isKoreanHoliday(_now);
   try {
     const trendSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.TREND);
     if (trendSheet) {
@@ -188,10 +191,6 @@ function _buildPortfolioJSON(ss) {
 
       // 비거래일(주말·공휴일)이면 AH2:AI2(마지막 거래일 캐시) 사용, 거래일이면 AE2:AF2 사용
       // AH2가 비어있으면(초기 배포) AE2로 자동 fallback
-      const _now = new Date();
-      const nowDow = _now.getDay(); // 0=일, 6=토
-      const isWeekend = nowDow === 0 || nowDow === 6;
-      const isNonTradingDay = isWeekend || _isKoreanHoliday(_now);
       const hasWeekdayCache = tr[13] !== '' && tr[13] !== null && tr[13] !== undefined;
       const rawDiffAmt = (isNonTradingDay && hasWeekdayCache) ? tr[13] : tr[10]; // AH2 or AE2
       const rawDiffPct = (isNonTradingDay && hasWeekdayCache) ? tr[14] : tr[11]; // AI2 or AF2
