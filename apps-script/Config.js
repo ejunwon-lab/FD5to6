@@ -144,6 +144,17 @@ const REFERENCE_INDICATORS = [
   { key: 'VIX', name: 'VIX',       category: '매크로', source: 'googlefinance', gfSymbol: 'INDEXCBOE:VIX' },
   { key: 'TNX', name: '미국10년물', category: '매크로', source: 'googlefinance', gfSymbol: 'TNX' },
   { key: 'DXY', name: '달러인덱스', category: '매크로', source: 'yahoo_finance', ySymbol: 'DX-Y.NYB', gfSymbol: 'CURRENCYCOM:DXY' },
+  // AI/반도체
+  { key: 'NVDA', name: 'NVIDIA',     category: 'AI/반도체', source: 'yahoo_finance', ySymbol: 'NVDA',  gfSymbol: 'NASDAQ:NVDA' },
+  // 빅테크
+  { key: 'AAPL', name: 'Apple',     category: '빅테크', source: 'yahoo_finance', ySymbol: 'AAPL',  gfSymbol: 'NASDAQ:AAPL' },
+  { key: 'MSFT', name: 'Microsoft', category: '빅테크', source: 'yahoo_finance', ySymbol: 'MSFT',  gfSymbol: 'NASDAQ:MSFT' },
+  { key: 'GOOGL', name: 'Google',   category: '빅테크', source: 'yahoo_finance', ySymbol: 'GOOGL', gfSymbol: 'NASDAQ:GOOGL' },
+  { key: 'META', name: 'Meta',      category: '빅테크', source: 'yahoo_finance', ySymbol: 'META',  gfSymbol: 'NASDAQ:META' },
+  { key: 'AMZN', name: 'Amazon',    category: '빅테크', source: 'yahoo_finance', ySymbol: 'AMZN',  gfSymbol: 'NASDAQ:AMZN' },
+  { key: 'TSLA', name: 'Tesla',     category: '빅테크', source: 'yahoo_finance', ySymbol: 'TSLA',  gfSymbol: 'NASDAQ:TSLA' },
+  // 중국시장
+  { key: 'HSI', name: '항셍지수', category: '중국시장', source: 'yahoo_finance', ySymbol: '^HSI', gfSymbol: 'INDEXHANGSENG:HSI' },
 ];
 
 // 하위 호환성 별칭
