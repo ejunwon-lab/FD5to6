@@ -3,9 +3,10 @@ import SwiftUI
 struct IndicatorsView: View {
     @EnvironmentObject var vm: PortfolioViewModel
 
-    // 섹션 표시 순서
     private let categoryOrder: [String] = [
-        "한국시장", "한국선물", "미국시장", "미국선물", "상품", "매크로"
+        "한국시장", "한국선물", "중국시장",
+        "미국시장", "미국선물", "AI/반도체", "빅테크",
+        "상품", "매크로"
     ]
 
     var body: some View {
@@ -70,23 +71,26 @@ struct IndicatorsView: View {
 
     // MARK: - Section Card
 
-    private func categoryBorderColor(_ cat: String) -> Color {
+    private func categoryAccentColor(_ cat: String) -> Color {
         switch cat {
-        case "한국시장": return Color(red: 0.25, green: 0.35, blue: 0.90)
-        case "한국선물": return Color(red: 0.10, green: 0.60, blue: 0.75)
-        case "미국시장": return Color(red: 0.85, green: 0.10, blue: 0.10)
-        case "미국선물": return Color(red: 0.95, green: 0.45, blue: 0.10)
-        case "상품":    return Color(red: 0.70, green: 0.50, blue: 0.10)
-        default:        return Color(red: 0.55, green: 0.20, blue: 0.75)
+        case "한국시장":  return Color(red: 0.28, green: 0.42, blue: 0.80)  // 인디고
+        case "한국선물":  return Color(red: 0.18, green: 0.58, blue: 0.65)  // 틸
+        case "중국시장":  return Color(red: 0.72, green: 0.22, blue: 0.22)  // 차분한 레드
+        case "미국시장":  return Color(red: 0.75, green: 0.28, blue: 0.28)  // 뮤트 레드
+        case "미국선물":  return Color(red: 0.78, green: 0.42, blue: 0.22)  // 번트 오렌지
+        case "AI/반도체": return Color(red: 0.12, green: 0.60, blue: 0.52)  // 에메랄드
+        case "빅테크":   return Color(red: 0.35, green: 0.50, blue: 0.72)  // 스틸 블루
+        case "상품":     return Color(red: 0.62, green: 0.50, blue: 0.20)  // 앤틱 골드
+        default:         return Color(red: 0.48, green: 0.35, blue: 0.60)  // 뮤트 퍼플 (매크로)
         }
     }
 
     private func sectionCard(title: String, items: [ReferenceIndicator]) -> some View {
-        let borderColor = categoryBorderColor(title)
+        let accent = categoryAccentColor(title)
         return VStack(alignment: .leading, spacing: 0) {
             Text(title)
-                .font(.headline)
-                .foregroundColor(borderColor)
+                .font(.subheadline).fontWeight(.semibold)
+                .foregroundColor(accent)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
                 .padding(.bottom, 8)
@@ -102,33 +106,36 @@ struct IndicatorsView: View {
         }
         .background(Color.cardBg)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(borderColor, lineWidth: 2.5))
-        .shadow(color: borderColor.opacity(0.15), radius: 8, y: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(accent.opacity(0.35), lineWidth: 1.2)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
     }
 
     private func indicatorRow(_ item: ReferenceIndicator) -> some View {
         HStack(spacing: 12) {
             Text(item.name)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 17, weight: .medium))
                 .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(formattedValue(item.value))
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
                 .foregroundColor(.primary)
-                .frame(width: 90, alignment: .trailing)
+                .frame(width: 95, alignment: .trailing)
 
             VStack(alignment: .trailing, spacing: 2) {
                 Text(formattedChange(item.change))
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                 Text(formattedPct(item.changePct))
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
             }
             .foregroundColor(item.change.profitColor)
-            .frame(width: 80, alignment: .trailing)
+            .frame(width: 82, alignment: .trailing)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 13)
     }
 
     // MARK: - Helpers
