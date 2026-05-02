@@ -29,8 +29,14 @@ struct HoldingCard: View {
                         .font(.subheadline).fontWeight(.semibold)
                         .foregroundColor(.primary)
                         .lineLimit(1)
-                    Text(holding.code)
-                        .font(.caption2).foregroundColor(.secondary)
+                    HStack(spacing: 5) {
+                        Text(holding.code)
+                            .font(.caption2).foregroundColor(.secondary)
+                        if let duration = holding.holdingDurationText {
+                            Text("|").font(.caption2).foregroundColor(.secondary.opacity(0.5))
+                            Text(duration).font(.caption2).foregroundColor(.secondary)
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -111,7 +117,13 @@ struct HoldingCard: View {
                         .font(.subheadline).fontWeight(.semibold)
                         .foregroundColor(.primary)
                         .lineLimit(1)
-                    Text(holding.code).font(.caption2).foregroundColor(.secondary)
+                    HStack(spacing: 5) {
+                        Text(holding.code).font(.caption2).foregroundColor(.secondary)
+                        if let duration = holding.holdingDurationText {
+                            Text("|").font(.caption2).foregroundColor(.secondary.opacity(0.5))
+                            Text(duration).font(.caption2).foregroundColor(.secondary)
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 

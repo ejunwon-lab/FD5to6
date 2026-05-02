@@ -91,9 +91,23 @@ struct Holding: Codable, Identifiable {
     let y1: Double
     let high52: Double
     let low52: Double
+    let buyDate: String?
 
     var isProfit: Bool { opProfit >= 0 }
     var isUS: Bool { code.range(of: #"^[A-Z]{1,5}$"#, options: .regularExpression) != nil }
+
+    var holdingDurationText: String? {
+        guard let buyDate, !buyDate.isEmpty else { return nil }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        guard let date = fmt.date(from: buyDate) else { return nil }
+        let days = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
+        guard days >= 0 else { return nil }
+        if days < 30 { return "\(days)일" }
+        let months = days / 30
+        let rem    = days % 30
+        return rem > 0 ? "\(months)개월 \(rem)일" : "\(months)개월"
+    }
 
     var dailyChangePct: Double {
         guard currentPrice > 0 else { return 0 }

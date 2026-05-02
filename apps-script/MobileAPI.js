@@ -132,6 +132,10 @@ function _buildPortfolioJSON(ss) {
     const y1          = toNumberLoose(row[idx.STATUS_Y1]);
     const high52      = Number(row[idx.STATUS_HIGH52])   || 0;
     const low52       = Number(row[idx.STATUS_LOW52])    || 0;
+    const buyDateRaw  = row[idx.BUY_DATE];
+    const buyDate     = buyDateRaw instanceof Date
+      ? Utilities.formatDate(buyDateRaw, 'Asia/Seoul', 'yyyy-MM-dd')
+      : String(buyDateRaw || '');
 
     // 분류별 집계
     if (category) {
@@ -156,7 +160,8 @@ function _buildPortfolioJSON(ss) {
       quantity: qty, buyPrice, currentPrice: curPrice,
       opBuy, opCurrent, opProfit, profitRate,
       change, changePct,
-      m1, m3, m6, y1, high52, low52
+      m1, m3, m6, y1, high52, low52,
+      buyDate
     });
   }
 
