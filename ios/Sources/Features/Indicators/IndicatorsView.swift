@@ -16,7 +16,7 @@ struct IndicatorsView: View {
             VStack(spacing: 0) {
                 header
                 ScrollView {
-                    VStack(spacing: 16) {
+                    VStack(spacing: 20) {
                         if let msg = vm.indicatorsError {
                             errorBanner(msg)
                         }
@@ -27,7 +27,7 @@ struct IndicatorsView: View {
                             ForEach(categoryOrder, id: \.self) { cat in
                                 let items = vm.indicators.filter { $0.category == cat }
                                 if !items.isEmpty {
-                                    sectionCard(title: cat, items: items)
+                                    sectionBlock(title: cat, items: items)
                                 }
                             }
                         }
@@ -50,98 +50,91 @@ struct IndicatorsView: View {
     // MARK: - Header
 
     private var header: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("참고지표")
-                    .font(.largeTitle).fontWeight(.bold)
-                Spacer()
-                Button {
-                    refreshHapticTrigger.toggle()
-                    Task { await vm.fetchIndicators() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 19, weight: .semibold))
-                        .foregroundColor(.primary)
-                        .frame(width: 44, height: 44)
-                        .background(.ultraThinMaterial, in: Circle())
-                }
-                .disabled(vm.isLoadingIndicators)
+        HStack {
+            Text("참고지표")
+                .font(.largeTitle).fontWeight(.bold)
+            Spacer()
+            Button {
+                refreshHapticTrigger.toggle()
+                Task { await vm.fetchIndicators() }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .frame(width: 44, height: 44)
+                    .background(.ultraThinMaterial, in: Circle())
             }
-            .sensoryFeedback(.impact(weight: .medium), trigger: refreshHapticTrigger)
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 12)
+            .disabled(vm.isLoadingIndicators)
         }
+        .sensoryFeedback(.impact(weight: .medium), trigger: refreshHapticTrigger)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
         .background(Color.pageBg)
     }
 
-    // MARK: - Section Card
+    // MARK: - Section
 
-    private func categoryAccentColor(_ cat: String) -> Color {
-        switch cat {
-        case "한국시장":  return Color(red: 0.28, green: 0.42, blue: 0.80)  // 인디고
-        case "한국선물":  return Color(red: 0.18, green: 0.58, blue: 0.65)  // 틸
-        case "중국시장":  return Color(red: 0.72, green: 0.22, blue: 0.22)  // 차분한 레드
-        case "미국시장":  return Color(red: 0.75, green: 0.28, blue: 0.28)  // 뮤트 레드
-        case "미국선물":  return Color(red: 0.78, green: 0.42, blue: 0.22)  // 번트 오렌지
-        case "AI/반도체": return Color(red: 0.12, green: 0.60, blue: 0.52)  // 에메랄드
-        case "빅테크":   return Color(red: 0.35, green: 0.50, blue: 0.72)  // 스틸 블루
-        case "상품":     return Color(red: 0.62, green: 0.50, blue: 0.20)  // 앤틱 골드
-        default:         return Color(red: 0.48, green: 0.35, blue: 0.60)  // 뮤트 퍼플 (매크로)
-        }
-    }
-
-    private func sectionCard(title: String, items: [ReferenceIndicator]) -> some View {
-        let accent = categoryAccentColor(title)
-        return VStack(alignment: .leading, spacing: 0) {
+    private func sectionBlock(title: String, items: [ReferenceIndicator]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.subheadline).fontWeight(.semibold)
-                .foregroundColor(accent)
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 8)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 4)
 
             VStack(spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
                     indicatorRow(item)
                     if idx < items.count - 1 {
-                        Divider().padding(.leading, 16)
+                        Divider().padding(.leading, 28)
                     }
                 }
             }
+            .background(Color.cardBg)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
         }
-        .background(Color.cardBg)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(accent.opacity(0.35), lineWidth: 1.2)
-        )
-        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
     }
 
+    // MARK: - Row
+
     private func indicatorRow(_ item: ReferenceIndicator) -> some View {
-        HStack(spacing: 12) {
-            Text(item.name)
-                .font(.system(size: 17, weight: .medium))
-                .foregroundColor(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        let barColor: Color = item.change == 0
+            ? Color.secondary.opacity(0.25)
+            : item.change.profitColor
 
-            Text(formattedValue(item.value))
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
-                .foregroundColor(.primary)
-                .frame(width: 95, alignment: .trailing)
+        return HStack(spacing: 0) {
+            barColor
+                .frame(width: 3)
+                .padding(.vertical, 10)
+                .padding(.leading, 10)
+                .cornerRadius(1.5)
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(formattedChange(item.change))
+            HStack(spacing: 8) {
+                Text(item.name)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text(formattedValue(item.value))
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
-                Text(formattedPct(item.changePct))
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundColor(.primary)
+                    .frame(width: 88, alignment: .trailing)
+
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(formattedChange(item.change))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    Text(formattedPct(item.changePct))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                }
+                .foregroundColor(item.change == 0 ? .secondary : item.change.profitColor)
+                .frame(width: 72, alignment: .trailing)
             }
-            .foregroundColor(item.change.profitColor)
-            .frame(width: 82, alignment: .trailing)
+            .padding(.leading, 10)
+            .padding(.trailing, 14)
+            .padding(.vertical, 9)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 13)
     }
 
     // MARK: - Helpers
