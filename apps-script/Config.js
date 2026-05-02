@@ -128,7 +128,7 @@ const REFERENCE_INDICATORS = [
   { key: 'KOSPI',  name: 'KOSPI',  category: '한국시장', source: 'kis_domestic_index', code: '0001' },
   { key: 'KOSDAQ', name: 'KOSDAQ', category: '한국시장', source: 'kis_domestic_index', code: '1001' },
   // 한국선물 (KIS 국내선물 — code 'NEAREST'는 런타임에 최근월물 자동 계산)
-  { key: 'K200F', name: '코스피200선물', category: '한국선물', source: 'kis_domestic_futures', code: 'NEAREST', gfSymbol: 'KRX:KOSPI200' },
+  { key: 'K200F', name: 'KOSPI200', category: '한국선물', source: 'kis_domestic_index', code: '2001' },
   // 미국시장 (KIS 해외지수 → 실패 시 GOOGLEFINANCE fallback)
   { key: 'SPX', name: 'S&P500',        category: '미국시장', source: 'kis_overseas_index', code: 'SPX', excd: 'NYS', gfSymbol: 'INDEXSP:.INX' },
   { key: 'NDX', name: 'NASDAQ100',     category: '미국시장', source: 'kis_overseas_index', code: 'NDX', excd: 'NAS', gfSymbol: 'INDEXNASDAQ:NDX' },

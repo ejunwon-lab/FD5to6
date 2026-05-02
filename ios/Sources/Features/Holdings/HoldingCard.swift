@@ -77,12 +77,12 @@ struct HoldingCard: View {
                             .font(.caption)
                             .foregroundColor(holding.change.profitColor)
                     case .agedDays:
-                        Text(holding.holdingDurationText ?? "-")
+                        Text(holding.opProfit.krwFormatted)
                             .font(.headline).fontWeight(.bold)
-                            .foregroundColor(.primary)
-                        Text("\(holding.holdingDays)일")
+                            .foregroundColor(holding.opProfit.profitColor)
+                        Text(holding.profitRate.pctFormatted)
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(holding.opProfit.profitColor)
                     case .allInfo:
                         EmptyView()
                     }
@@ -102,7 +102,7 @@ struct HoldingCard: View {
             }
             .clipped()
             .animation(
-                expanded ? .spring(response: 1.87, dampingFraction: 0.95) : .spring(response: 0.28, dampingFraction: 0.88),
+                expanded ? .spring(response: 0.62, dampingFraction: 0.95) : .spring(response: 0.28, dampingFraction: 0.88),
                 value: expanded
             )
         }
@@ -203,7 +203,7 @@ struct HoldingCard: View {
             }
             .clipped()
             .animation(
-                expanded ? .spring(response: 1.87, dampingFraction: 0.95) : .spring(response: 0.28, dampingFraction: 0.88),
+                expanded ? .spring(response: 0.62, dampingFraction: 0.95) : .spring(response: 0.28, dampingFraction: 0.88),
                 value: expanded
             )
         }
