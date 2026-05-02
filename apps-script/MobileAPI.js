@@ -325,8 +325,15 @@ function _logToTrendSheetLite(ss) {
   const tz = 'Asia/Seoul';
   const now = new Date();
   const todayStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  const dayOfWeek = now.getDay(); // 0=일, 6=토
   // 날짜가 바뀌면 어제 diff(AE2/AF2)를 AJ2/AK2에 백업 (iOS 8:51 이전 표시용)
-  if (!existingDate.startsWith(todayStr) && existingDate !== '') {
+  // 오늘과 저장된 날짜 모두 거래일일 때만 백업 — 주말·공휴일 데이터 유입 차단
+  const existingDateObj = existingDate ? new Date(existingDate.slice(0, 10)) : null;
+  const existingDow = existingDateObj ? existingDateObj.getDay() : -1;
+  const existingWasTrading = existingDow !== 0 && existingDow !== 6 && existingDateObj && !_isKoreanHoliday(existingDateObj);
+  if (!existingDate.startsWith(todayStr) && existingDate !== '' &&
+      dayOfWeek !== 0 && dayOfWeek !== 6 && !_isKoreanHoliday(now) &&
+      existingWasTrading) {
     trend.getRange(2, pCol + 15, 1, 2).setValues([[existing[10], existing[11]]]);
   }
   // 오늘 이미 기록됐으면 AD-AE = 어제 기준, 아니면 AD = 어제(마지막) 기준
@@ -349,9 +356,8 @@ function _logToTrendSheetLite(ss) {
     fmtPct(diffRate)
   ]]);
 
-  // 5. 평일이면 AH2:AI2에 "마지막 거래일 diff" 캐시 (iOS 주말 표시용)
-  const dayOfWeek = now.getDay(); // 0=일, 6=토
-  if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+  // 5. 거래일이면 AH2:AI2에 "마지막 거래일 diff" 캐시 (iOS 주말·공휴일 표시용)
+  if (dayOfWeek !== 0 && dayOfWeek !== 6 && !_isKoreanHoliday(now)) {
     trend.getRange(2, pCol + 13, 1, 2).setValues([[fmtNum(diffProfit), fmtPct(diffRate)]]);
   }
 }
@@ -375,6 +381,37 @@ function mobileUpdateAll() {
 
 function _round2(n) {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * [일회성] AJ2:AK2를 히스토리에서 찾은 마지막 거래일 데이터로 복원
+ * GAS 에디터에서 직접 실행 후 삭제
+ */
+function restoreAJ2fromLastTradingDay() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const trend = ss.getSheetByName(CONFIG.SHEET_NAMES.TREND);
+  const pCol = CONFIG.TREND.PROFIT_START_COL; // 21 = U
+  const pStartRow = CONFIG.TREND.PROFIT_START_ROW; // 5
+  const lastRow = trend.getLastRow();
+  const height = Math.max(lastRow - pStartRow + 1, 0);
+  if (height <= 0) { Logger.log('히스토리 없음'); return; }
+
+  const rows = trend.getRange(pStartRow, pCol, height, 12).getValues();
+  // 최근 행부터 역순으로 거래일 행 탐색
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const dateStr = String(rows[i][0] || '');
+    if (!dateStr) continue;
+    const d = new Date(dateStr.slice(0, 10));
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6 || _isKoreanHoliday(d)) continue;
+    // 거래일 행 발견 → AJ2:AK2에 복원
+    const ae = rows[i][10];
+    const af = rows[i][11];
+    trend.getRange(2, pCol + 15, 1, 2).setValues([[ae, af]]);
+    Logger.log('AJ2:AK2 복원 완료 — 기준일: ' + dateStr.slice(0, 10) + ', 값: ' + ae + ' / ' + af);
+    return;
+  }
+  Logger.log('거래일 히스토리 행을 찾지 못했습니다.');
 }
 
 /**

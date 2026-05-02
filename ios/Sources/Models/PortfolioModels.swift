@@ -96,13 +96,21 @@ struct Holding: Codable, Identifiable {
     var isProfit: Bool { opProfit >= 0 }
     var isUS: Bool { code.range(of: #"^[A-Z]{1,5}$"#, options: .regularExpression) != nil }
 
+    var holdingDays: Int {
+        guard let buyDate, !buyDate.isEmpty else { return 0 }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        guard let date = fmt.date(from: buyDate) else { return 0 }
+        return max(0, Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0)
+    }
+
     var holdingDurationText: String? {
+        let days = holdingDays
+        guard days > 0 || buyDate != nil else { return nil }
         guard let buyDate, !buyDate.isEmpty else { return nil }
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"
-        guard let date = fmt.date(from: buyDate) else { return nil }
-        let days = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
-        guard days >= 0 else { return nil }
+        guard fmt.date(from: buyDate) != nil else { return nil }
         if days < 30 { return "\(days)일" }
         let months = days / 30
         let rem    = days % 30

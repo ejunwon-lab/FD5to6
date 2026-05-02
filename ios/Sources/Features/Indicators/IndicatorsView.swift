@@ -2,6 +2,7 @@ import SwiftUI
 
 struct IndicatorsView: View {
     @EnvironmentObject var vm: PortfolioViewModel
+    @State private var refreshHapticTrigger = false
 
     private let categoryOrder: [String] = [
         "한국시장", "한국선물", "중국시장",
@@ -35,6 +36,9 @@ struct IndicatorsView: View {
                     }
                     .padding()
                 }
+                .task {
+                    await vm.fetchIndicators()
+                }
             }
 
             if vm.isLoadingIndicators {
@@ -52,16 +56,18 @@ struct IndicatorsView: View {
                     .font(.largeTitle).fontWeight(.bold)
                 Spacer()
                 Button {
+                    refreshHapticTrigger.toggle()
                     Task { await vm.fetchIndicators() }
                 } label: {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 19, weight: .semibold))
                         .foregroundColor(.primary)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                         .background(.ultraThinMaterial, in: Circle())
                 }
                 .disabled(vm.isLoadingIndicators)
             }
+            .sensoryFeedback(.impact(weight: .medium), trigger: refreshHapticTrigger)
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 12)

@@ -1,10 +1,10 @@
 import SwiftUI
-import UIKit
 
 struct DashboardView: View {
     @EnvironmentObject var vm: PortfolioViewModel
     @State private var dayCardPressed = false
     @State private var hapticTrigger = false
+    @State private var updateHapticTrigger = false
 
     var body: some View {
         GeometryReader { geo in
@@ -60,6 +60,7 @@ struct DashboardView: View {
                     circleButton(icon: "wand.and.stars",       action: { await vm.updateAll() })
                 }
                 .disabled(vm.isUpdating)
+                .sensoryFeedback(.impact(weight: .medium), trigger: updateHapticTrigger)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -252,7 +253,7 @@ struct DashboardView: View {
 
     private func circleButton(icon: String, action: @escaping () async -> Void) -> some View {
         Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            updateHapticTrigger.toggle()
             Task { await action() }
         } label: {
             Image(systemName: icon)

@@ -29,7 +29,7 @@ actor ScriptAPIService {
     }
 
     func getIndicators() async throws -> IndicatorsResponse {
-        return try await callIndicatorsFunction("mobileGetReferenceIndicators", useBackground: true)
+        return try await callIndicatorsFunction("mobileGetReferenceIndicators", useBackground: false)
     }
 
     func getProfitHistory() async throws -> TrendHistoryResponse {

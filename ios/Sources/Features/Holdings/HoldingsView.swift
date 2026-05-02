@@ -11,6 +11,7 @@ struct HoldingsView: View {
     enum SortKey: String, CaseIterable {
         case allInfo    = "종목 정보"
         case change     = "당일 등락"
+        case agedDays   = "보유 기간"
         case opCurrent  = "평가 금액"
         case profitRate = "수익률"
         case opProfit   = "수익금"
@@ -57,6 +58,7 @@ struct HoldingsView: View {
             return sortAscending ? a < b : a > b
         }
         case .opCurrent:  list.sort { sortAscending ? $0.opCurrent  < $1.opCurrent  : $0.opCurrent  > $1.opCurrent  }
+        case .agedDays:   list.sort { sortAscending ? $0.holdingDays < $1.holdingDays : $0.holdingDays > $1.holdingDays }
         case .profitRate: list.sort { sortAscending ? $0.profitRate < $1.profitRate : $0.profitRate > $1.profitRate }
         case .opProfit:   list.sort { sortAscending ? $0.opProfit   < $1.opProfit   : $0.opProfit   > $1.opProfit   }
         }
