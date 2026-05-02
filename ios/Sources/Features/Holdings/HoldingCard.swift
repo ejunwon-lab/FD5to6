@@ -76,6 +76,13 @@ struct HoldingCard: View {
                         Text(holding.dailyChangePct.pctFormatted)
                             .font(.caption)
                             .foregroundColor(holding.change.profitColor)
+                    case .agedDays:
+                        Text(holding.holdingDurationText ?? "-")
+                            .font(.headline).fontWeight(.bold)
+                            .foregroundColor(.primary)
+                        Text("\(holding.holdingDays)일")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     case .allInfo:
                         EmptyView()
                     }
