@@ -181,25 +181,23 @@ struct HoldingsView: View {
     }
 
     private var filterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                accountChips(options: accounts, selected: $filterAccount)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+        HStack(spacing: 5) {
+            accountChips(options: accounts, selected: $filterAccount)
         }
-        .background(Color.cardBg)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Color.pageBg)
     }
 
     private var sortBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(SortKey.allCases, id: \.self) { key in
                     Button {
                         if sortKey == key { sortAscending.toggle() }
                         else { sortKey = key; sortAscending = false }
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 3) {
                             Text(key.rawValue)
                             if sortKey == key {
                                 Image(systemName: sortAscending ? "arrow.up" : "arrow.down")
@@ -209,18 +207,18 @@ struct HoldingsView: View {
                     }
                     .font(.caption)
                     .fontWeight(sortKey == key ? .bold : .regular)
-                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
                     .background(sortKey == key ? Color.accent : Color.cardBg)
                     .foregroundColor(sortKey == key ? .white : .primary)
                     .clipShape(Capsule())
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
         }
     }
 
-private func accountChips(options: [String], selected: Binding<String>) -> some View {
+    private func accountChips(options: [String], selected: Binding<String>) -> some View {
         ForEach(options, id: \.self) { opt in
             let isSelected = selected.wrappedValue == opt
             let isAll = opt == "전체"
@@ -229,7 +227,7 @@ private func accountChips(options: [String], selected: Binding<String>) -> some 
             Button(label) { selected.wrappedValue = opt }
                 .font(.caption)
                 .fontWeight(isSelected ? .bold : .regular)
-                .padding(.horizontal, 10).padding(.vertical, 5)
+                .padding(.horizontal, 8).padding(.vertical, 4)
                 .background(isSelected ? (isAll ? Color.accent : borderColor.opacity(0.15)) : Color.clear)
                 .foregroundColor(isSelected ? (isAll ? .white : borderColor) : .secondary)
                 .clipShape(Capsule())

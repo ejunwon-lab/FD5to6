@@ -235,7 +235,7 @@ struct HoldingCard: View {
             HStack(spacing: 8) {
                 detailCell(label: "52주 최고", value: holding.high52.krwFullFormatted)
                 detailCell(label: "52주 최저", value: holding.low52.krwFullFormatted)
-                detailCell(label: "계좌",      value: holding.accountType)
+                detailCell(label: "계좌",      value: [String(holding.broker.prefix(2)), holding.accountType].filter { !$0.isEmpty }.joined(separator: "_"))
             }
         }
     }
