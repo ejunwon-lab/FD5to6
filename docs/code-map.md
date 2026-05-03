@@ -8,6 +8,7 @@ last updated: 2026-05-03
 ## iOS — Sources/
 
 ### Core/
+- **MockData.swift** — Preview·테스트용 고정 샘플 데이터 (`MockData.portfolioResponse`, `MockData.indicatorsResponse`, `MockData.trendHistoryResponse`)
 - **PortfolioViewModel.swift** — 전체 상태 관리 (ObservableObject)
   - `fetchPortfolio()` 데이터 읽기
   - `triggerUpdate()` 현재가+환율만
