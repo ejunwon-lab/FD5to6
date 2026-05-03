@@ -283,6 +283,9 @@ function onOpen() {
     .addSeparator()
     .addItem("⏰ 매일 8:30 자동실행 등록", "setupDailyTrigger")
     .addItem("🗑️ 자동실행 트리거 삭제", "deleteDailyTrigger")
+    .addSeparator()
+    .addItem("📅 종목현황 8:30/17:30 자동실행 등록", "setupHoldingsTriggers")
+    .addItem("🗑️ 종목현황 자동실행 트리거 삭제", "deleteHoldingsTriggers")
     .addToUi();
   // 1. 매번 새로 시작할 때, 투자수익 트래커 시트에서 시작
   const trackerSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('투자수익 트래커');
@@ -319,6 +322,61 @@ function deleteDailyTrigger() {
     .filter(t => t.getHandlerFunction() === 'runFullUpdate');
   triggers.forEach(t => ScriptApp.deleteTrigger(t));
   SpreadsheetApp.getUi().alert(`🗑️ runFullUpdate 트리거 ${triggers.length}개 삭제 완료`);
+}
+
+/**
+ * 종목현황 자동 업데이트 트리거 등록 (8:30 + 17:30 KST)
+ * 1M/3M/1Y 수익률은 하루 2회로 충분하므로 updateStockStatusAuto만 실행
+ */
+function setupHoldingsTriggers() {
+  // 기존 scheduledHoldingsUpdate 트리거 삭제 (중복 방지)
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'scheduledHoldingsUpdate')
+    .forEach(t => ScriptApp.deleteTrigger(t));
+
+  ScriptApp.newTrigger('scheduledHoldingsUpdate')
+    .timeBased()
+    .everyDays(1)
+    .atHour(8)
+    .nearMinute(30)
+    .inTimezone('Asia/Seoul')
+    .create();
+
+  ScriptApp.newTrigger('scheduledHoldingsUpdate')
+    .timeBased()
+    .everyDays(1)
+    .atHour(17)
+    .nearMinute(30)
+    .inTimezone('Asia/Seoul')
+    .create();
+
+  SpreadsheetApp.getUi().alert('✅ 종목현황 자동 업데이트 트리거 등록 완료\n- 매일 오전 8:30 (KST)\n- 매일 오후 5:30 (KST)');
+}
+
+/**
+ * 종목현황 자동 업데이트 트리거 삭제
+ */
+function deleteHoldingsTriggers() {
+  const triggers = ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'scheduledHoldingsUpdate');
+  triggers.forEach(t => ScriptApp.deleteTrigger(t));
+  SpreadsheetApp.getUi().alert(`🗑️ 종목현황 트리거 ${triggers.length}개 삭제 완료`);
+}
+
+/**
+ * 스케줄 실행용 종목현황 업데이트 (1M/3M/1Y 포함 전체)
+ * 트리거에서 직접 호출 — UI 없음
+ */
+function scheduledHoldingsUpdate() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    updateStockStatusAuto();
+    SpreadsheetApp.flush();
+    _logToTrendSheetLite(ss);
+    SpreadsheetApp.flush();
+  } catch (e) {
+    Logger.log('scheduledHoldingsUpdate 오류: ' + e);
+  }
 }
 
 function onEdit(e) {

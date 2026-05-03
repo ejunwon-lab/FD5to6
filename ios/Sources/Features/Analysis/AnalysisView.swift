@@ -28,12 +28,24 @@ private enum InsightTag {
 struct AnalysisView: View {
     @EnvironmentObject var vm: PortfolioViewModel
     @State private var expandedQuadrants: Set<String> = []
+    @State private var selectedAccountTab: AccountTab = .summary
+
+    private enum AccountTab: String, CaseIterable {
+        case summary   = "현황"
+        case profitRate = "수익률"
+        case allocation = "비중"
+        case today     = "오늘"
+        case topBottom = "종목"
+    }
 
     private struct AnnItem: Identifiable {
         let id: String
-        let name: String
+        let name: String       // 차트 카테고리 키 (baseName · duration)
+        let baseName: String   // "삼성전자 (미래_종합)"
+        let duration: String   // "1개월 2일"
         let ann: Double
         let holdingDays: Int
+        let profitRate: Double
     }
 
     private var holdings: [Holding]  { vm.portfolio?.holdings ?? [] }
@@ -46,8 +58,15 @@ struct AnalysisView: View {
                 let brokerShort = String(h.broker.prefix(2))
                 let baseName = "\(h.name) (\(brokerShort)_\(h.accountType))"
                 let duration = h.holdingDurationText ?? "\(h.holdingDays)일"
-                let name = "\(baseName) · \(duration)"
-                return AnnItem(id: h.id, name: name, ann: h.profitRate / Double(h.holdingDays) * 365, holdingDays: h.holdingDays)
+                return AnnItem(
+                    id: h.id,
+                    name: "\(baseName) · \(duration)",
+                    baseName: baseName,
+                    duration: duration,
+                    ann: h.profitRate / Double(h.holdingDays) * 365,
+                    holdingDays: h.holdingDays,
+                    profitRate: h.profitRate
+                )
             }
             .sorted { $0.ann > $1.ann }
     }
@@ -63,6 +82,7 @@ struct AnalysisView: View {
                             matrixSection
                             annualizedSection
                             position52Section
+                            accountAnalysisSection
                         }
                         allocationSection
                     }
@@ -228,15 +248,26 @@ struct AnalysisView: View {
                 .chartYAxis {
                     AxisMarks { v in
                         AxisValueLabel {
-                            if let s = v.as(String.self) {
-                                Text(s)
-                                    .font(.system(size: 11, weight: .medium))
-                                    .lineLimit(2)
+                            if let s = v.as(String.self),
+                               let item = annualizedItems.first(where: { $0.name == s }) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.baseName)
+                                        .font(.system(size: 11, weight: .medium))
+                                        .lineLimit(1)
+                                    HStack(spacing: 5) {
+                                        Text(item.duration)
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.secondary)
+                                        Text((item.profitRate >= 0 ? "+" : "") + String(format: "%.1f%%", item.profitRate))
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(item.profitRate.profitColor)
+                                    }
+                                }
                             }
                         }
                     }
                 }
-                .frame(height: max(200, CGFloat(annualizedItems.count) * 56))
+                .frame(height: max(200, CGFloat(annualizedItems.count) * 64))
             }
         }
     }
@@ -387,6 +418,224 @@ struct AnalysisView: View {
             .padding(.vertical, 2)
             .background(tag.color.opacity(0.12))
             .clipShape(Capsule())
+    }
+
+    // MARK: - 5. 계좌별 분석
+
+    private var orderedAccounts: [(key: String, value: GroupStat)] {
+        guard let byAccount = vm.portfolio?.byAccount else { return [] }
+        let order = ["종합_랩", "퇴직연금_개인IRP", "종합", "ISA", "퇴직연금_개인형IRP(범용)"]
+        let ordered = order.compactMap { k in byAccount[k].map { (key: k, value: $0) } }
+        let rest = byAccount.filter { !order.contains($0.key) }.sorted { $0.key < $1.key }.map { (key: $0.key, value: $0.value) }
+        return ordered + rest
+    }
+
+    private func accountLabel(_ key: String) -> String {
+        let map = ["퇴직연금_개인IRP": "퇴직연금_미래", "퇴직연금_개인형IRP(범용)": "퇴직연금_삼성"]
+        return map[key] ?? key
+    }
+
+    private func accountColor(_ key: String) -> Color {
+        let broker = holdings.first(where: { $0.accountType == key })?.broker.lowercased() ?? ""
+        if broker.contains("미래") { return .orange }
+        if broker.contains("삼성") { return Color(red: 0.05, green: 0.35, blue: 0.85) }
+        return .accent
+    }
+
+    private var accountAnalysisSection: some View {
+        card(title: "계좌별 분석") {
+            VStack(spacing: 16) {
+                HStack(spacing: 6) {
+                    ForEach(AccountTab.allCases, id: \.self) { tab in
+                        Button(tab.rawValue) { withAnimation(.easeInOut(duration: 0.18)) { selectedAccountTab = tab } }
+                            .font(.caption)
+                            .fontWeight(selectedAccountTab == tab ? .bold : .regular)
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .background(selectedAccountTab == tab ? Color.accent : Color.pageBg)
+                            .foregroundColor(selectedAccountTab == tab ? .white : .primary)
+                            .clipShape(Capsule())
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Group {
+                    switch selectedAccountTab {
+                    case .summary:    accountSummaryView
+                    case .profitRate: accountProfitRateView
+                    case .allocation: accountAllocationView
+                    case .today:      accountTodayView
+                    case .topBottom:  accountTopBottomView
+                    }
+                }
+            }
+        }
+    }
+
+    private var accountSummaryView: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Text("계좌").font(.caption2).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                Text("평가금액").font(.caption2).foregroundColor(.secondary).frame(width: 76, alignment: .trailing)
+                Text("수익률").font(.caption2).foregroundColor(.secondary).frame(width: 52, alignment: .trailing)
+            }
+            .padding(.bottom, 6)
+            Divider()
+            ForEach(orderedAccounts, id: \.key) { item in
+                HStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(accountLabel(item.key)).font(.caption).fontWeight(.medium).lineLimit(1)
+                        Text("매입 \(item.value.buy.krwFormatted)").font(.caption2).foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(item.value.current.krwFormatted).font(.caption).fontWeight(.medium)
+                        .frame(width: 76, alignment: .trailing)
+                    Text(item.value.profitRate.pctFormatted).font(.caption).fontWeight(.semibold)
+                        .foregroundColor(item.value.profitRate.profitColor)
+                        .frame(width: 52, alignment: .trailing)
+                }
+                .padding(.vertical, 9)
+                Divider()
+            }
+        }
+    }
+
+    private var accountProfitRateView: some View {
+        let items = orderedAccounts
+        guard !items.isEmpty else { return AnyView(EmptyView()) }
+        let rates = items.map(\.value.profitRate)
+        let xMin = min((rates.min() ?? 0) - 2, -2.0)
+        let xMax = max((rates.max() ?? 0) + 5, 5.0)
+        return AnyView(
+            Chart {
+                ForEach(items, id: \.key) { item in
+                    BarMark(x: .value("수익률", item.value.profitRate),
+                            y: .value("계좌", accountLabel(item.key)))
+                        .foregroundStyle(accountColor(item.key))
+                        .cornerRadius(4)
+                        .annotation(position: item.value.profitRate >= 0 ? .trailing : .leading) {
+                            Text(item.value.profitRate.pctFormatted)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(item.value.profitRate.profitColor)
+                                .fixedSize()
+                        }
+                }
+            }
+            .chartXScale(domain: xMin...xMax)
+            .chartXAxis {
+                AxisMarks { v in
+                    AxisGridLine().foregroundStyle(Color.secondary.opacity(0.12))
+                    AxisValueLabel {
+                        if let d = v.as(Double.self) {
+                            Text("\(Int(d))%").font(.system(size: 10)).foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+            .frame(height: CGFloat(items.count) * 52)
+        )
+    }
+
+    private var accountAllocationView: some View {
+        let items = orderedAccounts
+        let colors: [Color] = [.orange, Color(red: 0.05, green: 0.35, blue: 0.85), .accent, .teal, .purple]
+        return HStack(alignment: .center, spacing: 20) {
+            Chart(items.indices, id: \.self) { i in
+                SectorMark(angle: .value("금액", items[i].value.buy),
+                           innerRadius: .ratio(0.52), angularInset: 2)
+                    .foregroundStyle(colors[i % colors.count])
+                    .cornerRadius(4)
+            }
+            .frame(width: 116, height: 116)
+
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 0) {
+                    Text("계좌").font(.caption2).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                    Text("비중").font(.caption2).foregroundColor(.secondary).frame(width: 36, alignment: .trailing)
+                    Text("수익률").font(.caption2).foregroundColor(.secondary).frame(width: 52, alignment: .trailing)
+                }
+                Divider()
+                ForEach(items.indices, id: \.self) { i in
+                    HStack(spacing: 0) {
+                        HStack(spacing: 5) {
+                            RoundedRectangle(cornerRadius: 2).fill(colors[i % colors.count]).frame(width: 7, height: 7)
+                            Text(accountLabel(items[i].key)).font(.caption2).fontWeight(.medium).lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Text(String(format: "%.0f%%", items[i].value.pct))
+                            .font(.caption2).foregroundColor(.secondary).frame(width: 36, alignment: .trailing)
+                        Text(items[i].value.profitRate.pctFormatted)
+                            .font(.caption2).fontWeight(.medium)
+                            .foregroundColor(items[i].value.profitRate.profitColor)
+                            .frame(width: 52, alignment: .trailing)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var accountTodayView: some View {
+        var todayMap: [String: Double] = [:]
+        for h in holdings { todayMap[h.accountType, default: 0] += h.change * h.quantity }
+        return VStack(spacing: 8) {
+            ForEach(orderedAccounts, id: \.key) { item in
+                let todayAmt = todayMap[item.key] ?? 0
+                let pct = item.value.current > 0 ? todayAmt / item.value.current * 100 : 0
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(accountLabel(item.key)).font(.caption).fontWeight(.medium)
+                        Text("종목 \(item.value.count)개").font(.caption2).foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(todayAmt.krwFormatted).font(.subheadline).fontWeight(.bold)
+                            .foregroundColor(todayAmt.profitColor)
+                        Text(pct.pctFormatted).font(.caption2).foregroundColor(pct.profitColor)
+                    }
+                }
+                .padding(12)
+                .background(todayAmt.profitColor.opacity(0.07))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+        }
+    }
+
+    private var accountTopBottomView: some View {
+        VStack(spacing: 12) {
+            ForEach(orderedAccounts, id: \.key) { item in
+                let acctHoldings = holdings.filter { $0.accountType == item.key }.sorted { $0.profitRate > $1.profitRate }
+                let top    = acctHoldings.first
+                let bottom = acctHoldings.count > 1 ? acctHoldings.last : nil
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(accountLabel(item.key)).font(.caption).fontWeight(.semibold).foregroundColor(.secondary)
+                    HStack(spacing: 8) {
+                        if let top {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("대장").font(.system(size: 9, weight: .bold)).foregroundColor(.profit)
+                                Text(top.name).font(.caption2).fontWeight(.medium).lineLimit(1)
+                                Text(top.profitRate.pctFormatted).font(.caption2).bold().foregroundColor(.profit)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(8)
+                            .background(Color.profit.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                        if let bottom {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("골칫").font(.system(size: 9, weight: .bold)).foregroundColor(.loss)
+                                Text(bottom.name).font(.caption2).fontWeight(.medium).lineLimit(1)
+                                Text(bottom.profitRate.pctFormatted).font(.caption2).bold().foregroundColor(.loss)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(8)
+                            .background(Color.loss.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                    }
+                }
+                if item.key != orderedAccounts.last?.key { Divider() }
+            }
+        }
     }
 
     private func card<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {

@@ -129,7 +129,7 @@ struct DashboardView: View {
                     dayCardPressed = pressing
                     if pressing { hapticTrigger.toggle() }
                 }, perform: {
-                    Task { await vm.updateAll() }
+                    Task { await vm.updateHoldingsFast() }
                 })
                 .sensoryFeedback(.impact(weight: .medium), trigger: hapticTrigger)
             }
