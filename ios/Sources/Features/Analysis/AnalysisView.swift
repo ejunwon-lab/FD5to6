@@ -33,6 +33,7 @@ struct AnalysisView: View {
         let id: String
         let name: String
         let ann: Double
+        let holdingDays: Int
     }
 
     private var holdings: [Holding]  { vm.portfolio?.holdings ?? [] }
@@ -40,17 +41,13 @@ struct AnalysisView: View {
 
     private var annualizedItems: [AnnItem] {
         let filtered = holdings.filter { $0.holdingDays >= 30 }
-        let multiCodes = Set(
-            Dictionary(grouping: filtered, by: \.code)
-                .filter { $0.value.count > 1 }
-                .keys
-        )
         return filtered
             .map { h in
-                let name = multiCodes.contains(h.code)
-                    ? "\(h.name) (\(h.accountType))"
-                    : h.name
-                return AnnItem(id: h.id, name: name, ann: h.profitRate / Double(h.holdingDays) * 365)
+                let brokerShort = String(h.broker.prefix(2))
+                let baseName = "\(h.name) (\(brokerShort)_\(h.accountType))"
+                let duration = h.holdingDurationText ?? "\(h.holdingDays)일"
+                let name = "\(baseName) · \(duration)"
+                return AnnItem(id: h.id, name: name, ann: h.profitRate / Double(h.holdingDays) * 365, holdingDays: h.holdingDays)
             }
             .sorted { $0.ann > $1.ann }
     }
@@ -197,17 +194,6 @@ struct AnalysisView: View {
                 let range = xMax - xMin
                 let stride = [10.0, 20, 50, 100, 200, 500].first { range / $0 <= 6 } ?? 200.0
 
-                HStack(spacing: 6) {
-                    Spacer()
-                    Rectangle()
-                        .fill(Color.orange)
-                        .frame(width: 18, height: 1.5)
-                    Text("예금 3.5%")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.orange)
-                }
-                .padding(.bottom, 2)
-
                 Chart {
                     ForEach(annualizedItems) { item in
                         BarMark(
@@ -216,23 +202,15 @@ struct AnalysisView: View {
                         )
                         .foregroundStyle(item.ann >= 0 ? Color.profit : Color.loss)
                         .cornerRadius(3)
-                        .annotation(position: .trailing, alignment: .center) {
+                        .annotation(
+                            position: item.ann / xMax > 0.80 ? .overlay : .trailing,
+                            alignment: item.ann / xMax > 0.80 ? .trailing : .center
+                        ) {
                             Text(String(format: "%.1f%%", item.ann))
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(item.ann >= 0 ? .profit : .loss)
+                                .foregroundColor(item.ann / xMax > 0.80 ? .white : (item.ann >= 0 ? .profit : .loss))
+                                .padding(.trailing, item.ann / xMax > 0.80 ? 6 : 0)
                                 .fixedSize()
-                        }
-                    }
-                }
-                .chartOverlay { proxy in
-                    GeometryReader { geo in
-                        let frame = geo[proxy.plotAreaFrame]
-                        if let xPos = proxy.position(forX: 3.5) {
-                            Path { path in
-                                path.move(to: CGPoint(x: frame.minX + xPos, y: frame.minY))
-                                path.addLine(to: CGPoint(x: frame.minX + xPos, y: frame.maxY))
-                            }
-                            .stroke(Color.orange, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
                         }
                     }
                 }
@@ -251,12 +229,14 @@ struct AnalysisView: View {
                     AxisMarks { v in
                         AxisValueLabel {
                             if let s = v.as(String.self) {
-                                Text(s).font(.system(size: 12, weight: .medium))
+                                Text(s)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .lineLimit(2)
                             }
                         }
                     }
                 }
-                .frame(height: max(180, CGFloat(annualizedItems.count) * 36))
+                .frame(height: max(200, CGFloat(annualizedItems.count) * 56))
             }
         }
     }

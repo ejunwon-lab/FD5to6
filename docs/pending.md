@@ -6,10 +6,9 @@
 
 ## 🟡 확인 필요
 
-- **KIS 해외지수 API 검증** — SPX excd를 SPI→NYS로 수정함. 장중에 SPX/NDX/DJI/SOX KIS 직접 조회 동작 여부 확인 필요 (실패 시 GOOGLEFINANCE fallback)
-- **iOS 리빌드 필요** — Xcode에서 ⌘R (분석 화면 전면 개편, 참고지표 C안 레이아웃, HoldingCard 수정 포함)
-- **GAS 일회성 실행 필요** — `restoreAJ2fromLastTradingDay()` 함수를 GAS 에디터에서 한 번 실행해 AJ2:AK2 복원 (4/30 목 데이터로)
-- **연 환산 차트 예금금리선** — chartOverlay로 플롯 영역 안에만 그리도록 수정. 실제 빌드 후 동작 확인 필요
+- **연 환산 차트** — 예금금리선 제거, 긴 바 수익률 내부 표시, 막대 두께 증가, 종목명에 계좌(broker앞2자_accountType)·보유기간 인라인 표시. 실제 빌드 후 동작 확인 필요
 
 ## 🟢 예정 작업
+
+- **1M/3M/6M/1Y 수익률 정확도 개선** — 현재 주봉(W) 히스토리로 계산해서 ±7일 오차 발생. `updateStockStatusAuto` → `fetchAllStockHistory` 경로를 특정 날짜 직접 조회 방식으로 교체 필요. `getHistoricalPrice` 함수 이미 존재하므로 병렬 호출로 구현 예정.
 
