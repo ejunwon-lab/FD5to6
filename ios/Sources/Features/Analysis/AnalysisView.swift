@@ -29,6 +29,7 @@ struct AnalysisView: View {
     @EnvironmentObject var vm: PortfolioViewModel
     @State private var expandedQuadrants: Set<String> = []
     @State private var selectedAccountTab: AccountTab = .summary
+    @State private var expandedCollapsible: String? = nil
 
     private enum AccountTab: String, CaseIterable {
         case summary   = "현황"
@@ -50,6 +51,8 @@ struct AnalysisView: View {
 
     private var holdings: [Holding]  { vm.portfolio?.holdings ?? [] }
     private var totalBuy: Double     { max(vm.portfolio?.summary?.totalBuy ?? 1, 1) }
+
+
 
     private var annualizedItems: [AnnItem] {
         let filtered = holdings.filter { $0.holdingDays >= 30 }
@@ -80,11 +83,11 @@ struct AnalysisView: View {
                     VStack(spacing: 20) {
                         if !holdings.isEmpty {
                             matrixSection
+                            accountAnalysisSection
                             annualizedSection
                             position52Section
-                            accountAnalysisSection
+
                         }
-                        allocationSection
                     }
                     .padding()
                 }
@@ -114,7 +117,7 @@ struct AnalysisView: View {
             ("자본 묶임 ⚠", holdings.filter { $0.holdingDays >= threshold && $0.profitRate < 0 }, false, true),
         ]
 
-        return card(title: "투자 효율 매트릭스") {
+        return collapsibleCard(id: "matrix", title: "투자 효율 매트릭스", expandedId: $expandedCollapsible) {
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
                     Text("").frame(width: 22)
@@ -204,7 +207,7 @@ struct AnalysisView: View {
     // MARK: - 2. 연 환산 수익률
 
     private var annualizedSection: some View {
-        card(title: "연 환산 수익률") {
+        collapsibleCard(id: "annualized", title: "연 환산 수익률", expandedId: $expandedCollapsible) {
             if annualizedItems.isEmpty {
                 Text("보유 30일 이상 종목 없음")
                     .font(.caption).foregroundColor(.secondary)
@@ -282,7 +285,7 @@ struct AnalysisView: View {
             return (h, pos, insightTags(h))
         }.sorted { $0.1 > $1.1 }
 
-        return card(title: "52주 포지션") {
+        return collapsibleCard(id: "position52", title: "52주 포지션", expandedId: $expandedCollapsible) {
             VStack(spacing: 0) {
                 HStack {
                     Text("저점").font(.system(size: 10)).foregroundColor(.secondary)
@@ -336,63 +339,6 @@ struct AnalysisView: View {
         return .loss
     }
 
-    // MARK: - 4. 자본 배분 분석
-
-    private var allocationSection: some View {
-        Group {
-            if let byCategory = vm.portfolio?.byCategory, !byCategory.isEmpty {
-                let sorted = byCategory.sorted { $0.value.buy > $1.value.buy }
-                let colors: [Color] = [.accent, .purple, .teal, .orange, .pink, .green]
-
-                card(title: "자본 배분 분석") {
-                    HStack(alignment: .center, spacing: 20) {
-                        Chart(sorted.indices, id: \.self) { i in
-                            SectorMark(
-                                angle: .value("금액", sorted[i].value.buy),
-                                innerRadius: .ratio(0.52),
-                                angularInset: 2
-                            )
-                            .foregroundStyle(colors[i % colors.count])
-                            .cornerRadius(4)
-                        }
-                        .frame(width: 116, height: 116)
-
-                        VStack(alignment: .leading, spacing: 7) {
-                            HStack(spacing: 0) {
-                                Text("분류").font(.caption2).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading)
-                                Text("비중").font(.caption2).foregroundColor(.secondary).frame(width: 36, alignment: .trailing)
-                                Text("수익률").font(.caption2).foregroundColor(.secondary).frame(width: 52, alignment: .trailing)
-                            }
-                            Divider()
-                            ForEach(sorted.indices, id: \.self) { i in
-                                let stat = sorted[i].value
-                                HStack(spacing: 0) {
-                                    HStack(spacing: 5) {
-                                        RoundedRectangle(cornerRadius: 2)
-                                            .fill(colors[i % colors.count])
-                                            .frame(width: 7, height: 7)
-                                        Text(sorted[i].key)
-                                            .font(.caption2).fontWeight(.medium)
-                                            .lineLimit(1)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    Text(String(format: "%.0f%%", stat.pct))
-                                        .font(.caption2).foregroundColor(.secondary)
-                                        .frame(width: 36, alignment: .trailing)
-                                    Text(stat.profitRate.pctFormatted)
-                                        .font(.caption2).fontWeight(.medium)
-                                        .foregroundColor(stat.profitRate.profitColor)
-                                        .frame(width: 52, alignment: .trailing)
-                                }
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                }
-            }
-        }
-    }
-
     // MARK: - Helpers
 
     private func insightTags(_ h: Holding) -> [InsightTag] {
@@ -431,8 +377,9 @@ struct AnalysisView: View {
     }
 
     private func accountLabel(_ key: String) -> String {
-        let map = ["퇴직연금_개인IRP": "퇴직연금_미래", "퇴직연금_개인형IRP(범용)": "퇴직연금_삼성"]
-        return map[key] ?? key
+        let broker = holdings.first(where: { $0.accountType == key })?.broker ?? ""
+        let brokerShort = String(broker.prefix(2))
+        return brokerShort.isEmpty ? key : "\(brokerShort)_\(key)"
     }
 
     private func accountColor(_ key: String) -> Color {
@@ -443,7 +390,7 @@ struct AnalysisView: View {
     }
 
     private var accountAnalysisSection: some View {
-        card(title: "계좌별 분석") {
+        collapsibleCard(id: "account", title: "계좌별 분석", expandedId: $expandedCollapsible) {
             VStack(spacing: 16) {
                 HStack(spacing: 6) {
                     ForEach(AccountTab.allCases, id: \.self) { tab in
@@ -475,8 +422,8 @@ struct AnalysisView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 Text("계좌").font(.caption2).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading)
-                Text("평가금액").font(.caption2).foregroundColor(.secondary).frame(width: 76, alignment: .trailing)
-                Text("수익률").font(.caption2).foregroundColor(.secondary).frame(width: 52, alignment: .trailing)
+                Text("평가금액").font(.caption2).foregroundColor(.secondary).frame(width: 64, alignment: .trailing)
+                Text("수익률").font(.caption2).foregroundColor(.secondary).frame(width: 66, alignment: .trailing)
             }
             .padding(.bottom, 6)
             Divider()
@@ -487,11 +434,11 @@ struct AnalysisView: View {
                         Text("매입 \(item.value.buy.krwFormatted)").font(.caption2).foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(item.value.current.krwFormatted).font(.caption).fontWeight(.medium)
-                        .frame(width: 76, alignment: .trailing)
+                    Text(item.value.current.krwCompact).font(.caption).fontWeight(.medium)
+                        .frame(width: 64, alignment: .trailing)
                     Text(item.value.profitRate.pctFormatted).font(.caption).fontWeight(.semibold)
                         .foregroundColor(item.value.profitRate.profitColor)
-                        .frame(width: 52, alignment: .trailing)
+                        .frame(width: 66, alignment: .trailing)
                 }
                 .padding(.vertical, 9)
                 Divider()
@@ -634,6 +581,33 @@ struct AnalysisView: View {
                     }
                 }
                 if item.key != orderedAccounts.last?.key { Divider() }
+            }
+        }
+    }
+
+    // 어디를 눌러도 펼치기/접기 작동. 같은 그룹에서 하나만 열림 (accordion).
+    private func collapsibleCard<Content: View>(id: String, title: String, expandedId: Binding<String?>, @ViewBuilder content: () -> Content) -> some View {
+        let isExpanded = expandedId.wrappedValue == id
+        return VStack(alignment: .leading, spacing: isExpanded ? 14 : 0) {
+            HStack {
+                Text(title).font(.headline).foregroundColor(.primary)
+                Spacer()
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
+            if isExpanded {
+                content()
+            }
+        }
+        .padding(20)
+        .background(Color.cardBg)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                expandedId.wrappedValue = isExpanded ? nil : id
             }
         }
     }
