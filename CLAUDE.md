@@ -33,6 +33,10 @@ mkdir -p ~/.claude
 cp config/global-claude.md ~/.claude/CLAUDE.md
 ```
 
+## 코드 탐색
+코드 구조가 필요할 때 **파일 전체를 읽기 전에** `docs/code-map.md`를 먼저 읽는다.
+함수명·위치를 파악한 뒤 해당 부분만 grep 또는 offset/limit으로 읽는다.
+
 ## 핵심 규칙
 
 ### GAS 배포
