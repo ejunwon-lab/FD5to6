@@ -372,7 +372,7 @@ function scheduledHoldingsUpdate() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     updateStockStatusAuto();
     SpreadsheetApp.flush();
-    _logToTrendSheetLite(ss);
+    logToTrendSheet(ss);
     SpreadsheetApp.flush();
   } catch (e) {
     Logger.log('scheduledHoldingsUpdate 오류: ' + e);
@@ -380,6 +380,8 @@ function scheduledHoldingsUpdate() {
 }
 
 function onEdit(e) {
+  _handleFormOnEdit(e); // *거래_입력폼* 체크박스 처리
+
   const sheet = e.range.getSheet();
   const sheetName = sheet.getName();
 

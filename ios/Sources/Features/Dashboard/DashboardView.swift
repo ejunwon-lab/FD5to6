@@ -102,8 +102,11 @@ struct DashboardView: View {
                 )
 
                 let summary = vm.portfolio?.summary
-                let dayAmt = showPrevDayProfit ? (summary?.prevDayChangAmount ?? 0) : (summary?.dayChangAmount ?? 0)
-                let dayPct = showPrevDayProfit ? (summary?.prevDayChangePct ?? "0%") : (summary?.dayChangePct ?? "0%")
+                // 거래일 장 전(8:51 이전)에만 AJ2(전일 확정 diff) 사용
+                // 비거래일(공휴일·주말)에는 AH2(마지막 거래일 캐시)인 dayChangAmount 사용
+                let usePrevDayData = isBeforeMarketWindow && (summary?.isMarketDay == true)
+                let dayAmt = usePrevDayData ? (summary?.prevDayChangAmount ?? 0) : (summary?.dayChangAmount ?? 0)
+                let dayPct = usePrevDayData ? (summary?.prevDayChangePct ?? "0%") : (summary?.dayChangePct ?? "0%")
                 VStack(spacing: 6) {
                     Text(showPrevDayProfit ? "전일 수익" : "오늘의 수익")
                         .font(.subheadline)
