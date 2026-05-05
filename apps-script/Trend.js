@@ -187,6 +187,116 @@ function logToTrendSheet(ss) {
     }
     trend.getRange(writeRow, pStartCol, 1, pCols).setValues([profitRow]);
     trend.getRange('U2:AF2').setValues([profitRow]);
+
+    // 거래일이면 AH2:AI2 캐시 + 히스토리 기록
+    const _nowDow2 = now.getDay();
+    if (_nowDow2 !== 0 && _nowDow2 !== 6 && !_isKoreanHoliday(now)) {
+      trend.getRange(2, pStartCol + 13, 1, 2).setValues([[fmtNum(diffProfit), fmtPct(diffRate)]]);
+      _upsertHoldingsHistory(sys, dateOnly, timeStr);
+      updateNewPriceHistory(sys);
+    }
+  }
+}
+
+/**
+ * 종목_히스토리 시트 확보 (없으면 생성)
+ */
+/**
+ * [수동 실행용] 종목_히스토리 즉시 기록 (거래일 여부 무관)
+ * GAS 에디터에서 직접 실행
+ */
+function runHoldingsHistoryNow() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tz = 'Asia/Seoul';
+  const now = new Date();
+  const dateOnly = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  const timeStr  = Utilities.formatDate(now, tz, 'a h시 m분 s초').replace('AM', '오전').replace('PM', '오후');
+  _upsertHoldingsHistory(ss, dateOnly, timeStr);
+  Logger.log('종목_히스토리 기록 완료 — ' + dateOnly + ' ' + timeStr);
+}
+
+function _ensureHoldingsHistorySheet(ss) {
+  const name = CONFIG.SHEET_NAMES.HOLDINGS_HISTORY;
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    const header = [
+      '날짜', '시간', '종목코드', '종목명', '분류', '증권사', '구분',
+      '수량', '매입단가', '운용매입',
+      '현재단가', '운용현재가', '운용수익', '수익률(%)',
+      '당일등락', '당일(%)', '1M', '3M', '6M', '1Y', '52주최고', '52주최저'
+    ];
+    sheet.getRange(1, 1, 1, header.length).setValues([header])
+      .setFontWeight('bold').setBackground('#f0f0f0');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+/**
+ * 종목_히스토리 upsert (날짜+종목코드 기준, 보유 종목만)
+ */
+function _upsertHoldingsHistory(ss, dateOnly, timeStr) {
+  const sheet = _ensureHoldingsHistorySheet(ss);
+  const { values, idx } = getTrackerActiveData(ss);
+  const EXCLUDE = CONFIG.CODES.EXCLUDE_KEYWORDS;
+
+  // 오늘 날짜의 기존 행 번호 맵 구성 (종목코드 → 행번호)
+  const lastRow = sheet.getLastRow();
+  const existingMap = {};
+  if (lastRow >= 2) {
+    const keys = sheet.getRange(2, 1, lastRow - 1, 3).getValues(); // A(날짜), B(시간), C(코드)
+    for (let i = 0; i < keys.length; i++) {
+      if (String(keys[i][0]) === dateOnly) {
+        existingMap[String(keys[i][2])] = i + 2; // 1-based + 헤더
+      }
+    }
+  }
+
+  const toAppend = [];
+  for (const row of values) {
+    const code = String(row[idx.CODE] || '');
+    const name = String(row[idx.STATUS_NAME] || row[idx.NAME] || '');
+    if (!code || EXCLUDE.some(k => name.includes(k))) continue;
+    const qty = Number(row[idx.QUANTITY]) || 0;
+    if (qty <= 0) continue;
+
+    const opBuy    = Number(row[idx.OP_BUY])   || 0;
+    const opProfit = Number(row[idx.OP_PROFIT]) || 0;
+    const profitRate = opBuy > 0 ? Math.round(opProfit / opBuy * 10000) / 100 : 0;
+
+    const histRow = [
+      dateOnly, timeStr, code, name,
+      String(row[idx.CATEGORY]     || ''),
+      String(row[idx.BROKER]       || ''),
+      String(row[idx.ACCOUNT_TYPE] || ''),
+      qty,
+      Number(row[idx.UNIT_PRICE])    || 0,
+      opBuy,
+      Number(row[idx.CURRENT_PRICE]) || 0,
+      Number(row[idx.OP_CURRENT])    || 0,
+      opProfit,
+      profitRate,
+      row[idx.STATUS_CHANGE] || 0,
+      row[idx.STATUS_PCT]    || '',
+      row[idx.STATUS_M1]     || '',
+      row[idx.STATUS_M3]     || '',
+      row[idx.STATUS_M6]     || '',
+      row[idx.STATUS_Y1]     || '',
+      Number(row[idx.STATUS_HIGH52]) || 0,
+      Number(row[idx.STATUS_LOW52])  || 0,
+    ];
+
+    if (existingMap[code] !== undefined) {
+      sheet.getRange(existingMap[code], 1, 1, histRow.length).setValues([histRow]);
+    } else {
+      toAppend.push(histRow);
+    }
+  }
+
+  if (toAppend.length > 0) {
+    const appendRow = sheet.getLastRow() + 1;
+    sheet.getRange(appendRow, 1, toAppend.length, toAppend[0].length).setValues(toAppend);
   }
 }
 

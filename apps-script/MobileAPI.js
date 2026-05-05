@@ -252,7 +252,7 @@ function mobileUpdateHoldingsFull() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     updateStockStatusAuto();
     SpreadsheetApp.flush();
-    _logToTrendSheetLite(ss);
+    logToTrendSheet(ss);
     SpreadsheetApp.flush();
     return JSON.stringify(_buildPortfolioJSON(ss));
   } catch (e) {
@@ -271,7 +271,7 @@ function mobileUpdateHoldingsFast() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     updateStockStatusQuick();
     SpreadsheetApp.flush();
-    _logToTrendSheetLite(ss);
+    logToTrendSheet(ss);
     SpreadsheetApp.flush();
     return JSON.stringify(_buildPortfolioJSON(ss));
   } catch (e) {

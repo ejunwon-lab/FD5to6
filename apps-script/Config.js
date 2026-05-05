@@ -19,7 +19,8 @@ const CONFIG = {
     ANALYSIS:          '투자 분석',
     TRANSACTION:       '거래 입력',
     INDICATORS:        '참고지표',
-    INDICATORS_HISTORY:'참고지표_히스토리'
+    INDICATORS_HISTORY:'참고지표_히스토리',
+    HOLDINGS_HISTORY:  '종목_히스토리'
   },
 
   // ── Named Range 이름 (구글 시트 → 데이터 → 이름이 지정된 범위) ────
