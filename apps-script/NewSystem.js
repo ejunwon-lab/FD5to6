@@ -6,6 +6,7 @@
  *   *거래_입력폼*  : 거래 입력 UI (체크박스 → 원장 자동 추가)
  *   *가격_히스토리*: 날짜 × 종목코드 Wide 포맷 현재단가
  *   *포지션*       : 원장 기반 현재 보유현황 자동 계산
+ *   *실현손익*     : 매도 완료 건별 확정 손익
  */
 
 const NS = {
@@ -13,6 +14,7 @@ const NS = {
   FORM:          '*거래_입력폼*',
   PRICE_HISTORY: '*가격_히스토리*',
   POSITION:      '*포지션*',
+  REALIZED_PNL:  '*실현손익*',
 
   BROKERS:    ['미래에셋투자증권', '삼성증권'],
   ACCOUNTS: {
@@ -37,6 +39,120 @@ const NS = {
 };
 
 // ═══════════════════════════════════════════════════
+//  [수동 실행] 과거 매수/매도 이력 원장에 추가
+// ═══════════════════════════════════════════════════
+
+function importHistoricalTrades() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ledger = ss.getSheetByName(NS.LEDGER);
+  if (!ledger) { Logger.log('*거래_원장* 없음 — setupNewSystem 먼저 실행'); return; }
+
+  const data = [
+    ['2021-01-20','매수','066570','LG전자','국내주식','삼성증권','종합',65,158000,10270000,0,''],
+    ['2024-06-17','매수','381170','미래에셋TIGER미국테크TOP10INDXX증권상장지수투자신탁(주식)','국내ETF','삼성증권','퇴직연금_개인IRP(범용)',1164,24282,28264248,1183,''],
+    ['2024-06-21','매수','MU','Micron Technology','해외주식','삼성증권','종합',95,209269,19880521,0,''],
+    ['2025-01-02','매수','379800','삼성KODEX미국S&P500 ETF','국내ETF','미래에셋투자증권','종합_랩',1513,19820,29987660,1090,''],
+    ['2025-02-11','매도','379800','삼성KODEX미국S&P500 ETF','국내ETF','미래에셋투자증권','종합_랩',1513,20120,30441560,1100,''],
+    ['2025-05-12','매수','379810','KODEX 미국나스닥100','국내ETF','삼성증권','ISA',1134,19140,21704760,913,''],
+    ['2025-05-12','매수','379800','KODEX 미국S&P500','국내ETF','삼성증권','ISA',1142,18400,21012800,884,''],
+    ['2025-05-12','매수','360750','TIGER 미국S&P500','국내ETF','미래에셋투자증권','퇴직연금_개인IRP',565,20020,11311300,0,''],
+    ['2025-05-13','매도','379810','KODEX 미국나스닥100','국내ETF','삼성증권','ISA',1134,19670,22305780,937,''],
+    ['2025-05-13','매도','379800','KODEX 미국S&P500','국내ETF','삼성증권','ISA',1142,18875,21555250,907,''],
+    ['2025-05-13','매도','360750','TIGER 미국S&P500','국내ETF','미래에셋투자증권','퇴직연금_개인IRP',565,20510,11588150,0,''],
+    ['2025-05-13','매수','257720','실리콘투','국내주식','미래에셋투자증권','종합_랩',300,39175,11752500,0,''],
+    ['2025-05-13','매수','007340','DN오토모티브','국내주식','미래에셋투자증권','종합_랩',500,20800,10400000,0,''],
+    ['2025-05-21','매수','071050','한국금융지주','국내주식','미래에셋투자증권','종합_랩',100,97800,9780000,0,''],
+    ['2025-05-21','매수','0047A0','TIGER 차이나테크 TOP10','국내ETF','미래에셋투자증권','종합_랩',1490,10030,14944700,0,''],
+    ['2025-06-11','매수','390390','KODEX 미국반도체','국내ETF','삼성증권','ISA',417,24450,10195650,428,''],
+    ['2025-06-11','매수','381180','TIGER 미국필라델피아반도체나스닥','국내ETF','삼성증권','ISA',542,18790,10184180,428,''],
+    ['2025-06-11','매수','497570','TIGER 미국필라델피아AI반도체나스닥','국내ETF','삼성증권','ISA',947,10705,10137635,426,''],
+    ['2025-06-13','매도','257720','실리콘투','국내주식','미래에셋투자증권','종합_랩',300,54300,16290000,24433,''],
+    ['2025-07-04','매도','390390','KODEX 미국반도체','국내ETF','삼성증권','ISA',417,26355,10990035,461,''],
+    ['2025-07-04','매도','381180','TIGER 미국필라델피아반도체나스닥','국내ETF','삼성증권','ISA',542,20151,10922380,458,''],
+    ['2025-07-04','매도','497570','TIGER 미국필라델피아AI반도체나스닥','국내ETF','삼성증권','ISA',947,11640,11023080,463,''],
+    ['2025-07-09','매도','381170','미래에셋TIGER미국테크TOP10INDXX증권상장지수투자신탁(주식)','국내ETF','삼성증권','퇴직연금_개인IRP(범용)',1164,24470,28483080,0,''],
+    ['2025-07-09','매수','228790','TIGER 화장품','국내ETF','삼성증권','퇴직연금_개인IRP(범용)',2370,4220,10001400,0,''],
+    ['2025-07-10','매수','228790','TIGER 화장품','국내ETF','삼성증권','ISA',4749,4220,20040645,843,''],
+    ['2025-08-05','매도','007340','DN오토모티브','국내주식','미래에셋투자증권','종합_랩',500,26750,13375000,0,''],
+    ['2025-08-19','매수','196170','알테오젠','국내주식','삼성증권','ISA',25,419400,10485000,191,''],
+    ['2025-09-12','매도','MU','Micron Technology','해외주식','삼성증권','종합',95,210512,19998640,5994,''],
+    ['2025-09-16','매수','0048K0','KODEX 차이나휴머노이드로봇','국내ETF','삼성증권','퇴직연금_개인IRP(범용)',900,11160,10044000,0,''],
+    ['2025-09-17','매도','196170','알테오젠','국내주식','삼성증권','ISA',25,473000,11825000,18166,''],
+    ['2025-09-17','매수','487240','KODEX AI전력핵심설비','국내ETF','삼성증권','ISA',143,17550,2509650,105,''],
+    ['2025-09-17','매수','487240','KODEX AI전력핵심설비','국내ETF','삼성증권','퇴직연금_개인IRP(범용)',503,17630,8867890,0,''],
+    ['2025-09-22','매수','491010','TIGER 글로벌AI전력인프라액티브','국내ETF','삼성증권','종합',519,19400,10068600,423,''],
+    ['2025-09-22','매수','0053L0','TIGER 차이나휴머노이드로봇','국내ETF','삼성증권','종합',800,13610,10888000,458,''],
+    ['2025-09-24','매수','0091P0','TIGER 코리아원자력','국내ETF','삼성증권','ISA',1220,9660,11785200,495,''],
+    ['2025-09-25','매수','487240','KODEX AI전력핵심설비','국내ETF','삼성증권','종합',298,16880,5030240,211,''],
+    ['2025-10-27','매도','228790','TIGER 화장품','국내ETF','삼성증권','ISA',4749,3710,17618790,740,''],
+    ['2025-10-27','매도','228790','TIGER 화장품','국내ETF','삼성증권','퇴직연금_개인IRP(범용)',2370,3710,8792700,0,''],
+    ['2025-10-27','매수','042660','한화오션','국내주식','삼성증권','종합',80,140900,11272000,304,''],
+    ['2025-10-27','매수','042660','한화오션','국내주식','삼성증권','ISA',40,140900,5636000,304,''],
+    ['2025-10-27','매수','396500','TIGER 반도체TOP10','국내ETF','삼성증권','종합',600,18375,11025000,463,''],
+    ['2025-10-27','매수','000660','SK하이닉스','국내주식','삼성증권','종합',20,534000,10680000,339,''],
+    ['2025-10-30','매도','042660','한화오션','국내주식','삼성증권','종합',80,148100,11848000,318,''],
+    ['2025-10-30','매도','042660','한화오션','국내주식','삼성증권','ISA',40,148100,5924000,215,''],
+    ['2025-11-04','매수','000660','SK하이닉스','국내주식','삼성증권','ISA',10,581000,5810000,155,''],
+    ['2025-11-05','매도','0091P0','TIGER 코리아원자력','국내ETF','삼성증권','ISA',1220,10635,12974700,545,''],
+    ['2025-11-05','매도','396500','TIGER 반도체TOP10','국내ETF','삼성증권','종합',600,18470,11082000,465,''],
+    ['2025-11-05','매도','491010','TIGER 글로벌AI전력인프라액티브','국내ETF','삼성증권','종합',519,20740,10764060,107542,''],
+    ['2025-11-05','매도','000660','SK하이닉스','국내주식','삼성증권','종합',20,575000,11500000,17560,''],
+    ['2025-11-05','매도','000660','SK하이닉스','국내주식','삼성증권','ISA',10,575000,5750000,8779,''],
+    ['2025-11-05','매도','487240','KODEX AI전력핵심설비','국내ETF','삼성증권','종합',298,25450,7584100,318,''],
+    ['2025-11-05','매도','487240','KODEX AI전력핵심설비','국내ETF','삼성증권','ISA',143,25450,3639350,152,''],
+    ['2025-11-05','매도','487240','KODEX AI전력핵심설비','국내ETF','삼성증권','퇴직연금_개인IRP(범용)',503,25450,12801350,0,''],
+    ['2025-11-21','매수','003230','삼양식품','국내주식','미래에셋투자증권','종합_랩',24,1336167,32068008,0,''],
+    ['2025-12-20','매수','071050','한국금융지주','국내주식','미래에셋투자증권','종합_랩',100,97800,9780000,0,''],
+    ['2025-12-29','매도','071050','한국금융지주','국내주식','미래에셋투자증권','종합_랩',100,168000,16800000,0,''],
+    ['2026-01-02','매수','444200','SOL 코리아메가테크액티브','국내ETF','삼성증권','ISA',500,32000,16000000,672,''],
+    ['2026-01-06','매도','071050','한국금융지주','국내주식','미래에셋투자증권','종합_랩',100,172900,17290000,0,''],
+    ['2026-01-06','매수','005380','현대차','국내주식','삼성증권','ISA',65,307000,19955000,539,''],
+    ['2026-01-06','매수','445290','KODEX 로봇액티브','국내ETF','삼성증권','ISA',702,26440,18560880,780,''],
+    ['2026-01-06','매수','491820','HANARO 전력설비투자','국내ETF','삼성증권','퇴직연금_개인IRP(범용)',709,29785,21117565,0,''],
+    ['2026-01-06','매수','462900','KoACT 바이오헬스케어액티브','국내ETF','미래에셋투자증권','퇴직연금_개인IRP',406,23275,9449650,0,''],
+    ['2026-01-06','매수','445290','KODEX 로봇액티브','국내ETF','미래에셋투자증권','종합_랩',350,26455,9259250,0,''],
+    ['2026-01-15','매수','000660','SK하이닉스','국내주식','삼성증권','종합',27,740000,19980000,635,''],
+    ['2026-01-23','매도','444200','SOL 코리아메가테크액티브','국내ETF','삼성증권','ISA',500,38640,19320000,812,''],
+    ['2026-01-23','매도','005380','현대차','국내주식','삼성증권','ISA',65,511000,33215000,17664,''],
+    ['2026-01-23','매도','445290','KODEX 로봇액티브','국내ETF','삼성증권','ISA',702,34125,23955750,1008,''],
+    ['2026-01-28','매도','0048K0','KODEX 차이나휴머노이드로봇','국내ETF','삼성증권','퇴직연금_개인IRP(범용)',900,11440,10296000,1008,''],
+    ['2026-01-29','매수','229200','KODEX 코스닥150','국내ETF','삼성증권','퇴직연금_개인IRP(범용)',1141,19888,22692208,0,''],
+    ['2026-02-02','매도','000660','SK하이닉스','국내주식','삼성증권','종합',27,860000,23220000,1008,''],
+    ['2026-02-02','매도','491820','HANARO 전력설비투자','국내ETF','삼성증권','퇴직연금_개인IRP(범용)',709,31621,22419289,1008,''],
+    ['2026-02-12','매도','066570','LG전자','국내주식','삼성증권','종합',65,121300,7884500,15980,''],
+    ['2026-02-19','매수','0080G0','KODEX 방산TOP10','국내ETF','삼성증권','ISA',1600,12720,20352000,855,''],
+    ['2026-02-27','매도','0053L0','TIGER 차이나휴머노이드로봇','국내ETF','삼성증권','종합',800,13225,10580000,445,''],
+    ['2026-02-27','매도','462900','KoACT 바이오헬스케어액티브','국내ETF','미래에셋투자증권','퇴직연금_개인IRP',406,24570,9975420,445,''],
+    ['2026-03-10','매도','0080G0','KODEX 방산TOP10','국내ETF','삼성증권','ISA',1600,14315,22904000,445,''],
+    ['2026-03-18','매도','229200','KODEX 코스닥150','국내ETF','삼성증권','퇴직연금_개인IRP(범용)',1141,20115,22951215,0,''],
+    ['2026-03-18','매도','003230','삼양식품','국내주식','미래에셋투자증권','종합_랩',24,1109000,26616000,0,''],
+    ['2026-04-01','매도','445290','KODEX 로봇액티브','국내ETF','미래에셋투자증권','종합_랩',350,31110,10888500,3210,''],
+    ['2026-04-01','매도','0047A0','TIGER 차이나테크 TOP10','국내ETF','미래에셋투자증권','종합_랩',1490,11666,17381685,374962,''],
+  ];
+
+  // 기존 원장 데이터 + 신규 데이터 합쳐서 날짜순 정렬 후 전체 재작성
+  const lastRow = ledger.getLastRow();
+  const existing = lastRow >= 2
+    ? ledger.getRange(2, 1, lastRow - 1, 12).getValues()
+    : [];
+
+  const all = [...existing, ...data].filter(r => r[0] && r[3]);
+  all.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+
+  // 기존 데이터 지우고 재작성
+  if (lastRow >= 2) ledger.getRange(2, 1, lastRow - 1, 12).clearContent().clearFormat();
+  ledger.getRange(2, 1, all.length, 12).setValues(all);
+  all.forEach((_, i) => {
+    ledger.getRange(i + 2, 1, 1, 12).setBackground(i % 2 === 0 ? NS.ROW_EVEN : NS.ROW_ODD);
+  });
+  ledger.getRange(2, 8, all.length, 4).setNumberFormat('#,##0');
+  ledger.getRange(2, 11, all.length, 1).setNumberFormat('#,##0');
+
+  Logger.log('importHistoricalTrades 완료: 신규 ' + data.length + '건 추가, 전체 ' + all.length + '건');
+  ss.toast('과거 이력 ' + data.length + '건 추가 완료 (전체 ' + all.length + '건)', '✅ 완료', 5);
+}
+
+// ═══════════════════════════════════════════════════
 //  [수동 실행] 새 시스템 4개 시트 초기화
 // ═══════════════════════════════════════════════════
 
@@ -46,7 +162,8 @@ function setupNewSystem() {
   _setupFormSheet(ss);
   _setupPriceHistorySheet(ss);
   _setupPositionSheet(ss);
-  ss.toast('새 시스템 시트 4개 생성 완료', '✅ 완료', 4);
+  _setupRealizedPnLSheet(ss);
+  ss.toast('새 시스템 시트 5개 생성 완료', '✅ 완료', 4);
   Logger.log('setupNewSystem 완료');
 }
 
@@ -228,6 +345,24 @@ function _setupPositionSheet(ss) {
     .forEach((w, i) => sheet.setColumnWidth(i + 1, w));
 }
 
+// ───────────────────────────────────────────────────
+//  *실현손익*
+// ───────────────────────────────────────────────────
+
+function _setupRealizedPnLSheet(ss) {
+  if (ss.getSheetByName(NS.REALIZED_PNL)) { Logger.log('*실현손익* 이미 존재'); return; }
+  const sheet = ss.insertSheet(NS.REALIZED_PNL);
+  const header = ['매도일','종목코드','종목명','분류','증권사','계좌',
+                  '매도수량','매도단가','매도금액','평균매입단가','매입원가','수수료','실현손익','수익률(%)'];
+  sheet.getRange(1, 1, 1, header.length)
+    .setValues([header]).setFontWeight('bold')
+    .setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+  sheet.setFrozenRows(1);
+  [100,90,220,80,130,170,70,110,130,110,130,80,110,90]
+    .forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  Logger.log('*실현손익* 생성 완료');
+}
+
 // ═══════════════════════════════════════════════════
 //  폼 제출 처리 (onEdit 체크박스 → 호출)
 // ═══════════════════════════════════════════════════
@@ -339,8 +474,10 @@ function updatePositionFromLedger() {
 
   // 포지션 맵: key = '코드||이름||증권사||계좌'
   const posMap = {};
+  const realizedRows = [];
+
   for (const row of rows) {
-    const [date, type, code, name, cat, broker, acct, qty, price, amount] = row;
+    const [date, type, code, name, cat, broker, acct, qty, price, amount, fee] = row;
     if (!name || !type) continue;
     const key = `${code}||${name}||${broker}||${acct}`;
     if (!posMap[key]) {
@@ -354,7 +491,20 @@ function updatePositionFromLedger() {
       p.qty += q;
       p.totalCost += a;
     } else if (type === '매도') {
-      const avgCost = p.qty > 0 ? p.totalCost / p.qty : 0;
+      const avgCost   = p.qty > 0 ? p.totalCost / p.qty : 0;
+      const costBasis = Math.round(avgCost * q);
+      const sellAmt   = a;
+      const feeAmt    = Number(fee) || 0;
+      const realized  = sellAmt - costBasis - feeAmt;
+      const pnlRate   = costBasis > 0 ? Math.round(realized / costBasis * 10000) / 100 : 0;
+      const dateStr   = date instanceof Date
+        ? Utilities.formatDate(date, 'Asia/Seoul', 'yyyy-MM-dd')
+        : String(date);
+      realizedRows.push([
+        dateStr, String(code), String(name), String(cat), String(broker), String(acct),
+        q, Number(price) || 0, sellAmt,
+        Math.round(avgCost), costBasis, feeAmt, realized, pnlRate
+      ]);
       p.totalCost -= avgCost * q;
       p.qty -= q;
     }
@@ -377,7 +527,7 @@ function updatePositionFromLedger() {
   const posRows = positions.map(p => {
     const avgPrice  = p.qty > 0 ? Math.round(p.totalCost / p.qty) : 0;
     const buyAmt    = Math.round(p.totalCost);
-    const curPrice  = priceMap[p.code] || 0;
+    const curPrice  = priceMap[_normCode(p.code)] || 0;
     const curAmt    = curPrice > 0 ? Math.round(curPrice * p.qty) : 0;
     const profit    = curAmt > 0 ? curAmt - buyAmt : 0;
     const profitRate = buyAmt > 0 && curAmt > 0
@@ -412,6 +562,44 @@ function updatePositionFromLedger() {
   posSheet.getRange(sumRow, 12, 1, 1).setNumberFormat('0.00"%"');
 
   Logger.log('updatePositionFromLedger 완료: ' + positions.length + '개 종목');
+  buildDashboard();
+
+  // *실현손익* 시트 갱신
+  const pnlSheet = ss.getSheetByName(NS.REALIZED_PNL);
+  if (pnlSheet) {
+    if (pnlSheet.getLastRow() > 1) {
+      pnlSheet.getRange(2, 1, pnlSheet.getLastRow() - 1, 14).clearContent().clearFormat();
+    }
+    if (realizedRows.length > 0) {
+      const r2 = pnlSheet.getRange(2, 1, realizedRows.length, 14);
+      r2.setValues(realizedRows);
+      realizedRows.forEach((_, i) => {
+        pnlSheet.getRange(i + 2, 1, 1, 14)
+          .setBackground(i % 2 === 0 ? NS.ROW_EVEN : NS.ROW_ODD);
+      });
+      pnlSheet.getRange(2, 7,  realizedRows.length, 6).setNumberFormat('#,##0'); // 수량~매입원가
+      pnlSheet.getRange(2, 12, realizedRows.length, 2).setNumberFormat('#,##0'); // 수수료~실현손익
+      pnlSheet.getRange(2, 14, realizedRows.length, 1).setNumberFormat('0.00"%"'); // 수익률
+
+      // 합계행
+      const sumRow = realizedRows.length + 2;
+      const totalRealized = realizedRows.reduce((s, r) => s + (r[12] || 0), 0);
+      const totalCost     = realizedRows.reduce((s, r) => s + (r[10] || 0), 0);
+      const totalRate     = totalCost > 0 ? Math.round(totalRealized / totalCost * 10000) / 100 : 0;
+      pnlSheet.getRange(sumRow, 1, 1, 14)
+        .setValues([['합계','','','','','','','','','','','' ,totalRealized, totalRate]])
+        .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+      pnlSheet.getRange(sumRow, 13, 1, 1).setNumberFormat('#,##0');
+      pnlSheet.getRange(sumRow, 14, 1, 1).setNumberFormat('0.00"%"');
+    }
+    Logger.log('*실현손익* 갱신 완료: ' + realizedRows.length + '건');
+  }
+}
+
+// 순수 숫자 코드는 앞 0 제거 (005930 → 5930), 혼합 코드는 유지 (0047A0 → 0047A0)
+function _normCode(c) {
+  const s = String(c || '').trim();
+  return /^\d+$/.test(s) ? String(parseInt(s, 10)) : s;
 }
 
 function _getLatestPrices(ss) {
@@ -421,7 +609,7 @@ function _getLatestPrices(ss) {
   const lastCol = sheet.getLastColumn() - 1;
   const codes  = sheet.getRange(1, 2, 1, lastCol).getValues()[0];
   const prices = sheet.getRange(sheet.getLastRow(), 2, 1, lastCol).getValues()[0];
-  codes.forEach((c, i) => { if (c && prices[i]) priceMap[String(c)] = Number(prices[i]) || 0; });
+  codes.forEach((c, i) => { if (c && prices[i]) priceMap[_normCode(c)] = Number(prices[i]) || 0; });
   return priceMap;
 }
 
@@ -439,21 +627,21 @@ function updateNewPriceHistory(ss) {
   const ledger = ss.getSheetByName(NS.LEDGER);
   if (!sheet || !ledger || ledger.getLastRow() < 2) return;
 
-  // 거래_원장에서 KIS 조회 가능한 고유 종목코드 추출
+  // 거래_원장에서 KIS 조회 가능한 고유 종목코드 추출 (앞 0 제거 정규화)
   const ledgerRows = ledger.getRange(2, 1, ledger.getLastRow() - 1, 5).getValues();
   const codeSet = new Set();
   ledgerRows.forEach(r => {
-    const code = String(r[2] || '').trim();
+    const code = _normCode(r[2]);
     const cat  = String(r[4] || '').trim();
     if (code && !NS.KIS_SKIP.includes(cat)) codeSet.add(code);
   });
   const codes = [...codeSet].sort();
   if (codes.length === 0) return;
 
-  // 헤더 열 확인 및 신규 코드 추가
+  // 헤더 열 확인 및 신규 코드 추가 (읽을 때도 정규화)
   const lastCol = sheet.getLastColumn();
   const existingCodes = lastCol >= 2
-    ? sheet.getRange(1, 2, 1, lastCol - 1).getValues()[0].map(String).filter(Boolean)
+    ? sheet.getRange(1, 2, 1, lastCol - 1).getValues()[0].map(_normCode).filter(Boolean)
     : [];
   codes.forEach(code => {
     if (!existingCodes.includes(code)) {
@@ -465,29 +653,31 @@ function updateNewPriceHistory(ss) {
     }
   });
 
-  // 트래커 현재단가 읽기
+  // 트래커 현재단가 읽기 (코드 정규화 후 map)
   const { values, idx } = getTrackerActiveData(ss);
   const trackerPriceMap = {};
   values.forEach(row => {
-    const code  = String(row[idx.CODE] || '').trim();
+    const code  = _normCode(row[idx.CODE]);
     const price = Number(row[idx.CURRENT_PRICE]) || 0;
     if (code && price > 0) trackerPriceMap[code] = price;
   });
 
-  // 오늘 날짜 행 upsert
-  const today = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
+  // 오늘 날짜 행 upsert (날짜 prefix 일치로 판단, 셀엔 시분초 저장)
+  const now = new Date();
+  const today    = Utilities.formatDate(now, 'Asia/Seoul', 'yyyy-MM-dd');
+  const todayDT  = Utilities.formatDate(now, 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
   const lastDataRow = sheet.getLastRow();
   let todayRow = 0;
   if (lastDataRow >= 2) {
     const dates = sheet.getRange(2, 1, lastDataRow - 1, 1).getValues();
     for (let i = 0; i < dates.length; i++) {
-      if (String(dates[i][0]) === today) { todayRow = i + 2; break; }
+      if (String(dates[i][0]).startsWith(today)) { todayRow = i + 2; break; }
     }
   }
 
   const priceRow = existingCodes.map(code => trackerPriceMap[code] || '');
   const writeRow = todayRow || (sheet.getLastRow() + 1);
-  sheet.getRange(writeRow, 1).setValue(today);
+  sheet.getRange(writeRow, 1).setValue(todayDT);
   if (priceRow.length > 0) {
     sheet.getRange(writeRow, 2, 1, priceRow.length).setValues([priceRow])
       .setNumberFormat('#,##0');
