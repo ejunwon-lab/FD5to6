@@ -287,6 +287,17 @@ function onOpen() {
     .addItem("📅 종목현황 8:30/17:30 자동실행 등록", "setupHoldingsTriggers")
     .addItem("🗑️ 종목현황 자동실행 트리거 삭제", "deleteHoldingsTriggers")
     .addToUi();
+  // 새 시스템 메뉴
+  ui.createMenu('🗄️ 새 시스템')
+    .addItem('🏗️ 시트 초기화 (최초 1회)', 'setupNewSystem')
+    .addItem('📥 과거 이력 불러오기', 'importHistoricalTrades')
+    .addSeparator()
+    .addItem('🔄 포지션 재계산 + 대시보드 갱신', 'updatePositionFromLedger')
+    .addItem('📊 대시보드만 갱신', 'buildDashboard')
+    .addSeparator()
+    .addItem('💹 가격 히스토리 기록', 'updateNewPriceHistory')
+    .addItem('📋 종목 히스토리 기록', 'runHoldingsHistoryNow')
+    .addToUi();
   // 1. 매번 새로 시작할 때, 투자수익 트래커 시트에서 시작
   const trackerSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('투자수익 트래커');
   if (trackerSheet) {

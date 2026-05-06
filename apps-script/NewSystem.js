@@ -6,6 +6,7 @@
  *   *거래_입력폼*  : 거래 입력 UI (체크박스 → 원장 자동 추가)
  *   *가격_히스토리*: 날짜 × 종목코드 Wide 포맷 현재단가
  *   *포지션*       : 원장 기반 현재 보유현황 자동 계산
+ *   *실현손익*     : 매도 완료 건별 확정 손익
  */
 
 const NS = {
@@ -13,6 +14,7 @@ const NS = {
   FORM:          '*거래_입력폼*',
   PRICE_HISTORY: '*가격_히스토리*',
   POSITION:      '*포지션*',
+  REALIZED_PNL:  '*실현손익*',
 
   BROKERS:    ['미래에셋투자증권', '삼성증권'],
   ACCOUNTS: {
@@ -37,6 +39,120 @@ const NS = {
 };
 
 // ═══════════════════════════════════════════════════
+//  [수동 실행] 과거 매수/매도 이력 원장에 추가
+// ═══════════════════════════════════════════════════
+
+function importHistoricalTrades() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ledger = ss.getSheetByName(NS.LEDGER);
+  if (!ledger) { Logger.log('*거래_원장* 없음 — setupNewSystem 먼저 실행'); return; }
+
+  const data = [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+  ];
+
+  // 기존 원장 데이터 + 신규 데이터 합쳐서 날짜순 정렬 후 전체 재작성
+  const lastRow = ledger.getLastRow();
+  const existing = lastRow >= 2
+    ? ledger.getRange(2, 1, lastRow - 1, 12).getValues()
+    : [];
+
+  const all = [...existing, ...data].filter(r => r[0] && r[3]);
+  all.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+
+  // 기존 데이터 지우고 재작성
+  if (lastRow >= 2) ledger.getRange(2, 1, lastRow - 1, 12).clearContent().clearFormat();
+  ledger.getRange(2, 1, all.length, 12).setValues(all);
+  all.forEach((_, i) => {
+    ledger.getRange(i + 2, 1, 1, 12).setBackground(i % 2 === 0 ? NS.ROW_EVEN : NS.ROW_ODD);
+  });
+  ledger.getRange(2, 8, all.length, 4).setNumberFormat('#,##0');
+  ledger.getRange(2, 11, all.length, 1).setNumberFormat('#,##0');
+
+  Logger.log('importHistoricalTrades 완료: 신규 ' + data.length + '건 추가, 전체 ' + all.length + '건');
+  ss.toast('과거 이력 ' + data.length + '건 추가 완료 (전체 ' + all.length + '건)', '✅ 완료', 5);
+}
+
+// ═══════════════════════════════════════════════════
 //  [수동 실행] 새 시스템 4개 시트 초기화
 // ═══════════════════════════════════════════════════
 
@@ -46,7 +162,8 @@ function setupNewSystem() {
   _setupFormSheet(ss);
   _setupPriceHistorySheet(ss);
   _setupPositionSheet(ss);
-  ss.toast('새 시스템 시트 4개 생성 완료', '✅ 완료', 4);
+  _setupRealizedPnLSheet(ss);
+  ss.toast('새 시스템 시트 5개 생성 완료', '✅ 완료', 4);
   Logger.log('setupNewSystem 완료');
 }
 
@@ -228,6 +345,24 @@ function _setupPositionSheet(ss) {
     .forEach((w, i) => sheet.setColumnWidth(i + 1, w));
 }
 
+// ───────────────────────────────────────────────────
+//  *실현손익*
+// ───────────────────────────────────────────────────
+
+function _setupRealizedPnLSheet(ss) {
+  if (ss.getSheetByName(NS.REALIZED_PNL)) { Logger.log('*실현손익* 이미 존재'); return; }
+  const sheet = ss.insertSheet(NS.REALIZED_PNL);
+  const header = ['매도일','종목코드','종목명','분류','증권사','계좌',
+                  '매도수량','매도단가','매도금액','평균매입단가','매입원가','수수료','실현손익','수익률(%)'];
+  sheet.getRange(1, 1, 1, header.length)
+    .setValues([header]).setFontWeight('bold')
+    .setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+  sheet.setFrozenRows(1);
+  [100,90,220,80,130,170,70,110,130,110,130,80,110,90]
+    .forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  Logger.log('*실현손익* 생성 완료');
+}
+
 // ═══════════════════════════════════════════════════
 //  폼 제출 처리 (onEdit 체크박스 → 호출)
 // ═══════════════════════════════════════════════════
@@ -339,8 +474,10 @@ function updatePositionFromLedger() {
 
   // 포지션 맵: key = '코드||이름||증권사||계좌'
   const posMap = {};
+  const realizedRows = [];
+
   for (const row of rows) {
-    const [date, type, code, name, cat, broker, acct, qty, price, amount] = row;
+    const [date, type, code, name, cat, broker, acct, qty, price, amount, fee] = row;
     if (!name || !type) continue;
     const key = `${code}||${name}||${broker}||${acct}`;
     if (!posMap[key]) {
@@ -354,7 +491,20 @@ function updatePositionFromLedger() {
       p.qty += q;
       p.totalCost += a;
     } else if (type === '매도') {
-      const avgCost = p.qty > 0 ? p.totalCost / p.qty : 0;
+      const avgCost   = p.qty > 0 ? p.totalCost / p.qty : 0;
+      const costBasis = Math.round(avgCost * q);
+      const sellAmt   = a;
+      const feeAmt    = Number(fee) || 0;
+      const realized  = sellAmt - costBasis - feeAmt;
+      const pnlRate   = costBasis > 0 ? Math.round(realized / costBasis * 10000) / 100 : 0;
+      const dateStr   = date instanceof Date
+        ? Utilities.formatDate(date, 'Asia/Seoul', 'yyyy-MM-dd')
+        : String(date);
+      realizedRows.push([
+        dateStr, String(code), String(name), String(cat), String(broker), String(acct),
+        q, Number(price) || 0, sellAmt,
+        Math.round(avgCost), costBasis, feeAmt, realized, pnlRate
+      ]);
       p.totalCost -= avgCost * q;
       p.qty -= q;
     }
@@ -377,7 +527,7 @@ function updatePositionFromLedger() {
   const posRows = positions.map(p => {
     const avgPrice  = p.qty > 0 ? Math.round(p.totalCost / p.qty) : 0;
     const buyAmt    = Math.round(p.totalCost);
-    const curPrice  = priceMap[p.code] || 0;
+    const curPrice  = priceMap[_normCode(p.code)] || 0;
     const curAmt    = curPrice > 0 ? Math.round(curPrice * p.qty) : 0;
     const profit    = curAmt > 0 ? curAmt - buyAmt : 0;
     const profitRate = buyAmt > 0 && curAmt > 0
@@ -412,6 +562,44 @@ function updatePositionFromLedger() {
   posSheet.getRange(sumRow, 12, 1, 1).setNumberFormat('0.00"%"');
 
   Logger.log('updatePositionFromLedger 완료: ' + positions.length + '개 종목');
+  buildDashboard();
+
+  // *실현손익* 시트 갱신
+  const pnlSheet = ss.getSheetByName(NS.REALIZED_PNL);
+  if (pnlSheet) {
+    if (pnlSheet.getLastRow() > 1) {
+      pnlSheet.getRange(2, 1, pnlSheet.getLastRow() - 1, 14).clearContent().clearFormat();
+    }
+    if (realizedRows.length > 0) {
+      const r2 = pnlSheet.getRange(2, 1, realizedRows.length, 14);
+      r2.setValues(realizedRows);
+      realizedRows.forEach((_, i) => {
+        pnlSheet.getRange(i + 2, 1, 1, 14)
+          .setBackground(i % 2 === 0 ? NS.ROW_EVEN : NS.ROW_ODD);
+      });
+      pnlSheet.getRange(2, 7,  realizedRows.length, 6).setNumberFormat('#,##0'); // 수량~매입원가
+      pnlSheet.getRange(2, 12, realizedRows.length, 2).setNumberFormat('#,##0'); // 수수료~실현손익
+      pnlSheet.getRange(2, 14, realizedRows.length, 1).setNumberFormat('0.00"%"'); // 수익률
+
+      // 합계행
+      const sumRow = realizedRows.length + 2;
+      const totalRealized = realizedRows.reduce((s, r) => s + (r[12] || 0), 0);
+      const totalCost     = realizedRows.reduce((s, r) => s + (r[10] || 0), 0);
+      const totalRate     = totalCost > 0 ? Math.round(totalRealized / totalCost * 10000) / 100 : 0;
+      pnlSheet.getRange(sumRow, 1, 1, 14)
+        .setValues([['합계','','','','','','','','','','','' ,totalRealized, totalRate]])
+        .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+      pnlSheet.getRange(sumRow, 13, 1, 1).setNumberFormat('#,##0');
+      pnlSheet.getRange(sumRow, 14, 1, 1).setNumberFormat('0.00"%"');
+    }
+    Logger.log('*실현손익* 갱신 완료: ' + realizedRows.length + '건');
+  }
+}
+
+// 순수 숫자 코드는 앞 0 제거 (005930 → 5930), 혼합 코드는 유지 (0047A0 → 0047A0)
+function _normCode(c) {
+  const s = String(c || '').trim();
+  return /^\d+$/.test(s) ? String(parseInt(s, 10)) : s;
 }
 
 function _getLatestPrices(ss) {
@@ -421,7 +609,7 @@ function _getLatestPrices(ss) {
   const lastCol = sheet.getLastColumn() - 1;
   const codes  = sheet.getRange(1, 2, 1, lastCol).getValues()[0];
   const prices = sheet.getRange(sheet.getLastRow(), 2, 1, lastCol).getValues()[0];
-  codes.forEach((c, i) => { if (c && prices[i]) priceMap[String(c)] = Number(prices[i]) || 0; });
+  codes.forEach((c, i) => { if (c && prices[i]) priceMap[_normCode(c)] = Number(prices[i]) || 0; });
   return priceMap;
 }
 
@@ -439,21 +627,21 @@ function updateNewPriceHistory(ss) {
   const ledger = ss.getSheetByName(NS.LEDGER);
   if (!sheet || !ledger || ledger.getLastRow() < 2) return;
 
-  // 거래_원장에서 KIS 조회 가능한 고유 종목코드 추출
+  // 거래_원장에서 KIS 조회 가능한 고유 종목코드 추출 (앞 0 제거 정규화)
   const ledgerRows = ledger.getRange(2, 1, ledger.getLastRow() - 1, 5).getValues();
   const codeSet = new Set();
   ledgerRows.forEach(r => {
-    const code = String(r[2] || '').trim();
+    const code = _normCode(r[2]);
     const cat  = String(r[4] || '').trim();
     if (code && !NS.KIS_SKIP.includes(cat)) codeSet.add(code);
   });
   const codes = [...codeSet].sort();
   if (codes.length === 0) return;
 
-  // 헤더 열 확인 및 신규 코드 추가
+  // 헤더 열 확인 및 신규 코드 추가 (읽을 때도 정규화)
   const lastCol = sheet.getLastColumn();
   const existingCodes = lastCol >= 2
-    ? sheet.getRange(1, 2, 1, lastCol - 1).getValues()[0].map(String).filter(Boolean)
+    ? sheet.getRange(1, 2, 1, lastCol - 1).getValues()[0].map(_normCode).filter(Boolean)
     : [];
   codes.forEach(code => {
     if (!existingCodes.includes(code)) {
@@ -465,29 +653,31 @@ function updateNewPriceHistory(ss) {
     }
   });
 
-  // 트래커 현재단가 읽기
+  // 트래커 현재단가 읽기 (코드 정규화 후 map)
   const { values, idx } = getTrackerActiveData(ss);
   const trackerPriceMap = {};
   values.forEach(row => {
-    const code  = String(row[idx.CODE] || '').trim();
+    const code  = _normCode(row[idx.CODE]);
     const price = Number(row[idx.CURRENT_PRICE]) || 0;
     if (code && price > 0) trackerPriceMap[code] = price;
   });
 
-  // 오늘 날짜 행 upsert
-  const today = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
+  // 오늘 날짜 행 upsert (날짜 prefix 일치로 판단, 셀엔 시분초 저장)
+  const now = new Date();
+  const today    = Utilities.formatDate(now, 'Asia/Seoul', 'yyyy-MM-dd');
+  const todayDT  = Utilities.formatDate(now, 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
   const lastDataRow = sheet.getLastRow();
   let todayRow = 0;
   if (lastDataRow >= 2) {
     const dates = sheet.getRange(2, 1, lastDataRow - 1, 1).getValues();
     for (let i = 0; i < dates.length; i++) {
-      if (String(dates[i][0]) === today) { todayRow = i + 2; break; }
+      if (String(dates[i][0]).startsWith(today)) { todayRow = i + 2; break; }
     }
   }
 
   const priceRow = existingCodes.map(code => trackerPriceMap[code] || '');
   const writeRow = todayRow || (sheet.getLastRow() + 1);
-  sheet.getRange(writeRow, 1).setValue(today);
+  sheet.getRange(writeRow, 1).setValue(todayDT);
   if (priceRow.length > 0) {
     sheet.getRange(writeRow, 2, 1, priceRow.length).setValues([priceRow])
       .setNumberFormat('#,##0');
