@@ -23,18 +23,19 @@ const DB = {
 
 function buildDashboard() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const posSheet = ss.getSheetByName(NS.POSITION);
-  const pnlSheet = ss.getSheetByName(NS.REALIZED_PNL);
+  const posSheet       = ss.getSheetByName(NS.POSITION);
+  const pnlSheet       = ss.getSheetByName(NS.REALIZED_PNL);
+  const priceHistSheet = ss.getSheetByName(NS.PRICE_HISTORY);
 
   if (!posSheet) {
-    ss.toast('*포지션* 없음 — updatePositionFromLedger 먼저 실행', '⚠️', 4);
+    ss.toast('*보유현황* 없음 — updatePositionFromLedger 먼저 실행', '⚠️', 4);
     return;
   }
 
   // ── 데이터 읽기 ──
   const posRows = posSheet.getLastRow() >= 2
-    ? posSheet.getRange(2, 1, posSheet.getLastRow() - 1, 12).getValues()
-        .filter(r => String(r[0]) !== '합계' && Number(r[5]) > 0)
+    ? posSheet.getRange(2, 1, posSheet.getLastRow() - 1, 13).getValues()
+        .filter(r => String(r[0]) !== '합계' && Number(r[6]) > 0)
     : [];
 
   const pnlRows = (pnlSheet && pnlSheet.getLastRow() >= 2)
@@ -43,14 +44,20 @@ function buildDashboard() {
     : [];
 
   // ── 요약 지표 ──
-  const totalBuy    = posRows.reduce((s, r) => s + (Number(r[7]) || 0), 0);
-  const totalCur    = posRows.reduce((s, r) => s + (Number(r[9]) || 0), 0);
+  const totalBuy    = posRows.reduce((s, r) => s + (Number(r[8]) || 0), 0);
+  const totalCur    = posRows.reduce((s, r) => s + (Number(r[10]) || 0), 0);
   const opProfit    = totalCur - totalBuy;
   const opRate      = totalBuy > 0 ? opProfit / totalBuy * 100 : 0;
   const cfProfit    = pnlRows.reduce((s, r) => s + (Number(r[12]) || 0), 0);
   const totalProfit = opProfit + cfProfit;
   const winCount    = pnlRows.filter(r => Number(r[12]) > 0).length;
   const winRate     = pnlRows.length > 0 ? winCount / pnlRows.length * 100 : 0;
+
+  // ── 오늘의 수익 ──
+  const todayProfit = _calcTodayProfit(priceHistSheet, posRows);
+
+  // ── 환율 ──
+  const fx = _getFxRates(ss);
 
   // ── 시트 준비 ──
   let dash = ss.getSheetByName(DB.SHEET);
@@ -80,37 +87,55 @@ function buildDashboard() {
   r += 2;
 
   // ══════════════════════════════════
-  // [2] 요약 카드 (2행 × 3열)
+  // [2] 요약 카드 (2행 × 4열)
   // ══════════════════════════════════
   r = _dbSectionTitle(dash, r, '요약', 8);
 
-  const cards = [
-    { label: '총 매입금액',  val: _dbNum(totalBuy),     sub: '',                              bg: DB.BG_CARD_NEU, signed: false },
-    { label: '총 평가금액',  val: _dbNum(totalCur),     sub: '',                              bg: DB.BG_CARD_NEU, signed: false },
-    { label: '운용 손익',    val: _dbPnl(opProfit),     sub: _dbRate(opRate),                 bg: opProfit  >= 0 ? DB.BG_CARD_POS : DB.BG_CARD_NEG, signed: true },
-    { label: '확정 수익',    val: _dbPnl(cfProfit),     sub: pnlRows.length + '건 매도',      bg: cfProfit  >= 0 ? DB.BG_CARD_POS : DB.BG_CARD_NEG, signed: true },
-    { label: '총 수익',      val: _dbPnl(totalProfit),  sub: '',                              bg: totalProfit >= 0 ? DB.BG_CARD_POS : DB.BG_CARD_NEG, signed: true },
-    { label: '승률',         val: _dbRate(winRate),     sub: winCount + '/' + pnlRows.length + '건', bg: DB.BG_CARD_NEU, signed: false },
+  const todayBg  = todayProfit === null ? DB.BG_CARD_NEU
+                 : todayProfit >= 0 ? DB.BG_CARD_POS : DB.BG_CARD_NEG;
+  const todayVal = todayProfit === null ? '─'
+                 : (todayProfit >= 0 ? '+' : '') + Math.round(todayProfit).toLocaleString('ko-KR');
+  const fxVal    = (fx.usd > 0 || fx.gbp > 0)
+    ? 'USD ₩' + Math.round(fx.usd).toLocaleString('ko-KR') + '\nGBP ₩' + Math.round(fx.gbp).toLocaleString('ko-KR')
+    : '갱신 필요';
+
+  const cardMatrix = [
+    // ── 1행: 핵심 수치 ──
+    [
+      { label: '총 매입금액',    val: _dbNum(totalBuy),    sub: '',                               bg: DB.BG_CARD_NEU, signed: false },
+      { label: '총 평가금액',    val: _dbNum(totalCur),    sub: '',                               bg: DB.BG_CARD_NEU, signed: false },
+      { label: '총 수익',        val: _dbPnl(totalProfit), sub: '',                               bg: totalProfit >= 0 ? DB.BG_CARD_POS : DB.BG_CARD_NEG, signed: true },
+      { label: '오늘의 수익',    val: todayVal,            sub: '',                               bg: todayBg, signed: todayProfit !== null },
+    ],
+    // ── 2행: 세부 지표 ──
+    [
+      { label: 'USD / GBP',     val: fxVal,               sub: '',                               bg: DB.BG_CARD_NEU, signed: false },
+      { label: '승률',           val: _dbRate(winRate),    sub: winCount + '/' + pnlRows.length + '건', bg: DB.BG_CARD_NEU, signed: false },
+      { label: '확정 수익',      val: _dbPnl(cfProfit),    sub: pnlRows.length + '건 매도',       bg: cfProfit  >= 0 ? DB.BG_CARD_POS : DB.BG_CARD_NEG, signed: true },
+      { label: '운용 손익',      val: _dbPnl(opProfit),    sub: _dbRate(opRate),                  bg: opProfit  >= 0 ? DB.BG_CARD_POS : DB.BG_CARD_NEG, signed: true },
+    ],
   ];
 
-  for (let ci = 0; ci < 6; ci += 3) {
-    for (let j = 0; j < 3; j++) {
-      const c = cards[ci + j];
+  for (const rowCards of cardMatrix) {
+    // 라벨 행
+    for (let j = 0; j < 4; j++) {
+      const c = rowCards[j];
       dash.getRange(r, j * 2 + 1, 1, 2).merge()
         .setValue(c.label).setFontWeight('bold').setFontSize(10)
         .setBackground(c.bg).setFontColor('#555555')
         .setHorizontalAlignment('center').setVerticalAlignment('middle');
     }
     r++;
-    for (let j = 0; j < 3; j++) {
-      const c = cards[ci + j];
+    // 값 행
+    for (let j = 0; j < 4; j++) {
+      const c = rowCards[j];
       const isNeg = c.signed && String(c.val).startsWith('-');
       const fg = c.signed ? (isNeg ? DB.FG_NEG : DB.FG_POS) : '#222222';
       dash.getRange(r, j * 2 + 1, 1, 2).merge()
         .setValue(c.val + (c.sub ? '\n' + c.sub : ''))
-        .setFontSize(13).setFontWeight('bold').setBackground(c.bg).setFontColor(fg)
+        .setFontSize(12).setFontWeight('bold').setBackground(c.bg).setFontColor(fg)
         .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
-      dash.setRowHeight(r, 42);
+      dash.setRowHeight(r, 46);
     }
     r++;
   }
@@ -128,8 +153,8 @@ function buildDashboard() {
     const key = row[3] + '||' + row[4];
     if (!acctMap[key]) acctMap[key] = { broker: String(row[3]), acct: String(row[4]), cnt: 0, buy: 0, cur: 0 };
     acctMap[key].cnt++;
-    acctMap[key].buy += Number(row[7]) || 0;
-    acctMap[key].cur += Number(row[9]) || 0;
+    acctMap[key].buy += Number(row[8]) || 0;
+    acctMap[key].cur += Number(row[10]) || 0;
   });
 
   Object.values(acctMap)
@@ -164,8 +189,8 @@ function buildDashboard() {
     const cat = String(row[2]) || '기타';
     if (!catMap[cat]) catMap[cat] = { cnt: 0, buy: 0, cur: 0 };
     catMap[cat].cnt++;
-    catMap[cat].buy += Number(row[7]) || 0;
-    catMap[cat].cur += Number(row[9]) || 0;
+    catMap[cat].buy += Number(row[8]) || 0;
+    catMap[cat].cur += Number(row[10]) || 0;
   });
 
   ['국내주식','국내ETF','해외주식','해외ETF','펀드','예금','보험','기타']
@@ -197,13 +222,13 @@ function buildDashboard() {
   r++;
 
   [...posRows]
-    .sort((a, b) => (Number(b[11]) || 0) - (Number(a[11]) || 0))
+    .sort((a, b) => (Number(b[12]) || 0) - (Number(a[12]) || 0))
     .forEach((row, i) => {
-      const pnl  = Number(row[10]) || 0;
-      const rate = Number(row[11]) || 0;
+      const pnl  = Number(row[11]) || 0;
+      const rate = Number(row[12]) || 0;
       dash.getRange(r, 1, 1, 8).setValues([[
         row[1], row[2], row[3] + ' / ' + row[4],
-        _dbNum(row[5]), _dbNum(row[6]), _dbNum(row[8]),
+        _dbNum(row[6]), _dbNum(row[7]), _dbNum(row[9]),
         _dbPnl(pnl), _dbRate(rate)
       ]]);
       dash.getRange(r, 1, 1, 8).setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
@@ -309,3 +334,47 @@ function _dbColorCell(sheet, row, col, value) {
 function _dbNum(n)  { return (Number(n) || 0).toLocaleString('ko-KR'); }
 function _dbPnl(n)  { const v = Number(n) || 0; return (v >= 0 ? '+' : '') + v.toLocaleString('ko-KR'); }
 function _dbRate(n) { const v = Number(n) || 0; return (v >= 0 ? '+' : '') + v.toFixed(2) + '%'; }
+
+// ── 오늘의 수익 계산 ──────────────────────────────────
+// *현재가_이력* 마지막 2행(전일·당일) 가격 차이 × 보유수량 합산
+// 데이터 부족 시 null 반환
+function _calcTodayProfit(priceHistSheet, posRows) {
+  if (!priceHistSheet || priceHistSheet.getLastRow() < 3) return null;
+  const lastRow  = priceHistSheet.getLastRow();
+  const lastCol  = priceHistSheet.getLastColumn();
+  if (lastCol < 2) return null;
+
+  const colCount  = lastCol - 1;
+  const codes     = priceHistSheet.getRange(1, 2, 1, colCount).getValues()[0];
+  const twoRows   = priceHistSheet.getRange(lastRow - 1, 2, 2, colCount).getValues();
+  const prev      = twoRows[0];
+  const cur       = twoRows[1];
+
+  const diffMap = {};
+  codes.forEach((code, i) => {
+    if (!code) return;
+    const p = Number(prev[i]) || 0;
+    const c = Number(cur[i])  || 0;
+    if (p > 0 && c > 0) diffMap[_normCode(String(code))] = c - p;
+  });
+
+  let total = 0;
+  posRows.forEach(row => {
+    const code = _normCode(String(row[0]));
+    const qty  = Number(row[6]) || 0;
+    const diff = diffMap[code];
+    if (diff !== undefined) total += diff * qty;
+  });
+  return Math.round(total);
+}
+
+// ── 환율 읽기 (투자수익 트래커 Named Range) ──────────
+function _getFxRates(ss) {
+  try {
+    const usd = Number(getNamedRange(ss, CONFIG.NAMED_RANGES.FX_USD).getValue()) || 0;
+    const gbp = Number(getNamedRange(ss, CONFIG.NAMED_RANGES.FX_GBP).getValue()) || 0;
+    return { usd, gbp };
+  } catch (e) {
+    return { usd: 0, gbp: 0 };
+  }
+}

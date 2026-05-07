@@ -4,16 +4,16 @@
  * 시트 구성:
  *   *거래_원장*    : 전체 거래 이력 (불변 원장)
  *   *거래_입력폼*  : 거래 입력 UI (체크박스 → 원장 자동 추가)
- *   *가격_히스토리*: 날짜 × 종목코드 Wide 포맷 현재단가
- *   *포지션*       : 원장 기반 현재 보유현황 자동 계산
+ *   *현재가_이력*: 날짜 × 종목코드 Wide 포맷 현재단가
+ *   *보유현황*       : 원장 기반 현재 보유현황 자동 계산
  *   *실현손익*     : 매도 완료 건별 확정 손익
  */
 
 const NS = {
   LEDGER:        '*거래_원장*',
   FORM:          '*거래_입력폼*',
-  PRICE_HISTORY: '*가격_히스토리*',
-  POSITION:      '*포지션*',
+  PRICE_HISTORY: '*현재가_이력*',
+  POSITION:      '*보유현황*',
   REALIZED_PNL:  '*실현손익*',
 
   BROKERS:    ['미래에셋투자증권', '삼성증권'],
@@ -315,33 +315,33 @@ function _setupFormSheet(ss) {
 }
 
 // ───────────────────────────────────────────────────
-//  *가격_히스토리*
+//  *현재가_이력*
 // ───────────────────────────────────────────────────
 
 function _setupPriceHistorySheet(ss) {
-  if (ss.getSheetByName(NS.PRICE_HISTORY)) { Logger.log('*가격_히스토리* 이미 존재'); return; }
+  if (ss.getSheetByName(NS.PRICE_HISTORY)) { Logger.log('*현재가_이력* 이미 존재'); return; }
   const sheet = ss.insertSheet(NS.PRICE_HISTORY);
   sheet.getRange(1, 1).setValue('날짜')
     .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
   sheet.setColumnWidth(1, 110);
   sheet.setFrozenRows(1);
   sheet.setFrozenColumns(1);
-  Logger.log('*가격_히스토리* 생성 완료 — 종목 열은 첫 업데이트 시 자동 추가');
+  Logger.log('*현재가_이력* 생성 완료 — 종목 열은 첫 업데이트 시 자동 추가');
 }
 
 // ───────────────────────────────────────────────────
-//  *포지션*
+//  *보유현황*
 // ───────────────────────────────────────────────────
 
 function _setupPositionSheet(ss) {
-  if (ss.getSheetByName(NS.POSITION)) { Logger.log('*포지션* 이미 존재'); return; }
+  if (ss.getSheetByName(NS.POSITION)) { Logger.log('*보유현황* 이미 존재'); return; }
   const sheet = ss.insertSheet(NS.POSITION);
-  const header = ['종목코드','종목명','분류','증권사','계좌','보유수량','평균단가','매입금액','현재단가','평가금액','손익','수익률(%)','수동평가금액','비고'];
+  const header = ['종목코드','종목명','분류','증권사','계좌','보유기간','보유수량','평균단가','매입금액','현재단가','평가금액','손익','수익률(%)','수동평가금액','비고'];
   sheet.getRange(1, 1, 1, header.length)
     .setValues([header]).setFontWeight('bold')
     .setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
   sheet.setFrozenRows(1);
-  [90,220,80,130,170,70,110,130,110,130,110,90,120,100]
+  [90,220,80,130,170,90,70,110,130,110,130,110,90,120,100]
     .forEach((w, i) => sheet.setColumnWidth(i + 1, w));
 }
 
@@ -429,7 +429,7 @@ function addTransactionFromForm() {
   // 최근 입력 프리뷰 갱신
   _refreshFormPreview(ss, form, ledger);
 
-  // 포지션 자동 갱신
+  // 보유현황 자동 갱신
   updatePositionFromLedger();
 
   ss.toast(`${dateStr} ${type} ${name} ${qty.toLocaleString()}주 @${price.toLocaleString()}`, '✅ 원장에 추가됨', 5);
@@ -455,11 +455,11 @@ function _refreshFormPreview(ss, form, ledger) {
 }
 
 // ═══════════════════════════════════════════════════
-//  포지션 계산
+//  보유현황 계산
 // ═══════════════════════════════════════════════════
 
 /**
- * [수동 실행 or 자동] *거래_원장* 기반 *포지션* 재계산
+ * [수동 실행 or 자동] *거래_원장* 기반 *보유현황* 재계산
  */
 function updatePositionFromLedger() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -472,7 +472,7 @@ function updatePositionFromLedger() {
 
   const rows = ledger.getRange(2, 1, lastRow - 1, 12).getValues();
 
-  // 포지션 맵: key = '코드||이름||증권사||계좌'
+  // 보유현황 맵: key = '코드||이름||증권사||계좌'
   const posMap = {};
   const realizedRows = [];
 
@@ -482,12 +482,17 @@ function updatePositionFromLedger() {
     const key = `${code}||${name}||${broker}||${acct}`;
     if (!posMap[key]) {
       posMap[key] = { code: String(code), name: String(name), cat: String(cat),
-                      broker: String(broker), acct: String(acct), qty: 0, totalCost: 0 };
+                      broker: String(broker), acct: String(acct), qty: 0, totalCost: 0, firstDate: '' };
     }
     const p = posMap[key];
     const q = Number(qty) || 0;
     const a = Number(amount) || (q * (Number(price) || 0));
     if (type === '매수') {
+      if (p.qty <= 0) {
+        p.firstDate = date instanceof Date
+          ? Utilities.formatDate(date, 'Asia/Seoul', 'yyyy-MM-dd')
+          : String(date).slice(0, 10);
+      }
       p.qty += q;
       p.totalCost += a;
     } else if (type === '매도') {
@@ -510,61 +515,98 @@ function updatePositionFromLedger() {
     }
   }
 
-  // 현재단가 (*가격_히스토리* 최신 행에서)
+  // 현재단가 (*현재가_이력* 최신 행에서)
   const priceMap = _getLatestPrices(ss);
 
-  // 보유 중인 포지션만, 증권사/계좌 순 정렬
+  // 보유 중인 보유현황만, 증권사/계좌 순 정렬
   const positions = Object.values(posMap)
     .filter(p => p.qty > 0.0001)
     .sort((a, b) => a.broker.localeCompare(b.broker) || a.acct.localeCompare(b.acct));
 
+  // 수동 입력값 백업 (지우기 전) — 키: 종목명|증권사|계좌
+  // 펀드/예금/보험은 KIS 가격 없음 → 현재단가·평가금액·수동평가금액 모두 보존
+  // 보유기간 열 추가 전(14열) / 후(15열) 레이아웃 자동 감지
+  const manualMap = {};
+  if (posSheet.getLastRow() > 1) {
+    const sheetCols  = posSheet.getLastColumn();
+    const isNewLayout = sheetCols >= 15;
+    const iCP = isNewLayout ? 9  : 8;   // 현재단가 인덱스
+    const iCA = isNewLayout ? 10 : 9;   // 평가금액 인덱스
+    const iMA = isNewLayout ? 13 : 12;  // 수동평가금액 인덱스
+    posSheet.getRange(2, 1, posSheet.getLastRow() - 1, sheetCols).getValues()
+      .forEach(r => {
+        if (String(r[1]).trim() === '합계' || String(r[0]).trim() === '합계') return;
+        const k             = `${String(r[1]).trim()}|${String(r[3]).trim()}|${String(r[4]).trim()}`;
+        const savedCurPrice = Number(r[iCP]) || 0;
+        const savedCurAmt   = Number(r[iCA]) || 0;
+        const savedManual   = Number(r[iMA]) || 0;
+        if (savedCurPrice > 0 || savedCurAmt > 0 || savedManual > 0) {
+          manualMap[k] = { curPrice: savedCurPrice, curAmt: savedCurAmt || savedManual, manualAmt: savedManual };
+        }
+      });
+  }
+
   // 기존 데이터 지우기 (헤더 제외)
   if (posSheet.getLastRow() > 1) {
-    posSheet.getRange(2, 1, posSheet.getLastRow() - 1, 14).clearContent().clearFormat();
+    posSheet.getRange(2, 1, posSheet.getLastRow() - 1, 15).clearContent().clearFormat();
   }
   if (positions.length === 0) return;
 
   const posRows = positions.map(p => {
-    const avgPrice  = p.qty > 0 ? Math.round(p.totalCost / p.qty) : 0;
-    const buyAmt    = Math.round(p.totalCost);
-    const curPrice  = priceMap[_normCode(p.code)] || 0;
-    const curAmt    = curPrice > 0 ? Math.round(curPrice * p.qty) : 0;
+    const key      = `${String(p.name).trim()}|${String(p.broker).trim()}|${String(p.acct).trim()}`;
+    const saved    = manualMap[key] || {};
+    const manualAmt = saved.manualAmt || 0;
+    const avgPrice = p.qty > 0 ? Math.round(p.totalCost / p.qty) : 0;
+    const buyAmt   = Math.round(p.totalCost);
+    let curPrice, curAmt;
+    if (NS.KIS_SKIP.includes(p.cat)) {
+      // 펀드/예금/보험: KIS 가격 없으므로 수동 입력값 그대로 보존
+      curPrice = saved.curPrice || 0;
+      curAmt   = saved.curAmt   > 0 ? saved.curAmt
+               : manualAmt      > 0 ? manualAmt
+               : curPrice       > 0 ? Math.round(curPrice * p.qty)
+               : 0;
+    } else {
+      curPrice = priceMap[_normCode(p.code)] || 0;
+      curAmt   = curPrice > 0 ? Math.round(curPrice * p.qty) : manualAmt;
+    }
     const profit    = curAmt > 0 ? curAmt - buyAmt : 0;
     const profitRate = buyAmt > 0 && curAmt > 0
       ? Math.round(profit / buyAmt * 10000) / 100 : 0;
     return [p.code, p.name, p.cat, p.broker, p.acct,
-            p.qty, avgPrice, buyAmt, curPrice, curAmt, profit, profitRate, '', ''];
+            _holdingPeriod(p.firstDate),
+            p.qty, avgPrice, buyAmt, curPrice, curAmt, profit, profitRate, manualAmt, ''];
   });
 
-  posSheet.getRange(2, 1, posRows.length, 14).setValues(posRows);
+  posSheet.getRange(2, 1, posRows.length, 15).setValues(posRows);
 
   // 서식
   posRows.forEach((_, i) => {
-    posSheet.getRange(i + 2, 1, 1, 14)
+    posSheet.getRange(i + 2, 1, 1, 15)
       .setBackground(i % 2 === 0 ? NS.ROW_EVEN : NS.ROW_ODD);
   });
-  posSheet.getRange(2, 6, posRows.length, 1).setNumberFormat('#,##0');          // 수량
-  posSheet.getRange(2, 7, posRows.length, 5).setNumberFormat('#,##0');          // 단가~손익
-  posSheet.getRange(2, 12, posRows.length, 1).setNumberFormat('0.00"%"');       // 수익률
-  posSheet.getRange(2, 13, posRows.length, 1).setNumberFormat('#,##0');         // 수동평가금액
+  posSheet.getRange(2, 7, posRows.length, 1).setNumberFormat('#,##0');          // 수량
+  posSheet.getRange(2, 8, posRows.length, 5).setNumberFormat('#,##0');          // 단가~손익
+  posSheet.getRange(2, 13, posRows.length, 1).setNumberFormat('0.00"%"');       // 수익률
+  posSheet.getRange(2, 14, posRows.length, 1).setNumberFormat('#,##0');         // 수동평가금액
 
   // 합계행
   const sumRow = posRows.length + 2;
-  const totalBuy    = posRows.reduce((s, r) => s + (r[7]  || 0), 0);
-  const totalCur    = posRows.reduce((s, r) => s + (r[9]  || 0), 0);
-  const totalProfit = posRows.reduce((s, r) => s + (r[10] || 0), 0);
+  const totalBuy    = posRows.reduce((s, r) => s + (r[8]  || 0), 0);
+  const totalCur    = posRows.reduce((s, r) => s + (r[10] || 0), 0);
+  const totalProfit = posRows.reduce((s, r) => s + (r[11] || 0), 0);
   const totalRate   = totalBuy > 0 && totalCur > 0
     ? Math.round(totalProfit / totalBuy * 10000) / 100 : 0;
-  posSheet.getRange(sumRow, 1, 1, 14)
-    .setValues([['합계','','','','','','' ,totalBuy,'',totalCur,totalProfit,totalRate,'','']])
+  posSheet.getRange(sumRow, 1, 1, 15)
+    .setValues([['합계','','','','','','','',totalBuy,'',totalCur,totalProfit,totalRate,'','']])
     .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
-  posSheet.getRange(sumRow, 8, 1, 4).setNumberFormat('#,##0');
-  posSheet.getRange(sumRow, 12, 1, 1).setNumberFormat('0.00"%"');
+  posSheet.getRange(sumRow, 9, 1, 4).setNumberFormat('#,##0');
+  posSheet.getRange(sumRow, 13, 1, 1).setNumberFormat('0.00"%"');
 
   Logger.log('updatePositionFromLedger 완료: ' + positions.length + '개 종목');
-  buildDashboard();
 
-  // *실현손익* 시트 갱신
+  // *실현손익* 시트 갱신 (없으면 자동 생성)
+  _setupRealizedPnLSheet(ss);
   const pnlSheet = ss.getSheetByName(NS.REALIZED_PNL);
   if (pnlSheet) {
     if (pnlSheet.getLastRow() > 1) {
@@ -594,6 +636,21 @@ function updatePositionFromLedger() {
     }
     Logger.log('*실현손익* 갱신 완료: ' + realizedRows.length + '건');
   }
+
+  buildDashboard();
+}
+
+// 보유기간 → "X년 Y개월 Z일" 형식 (0년/0개월은 생략)
+function _holdingPeriod(dateStr) {
+  if (!dateStr) return '';
+  const start = new Date(String(dateStr).replace(' ', 'T'));
+  const now   = new Date();
+  let y = now.getFullYear() - start.getFullYear();
+  let m = now.getMonth()    - start.getMonth();
+  let d = now.getDate()     - start.getDate();
+  if (d < 0) { m--; d += new Date(now.getFullYear(), now.getMonth(), 0).getDate(); }
+  if (m < 0) { y--; m += 12; }
+  return (y > 0 ? y + '년 ' : '') + (m > 0 ? m + '개월 ' : '') + d + '일';
 }
 
 // 순수 숫자 코드는 앞 0 제거 (005930 → 5930), 혼합 코드는 유지 (0047A0 → 0047A0)
@@ -614,11 +671,11 @@ function _getLatestPrices(ss) {
 }
 
 // ═══════════════════════════════════════════════════
-//  *가격_히스토리* 업데이트 (logToTrendSheet에서 거래일에 호출)
+//  *현재가_이력* 업데이트 (logToTrendSheet에서 거래일에 호출)
 // ═══════════════════════════════════════════════════
 
 /**
- * 트래커 현재단가 → *가격_히스토리* Wide 포맷으로 upsert
+ * 트래커 현재단가 → *현재가_이력* Wide 포맷으로 upsert
  * KIS 업데이트(updateStockStatus) 완료 후 호출해야 함
  */
 function updateNewPriceHistory(ss) {
