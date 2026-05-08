@@ -669,6 +669,59 @@ function _normCode(c) {
   return /^\d+$/.test(s) ? String(parseInt(s, 10)) : s;
 }
 
+// ═══════════════════════════════════════════════════
+//  [수동 실행] 새 구글 시트로 마이그레이션
+//  실행 후 Apps Script 로그에서 새 시트 URL + ID 확인
+// ═══════════════════════════════════════════════════
+function migrateToNewSpreadsheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const newSs = SpreadsheetApp.create('FD5to6 뉴시스템');
+  Logger.log('새 스프레드시트 생성: ' + newSs.getUrl());
+  Logger.log('스프레드시트 ID: ' + newSs.getId());
+
+  // 데이터 시트 복사 (보유현황·대시보드·입력폼은 새 시트에서 재생성)
+  [NS.LEDGER, NS.PRICE_HISTORY, NS.REALIZED_PNL].forEach(name => {
+    const sheet = ss.getSheetByName(name);
+    if (!sheet) { Logger.log(name + ' 없음 — 건너뜀'); return; }
+    const copied = sheet.copyTo(newSs);
+    copied.setName(name);
+    Logger.log(name + ' 복사 완료');
+  });
+
+  // 기본 Sheet1 제거
+  const def = newSs.getSheetByName('Sheet1');
+  if (def && newSs.getSheets().length > 1) newSs.deleteSheet(def);
+
+  // 나머지 시트 신규 생성 (데이터 없는 시트들)
+  _setupPositionSheet(newSs);
+  _setupFormSheet(newSs);
+  _setupSettingsSheet(newSs);
+
+  const url = newSs.getUrl();
+  Logger.log('──────────────────────────────────────────');
+  Logger.log('✅ 마이그레이션 완료');
+  Logger.log('새 시트 URL: ' + url);
+  Logger.log('새 시트 Script ID는 새 시트에서 확장 → Apps Script → 프로젝트 설정에서 확인');
+  Logger.log('──────────────────────────────────────────');
+  ss.toast('마이그레이션 완료! Apps Script 로그(Ctrl+Enter)에서 URL 확인', '✅', 10);
+}
+
+// FX 환율 수동 입력 시트
+function _setupSettingsSheet(ss) {
+  if (ss.getSheetByName('*설정*')) return;
+  const sheet = ss.insertSheet('*설정*');
+  const hdr = [['항목', '값', '설명']];
+  sheet.getRange(1, 1, 1, 3).setValues(hdr).setFontWeight('bold')
+    .setBackground('#1a1a2e').setFontColor('#ffffff');
+  sheet.getRange(2, 1, 2, 3).setValues([
+    ['USD/KRW', 1400, 'USD 환율 (직접 입력)'],
+    ['GBP/KRW', 1700, 'GBP 환율 (직접 입력)'],
+  ]);
+  [120, 100, 200].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  sheet.setFrozenRows(1);
+}
+
 function _getLatestPrices(ss) {
   const priceMap = {};
   const sheet = ss.getSheetByName(NS.PRICE_HISTORY);
