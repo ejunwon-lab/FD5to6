@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { gasApi } from '../../api/gasApi'
-import { useAuth } from '../../auth/AuthContext'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { profitTextClass } from '../../utils/format'
@@ -53,7 +52,7 @@ function IndicatorRow({ ind }: { ind: ReferenceIndicator }) {
 }
 
 export function IndicatorsPage() {
-  const { getToken } = useAuth()
+
   const [indicators, setIndicators] = useState<ReferenceIndicator[]>([])
   const [updatedAt, setUpdatedAt] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -63,8 +62,7 @@ export function IndicatorsPage() {
   const fetch = useCallback(async (refresh = false) => {
     try {
       refresh ? setIsRefreshing(true) : setIsLoading(true)
-      const token = await getToken()
-      const res = await gasApi.getIndicators(token)
+      const res = await gasApi.getIndicators()
       if (res.success && res.indicators) {
         setIndicators(res.indicators)
         setUpdatedAt(res.updatedAt ?? '')
@@ -77,7 +75,7 @@ export function IndicatorsPage() {
     } finally {
       refresh ? setIsRefreshing(false) : setIsLoading(false)
     }
-  }, [getToken])
+  }, [])
 
   useEffect(() => { fetch() }, [fetch])
 
