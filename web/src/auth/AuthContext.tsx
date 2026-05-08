@@ -1,54 +1,138 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { KEY_STORAGE, gasApi } from '../api/gasApi'
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
+
+const SCOPES = [
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/script.projects',
+  'https://www.googleapis.com/auth/script.external_request',
+  'https://www.googleapis.com/auth/script.storage',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/userinfo.profile',
+].join(' ')
+
+const TOKEN_KEY = 'gis_access_token'
+const EXPIRES_KEY = 'gis_expires_at'
+const SILENT_TIMEOUT_MS = 3000
 
 interface AuthState {
   isSignedIn: boolean
+  token: string | null
+  userEmail: string
   isLoading: boolean
 }
 
 interface AuthContextValue extends AuthState {
-  signIn: (key: string) => Promise<void>
+  signIn: () => void
   signOut: () => void
+  getToken: () => Promise<string>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>({ isSignedIn: false, isLoading: true })
+  const [state, setState] = useState<AuthState>({
+    isSignedIn: false,
+    token: null,
+    userEmail: '',
+    isLoading: true,
+  })
+  const tokenClientRef = useRef<google.accounts.oauth2.TokenClient | null>(null)
+  const resolversRef = useRef<Array<(token: string) => void>>([])
+  const silentTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
-    const key = localStorage.getItem(KEY_STORAGE)
-    setState({ isSignedIn: !!key, isLoading: false })
+  const clearSilentTimeout = useCallback(() => {
+    if (silentTimeoutRef.current) {
+      clearTimeout(silentTimeoutRef.current)
+      silentTimeoutRef.current = null
+    }
   }, [])
 
-  // gas-unauthorized 이벤트 수신 시 자동 로그아웃
-  useEffect(() => {
-    const handler = () => {
-      localStorage.removeItem(KEY_STORAGE)
-      setState({ isSignedIn: false, isLoading: false })
-    }
-    window.addEventListener('gas-unauthorized', handler)
-    return () => window.removeEventListener('gas-unauthorized', handler)
-  }, [])
+  const storeToken = useCallback((token: string, expiresIn: number) => {
+    clearSilentTimeout()
+    const expiresAt = Date.now() + expiresIn * 1000
+    localStorage.setItem(TOKEN_KEY, token)
+    localStorage.setItem(EXPIRES_KEY, String(expiresAt))
+    setState(s => ({ ...s, isSignedIn: true, token, isLoading: false }))
+    resolversRef.current.forEach(r => r(token))
+    resolversRef.current = []
+  }, [clearSilentTimeout])
 
-  const signIn = useCallback(async (key: string) => {
-    localStorage.setItem(KEY_STORAGE, key)
-    try {
-      await gasApi.ping()
-      setState({ isSignedIn: true, isLoading: false })
-    } catch (e) {
-      localStorage.removeItem(KEY_STORAGE)
-      throw e
+  const clearToken = useCallback(() => {
+    clearSilentTimeout()
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(EXPIRES_KEY)
+    setState({ isSignedIn: false, token: null, userEmail: '', isLoading: false })
+  }, [clearSilentTimeout])
+
+  const initClient = useCallback(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+    if (!clientId) {
+      console.error('VITE_GOOGLE_CLIENT_ID is not set')
+      setState(s => ({ ...s, isLoading: false }))
+      return
     }
+    tokenClientRef.current = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: SCOPES,
+      callback: (response) => {
+        if (response.error) {
+          clearToken()
+          return
+        }
+        storeToken(response.access_token, response.expires_in)
+      },
+    })
+
+    const savedToken = localStorage.getItem(TOKEN_KEY)
+    const savedExpires = Number(localStorage.getItem(EXPIRES_KEY) ?? 0)
+    if (savedToken && savedExpires > Date.now() + 60_000) {
+      setState(s => ({ ...s, isSignedIn: true, token: savedToken, isLoading: false }))
+    } else {
+      // 토큰 없거나 만료 — 3초간 무음 갱신 시도, 실패 시 로그인 버튼 표시
+      silentTimeoutRef.current = setTimeout(() => {
+        silentTimeoutRef.current = null
+        setState(s => s.isLoading ? { ...s, isLoading: false } : s)
+      }, SILENT_TIMEOUT_MS)
+      tokenClientRef.current?.requestAccessToken({ prompt: '' })
+    }
+  }, [storeToken, clearToken])
+
+  useEffect(() => {
+    let tries = 0
+    const poll = setInterval(() => {
+      tries++
+      if (typeof google !== 'undefined') {
+        clearInterval(poll)
+        initClient()
+      } else if (tries > 50) {
+        clearInterval(poll)
+        setState(s => ({ ...s, isLoading: false }))
+      }
+    }, 100)
+    return () => clearInterval(poll)
+  }, [initClient])
+
+  const signIn = useCallback(() => {
+    tokenClientRef.current?.requestAccessToken({ prompt: '' })
   }, [])
 
   const signOut = useCallback(() => {
-    localStorage.removeItem(KEY_STORAGE)
-    setState({ isSignedIn: false, isLoading: false })
+    clearToken()
+  }, [clearToken])
+
+  const getToken = useCallback((): Promise<string> => {
+    const savedToken = localStorage.getItem(TOKEN_KEY)
+    const savedExpires = Number(localStorage.getItem(EXPIRES_KEY) ?? 0)
+    if (savedToken && savedExpires > Date.now() + 60_000) {
+      return Promise.resolve(savedToken)
+    }
+    return new Promise<string>((resolve) => {
+      resolversRef.current.push(resolve)
+      tokenClientRef.current?.requestAccessToken({ prompt: '' })
+    })
   }, [])
 
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signOut }}>
+    <AuthContext.Provider value={{ ...state, signIn, signOut, getToken }}>
       {children}
     </AuthContext.Provider>
   )

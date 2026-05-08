@@ -1,16 +1,16 @@
 import type { PortfolioResponse, IndicatorsResponse, TrendHistoryResponse } from '../models/types'
 
-export const KEY_STORAGE = 'app_key'
+const SCRIPT_ID = '12MAcPpoVE39N_Sz0B79G0rjGvevJ8-S_ibVC1Ot61fyVPZnaSQmrJyiR'
+const BASE_URL = 'https://script.googleapis.com/v1/scripts'
 
-async function callGAS<T>(action: string): Promise<T> {
-  const key = localStorage.getItem(KEY_STORAGE)
-  if (!key) throw new Error('NO_KEY')
-
-  const url = import.meta.env.VITE_GAS_WEBAPP_URL
-  if (!url) throw new Error('VITE_GAS_WEBAPP_URL not set')
-
-  const res = await fetch(`${url}?${new URLSearchParams({ action, key })}`, {
-    redirect: 'follow',
+async function callGAS<T>(functionName: string, token: string): Promise<T> {
+  const res = await fetch(`${BASE_URL}/${SCRIPT_ID}:run`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ function: functionName, devMode: true }),
   })
 
   if (!res.ok) {
@@ -20,22 +20,25 @@ async function callGAS<T>(action: string): Promise<T> {
 
   const raw = await res.json()
 
-  if (raw?.error === 'UNAUTHORIZED') {
-    window.dispatchEvent(new Event('gas-unauthorized'))
-    throw new Error('UNAUTHORIZED')
+  if (raw.error) {
+    throw new Error(raw.error.message ?? 'GAS 실행 오류')
   }
-  if (raw?.error) throw new Error(raw.error)
 
-  return typeof raw === 'string' ? JSON.parse(raw) : (raw as T)
+  const result = raw.response?.result
+  if (result === undefined || result === null) {
+    throw new Error('GAS 응답 없음')
+  }
+
+  const parsed: T = typeof result === 'string' ? JSON.parse(result) : result
+  return parsed
 }
 
 export const gasApi = {
-  ping:           () => callGAS<{ ok: boolean }>('ping'),
-  getPortfolio:   () => callGAS<PortfolioResponse>('getPortfolio'),
-  triggerUpdate:  () => callGAS<PortfolioResponse>('triggerUpdate'),
-  updateFull:     () => callGAS<PortfolioResponse>('updateFull'),
-  updateFast:     () => callGAS<PortfolioResponse>('updateFast'),
-  updateAll:      () => callGAS<PortfolioResponse>('updateAll'),
-  getIndicators:  () => callGAS<IndicatorsResponse>('getIndicators'),
-  getProfitHistory: () => callGAS<TrendHistoryResponse>('getProfitHistory'),
+  getPortfolio:    (token: string) => callGAS<PortfolioResponse>('mobileGetPortfolio', token),
+  triggerUpdate:   (token: string) => callGAS<PortfolioResponse>('mobileTriggerUpdate', token),
+  updateFull:      (token: string) => callGAS<PortfolioResponse>('mobileUpdateHoldingsFull', token),
+  updateFast:      (token: string) => callGAS<PortfolioResponse>('mobileUpdateHoldingsFast', token),
+  updateAll:       (token: string) => callGAS<PortfolioResponse>('mobileUpdateAll', token),
+  getIndicators:   (token: string) => callGAS<IndicatorsResponse>('mobileGetReferenceIndicators', token),
+  getProfitHistory:(token: string) => callGAS<TrendHistoryResponse>('mobileGetProfitHistory', token),
 }

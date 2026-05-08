@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { gasApi } from '../../api/gasApi'
+import { useAuth } from '../../auth/AuthContext'
 import { krwCompact } from '../../utils/format'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
@@ -26,7 +27,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 }
 
 export function ProfitHistoryChart() {
-
+  const { getToken } = useAuth()
   const [entries, setEntries] = useState<TrendEntry[]>([])
   const [range, setRange] = useState<Range>('1M')
   const [loading, setLoading] = useState(true)
@@ -35,7 +36,8 @@ export function ProfitHistoryChart() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    gasApi.getProfitHistory()
+    getToken()
+      .then(token => gasApi.getProfitHistory(token))
       .then(res => {
         if (!cancelled && res.entries) setEntries(res.entries)
       })
@@ -46,7 +48,7 @@ export function ProfitHistoryChart() {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [])
+  }, [getToken])
 
   const filtered = entries.slice(-RANGE_DAYS[range])
   const profits = filtered.map(e => e.totalProfit)
