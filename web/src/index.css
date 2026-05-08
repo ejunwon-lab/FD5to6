@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --card-bg: 255 255 255;
+  --page-bg: 242 242 247;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --card-bg: 44 44 46;
+    --page-bg: 28 28 30;
+  }
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: rgb(var(--page-bg));
+  overscroll-behavior: none;
+}
+
+/* iOS-style scrolling */
+.scroll-smooth {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Animated expand */
+.expand-enter {
+  max-height: 0;
+  overflow: hidden;
+}
+.expand-enter-active {
+  max-height: 500px;
+  transition: max-height 0.3s ease;
+}
