@@ -54,7 +54,7 @@ function handleBuy(ss, sheet, data) {
     const existingQty   = Number(sheet.getRange(matchRow, cols.QUANTITY).getValue() || 0);
     const existingPrice = Number(sheet.getRange(matchRow, cols.UNIT_PRICE).getValue() || 0);
     const newQty        = existingQty + quantity;
-    const newAvgPrice   = ((existingQty * existingPrice) + (quantity * price)) / newQty;
+    const newAvgPrice   = ((existingQty * existingPrice) + (quantity * price) + fee) / newQty;
 
     sheet.getRange(matchRow, cols.QUANTITY).setValue(newQty);
     sheet.getRange(matchRow, cols.UNIT_PRICE).setValue(Math.round(newAvgPrice));
@@ -75,7 +75,7 @@ function handleBuy(ss, sheet, data) {
     sheet.getRange(emptyRow, cols.ACCOUNT_TYPE).setValue(accountType);
     sheet.getRange(emptyRow, cols.STOCK_NAME).setValue(name);    // H열
     sheet.getRange(emptyRow, cols.QUANTITY).setValue(quantity);
-    sheet.getRange(emptyRow, cols.UNIT_PRICE).setValue(price);
+    sheet.getRange(emptyRow, cols.UNIT_PRICE).setValue(Math.round((quantity * price + fee) / quantity));
     sheet.getRange(emptyRow, cols.FEE).setValue(fee);
     sheet.getRange(emptyRow, cols.STATUS_NAME).setValue(name);   // R열
   }
