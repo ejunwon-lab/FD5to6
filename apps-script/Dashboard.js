@@ -64,7 +64,7 @@ function buildDashboard() {
   if (!dash) dash = ss.insertSheet(DB.SHEET);
   dash.clearContents();
   dash.clearFormats();
-  [160, 110, 110, 110, 110, 110, 110, 110]
+  [160, 110, 110, 110, 110, 110, 110, 110, 90]
     .forEach((w, i) => dash.setColumnWidth(i + 1, w));
 
   let r = 1;
@@ -163,7 +163,7 @@ function buildDashboard() {
       const pnl = a.cur - a.buy;
       const rate = a.buy > 0 ? pnl / a.buy * 100 : 0;
       const wt   = totalCur > 0 ? a.cur / totalCur * 100 : 0;
-      dash.getRange(r, 1, 1, 8).setValues([[a.broker, a.acct, a.cnt,
+      dash.getRange(r, 1, 1, 8).setValues([[_shortBroker(a.broker), a.acct, a.cnt,
         _dbNum(a.buy), _dbNum(a.cur), _dbPnl(pnl), _dbRate(rate), _dbRate(wt)]]);
       dash.getRange(r, 1, 1, 8).setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
       _dbColorCell(dash, r, 6, pnl); _dbColorCell(dash, r, 7, rate);
@@ -217,8 +217,8 @@ function buildDashboard() {
   // ══════════════════════════════════
   // [5] 보유 종목 현황 (수익률 순)
   // ══════════════════════════════════
-  r = _dbSectionTitle(dash, r, '보유 종목 현황 (수익률 순)', 8);
-  _dbHeader(dash, r, 1, ['종목명', '분류', '증권사 / 계좌', '수량', '평균단가', '현재단가', '손익', '수익률']);
+  r = _dbSectionTitle(dash, r, '보유 종목 현황 (수익률 순)', 9);
+  _dbHeader(dash, r, 1, ['종목명', '분류', '증권사 / 계좌', '수량', '평균단가', '현재단가', '손익', '수익률', '보유기간']);
   r++;
 
   [...posRows]
@@ -226,10 +226,10 @@ function buildDashboard() {
     .forEach((row, i) => {
       const pnl  = Number(row[11]) || 0;
       const rate = Number(row[12]) || 0;
-      dash.getRange(r, 1, 1, 8).setValues([[
-        row[1], row[2], row[3] + ' / ' + row[4],
+      dash.getRange(r, 1, 1, 9).setValues([[
+        row[1], row[2], _shortBroker(row[3]) + ' / ' + row[4],
         _dbNum(row[6]), _dbNum(row[7]), _dbNum(row[9]),
-        _dbPnl(pnl), _dbRate(rate)
+        _dbPnl(pnl), _dbRate(rate), row[5]
       ]]);
       dash.getRange(r, 1, 1, 8).setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
       _dbColorCell(dash, r, 7, pnl); _dbColorCell(dash, r, 8, rate);
@@ -331,30 +331,45 @@ function _dbColorCell(sheet, row, col, value) {
   else if (v < 0) sheet.getRange(row, col).setFontColor(DB.FG_NEG);
 }
 
+function _shortBroker(s) { return String(s || '').slice(0, 2); }
 function _dbNum(n)  { return (Number(n) || 0).toLocaleString('ko-KR'); }
 function _dbPnl(n)  { const v = Number(n) || 0; return (v >= 0 ? '+' : '') + v.toLocaleString('ko-KR'); }
 function _dbRate(n) { const v = Number(n) || 0; return (v >= 0 ? '+' : '') + v.toFixed(2) + '%'; }
 
 // ── 오늘의 수익 계산 ──────────────────────────────────
-// *현재가_이력* 마지막 2행(전일·당일) 가격 차이 × 보유수량 합산
-// 데이터 부족 시 null 반환
+// 날짜 기준으로 오늘 최신 행 vs 전일 최신 행 비교 × 보유수량 합산
+// 오늘 or 전일 데이터 없으면 null 반환
 function _calcTodayProfit(priceHistSheet, posRows) {
   if (!priceHistSheet || priceHistSheet.getLastRow() < 3) return null;
-  const lastRow  = priceHistSheet.getLastRow();
-  const lastCol  = priceHistSheet.getLastColumn();
+  const lastRow = priceHistSheet.getLastRow();
+  const lastCol = priceHistSheet.getLastColumn();
   if (lastCol < 2) return null;
 
-  const colCount  = lastCol - 1;
-  const codes     = priceHistSheet.getRange(1, 2, 1, colCount).getValues()[0];
-  const twoRows   = priceHistSheet.getRange(lastRow - 1, 2, 2, colCount).getValues();
-  const prev      = twoRows[0];
-  const cur       = twoRows[1];
+  const today    = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
+  const dataRows = lastRow - 1;
+  const dates    = priceHistSheet.getRange(2, 1, dataRows, 1).getValues();
+
+  let todayRowIdx = -1;  // 오늘 날짜 행 중 마지막 (sheet row = idx+2)
+  let prevRowIdx  = -1;  // 오늘 이전 날짜 행 중 마지막
+
+  for (let i = 0; i < dataRows; i++) {
+    const d = String(dates[i][0]).slice(0, 10);
+    if (d === today)       todayRowIdx = i;
+    else if (d < today && d.length === 10) prevRowIdx = i;
+  }
+
+  if (todayRowIdx === -1 || prevRowIdx === -1) return null;
+
+  const colCount   = lastCol - 1;
+  const codes      = priceHistSheet.getRange(1, 2, 1, colCount).getValues()[0];
+  const curPrices  = priceHistSheet.getRange(todayRowIdx + 2, 2, 1, colCount).getValues()[0];
+  const prevPrices = priceHistSheet.getRange(prevRowIdx  + 2, 2, 1, colCount).getValues()[0];
 
   const diffMap = {};
   codes.forEach((code, i) => {
     if (!code) return;
-    const p = Number(prev[i]) || 0;
-    const c = Number(cur[i])  || 0;
+    const p = Number(prevPrices[i]) || 0;
+    const c = Number(curPrices[i])  || 0;
     if (p > 0 && c > 0) diffMap[_normCode(String(code))] = c - p;
   });
 
