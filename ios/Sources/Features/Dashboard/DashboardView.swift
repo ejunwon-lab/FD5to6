@@ -217,13 +217,14 @@ struct DashboardView: View {
     private var effectiveTradingDateString: String {
         let calendar = Calendar.current
         var date = Date()
-        var weekday = calendar.component(.weekday, from: date) // 1=일, 7=토
-        if weekday == 1 { date = calendar.date(byAdding: .day, value: -2, to: date) ?? date }
-        else if weekday == 7 { date = calendar.date(byAdding: .day, value: -1, to: date) ?? date }
-        // 전일 수익 표시 중이면 전일 거래일 기준
-        if showPrevDayProfit {
+        let todayWeekday = calendar.component(.weekday, from: date) // 1=일, 7=토
+        let todayIsWeekend = (todayWeekday == 1 || todayWeekday == 7)
+        if todayWeekday == 1 { date = calendar.date(byAdding: .day, value: -2, to: date) ?? date }
+        else if todayWeekday == 7 { date = calendar.date(byAdding: .day, value: -1, to: date) ?? date }
+        // 주말은 이미 마지막 거래일(금요일)을 가리키므로 추가 조정 불필요
+        if showPrevDayProfit && !todayIsWeekend {
             date = calendar.date(byAdding: .day, value: -1, to: date) ?? date
-            weekday = calendar.component(.weekday, from: date)
+            let weekday = calendar.component(.weekday, from: date)
             if weekday == 1 { date = calendar.date(byAdding: .day, value: -2, to: date) ?? date }
             else if weekday == 7 { date = calendar.date(byAdding: .day, value: -1, to: date) ?? date }
         }
