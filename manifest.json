@@ -1,0 +1,22 @@
+{
+  "name": "JUN & SOO Finance",
+  "short_name": "Finance",
+  "description": "JUN & SOO 포트폴리오 현황",
+  "start_url": "/FD5to6/",
+  "display": "standalone",
+  "background_color": "#F2F2F7",
+  "theme_color": "#405AE6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/FD5to6/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/FD5to6/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
