@@ -289,14 +289,13 @@ function onOpen() {
     .addToUi();
   // 새 시스템 메뉴
   ui.createMenu('🗄️ 새 시스템')
-    .addItem('🏗️ 시트 초기화 (최초 1회)', 'setupNewSystem')
-    .addItem('📥 과거 이력 불러오기', 'importHistoricalTrades')
+    .addItem('🔄 업데이트 고고', 'updatePositionFromLedger')
     .addSeparator()
-    .addItem('🔄 포지션 재계산 + 대시보드 갱신', 'updatePositionFromLedger')
-    .addItem('📊 대시보드만 갱신', 'buildDashboard')
+    .addItem('💹 현재가 업데이트', 'updateNewPriceHistory')
+    .addItem('📋 일별 종목별 현황 업데이트', 'runHoldingsHistoryNow')
     .addSeparator()
-    .addItem('💹 가격 히스토리 기록', 'updateNewPriceHistory')
-    .addItem('📋 종목 히스토리 기록', 'runHoldingsHistoryNow')
+    .addItem('⏰ 매일 17:30 자동기록 트리거 등록', 'setupNewSystemDailyTrigger')
+    .addItem('🗑️ 매일 17:30 트리거 삭제', 'deleteNewSystemDailyTrigger')
     .addToUi();
   // 1. 매번 새로 시작할 때, 투자수익 트래커 시트에서 시작
   const trackerSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('투자수익 트래커');
@@ -388,6 +387,46 @@ function scheduledHoldingsUpdate() {
   } catch (e) {
     Logger.log('scheduledHoldingsUpdate 오류: ' + e);
   }
+}
+
+/**
+ * 매일 오후 5:30 가격 히스토리 + 종목 히스토리 자동 기록
+ * 트리거에서 직접 호출 — UI 없음
+ */
+function scheduledNewSystemDaily() {
+  try {
+    updateNewPriceHistory();
+    SpreadsheetApp.flush();
+    updatePositionFromLedger(); // 보유현황 + 실현손익 + 대시보드 갱신
+    SpreadsheetApp.flush();
+    runHoldingsHistoryNow();
+    SpreadsheetApp.flush();
+  } catch (e) {
+    Logger.log('scheduledNewSystemDaily 오류: ' + e);
+  }
+}
+
+function setupNewSystemDailyTrigger() {
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'scheduledNewSystemDaily')
+    .forEach(t => ScriptApp.deleteTrigger(t));
+
+  ScriptApp.newTrigger('scheduledNewSystemDaily')
+    .timeBased()
+    .everyDays(1)
+    .atHour(17)
+    .nearMinute(30)
+    .inTimezone('Asia/Seoul')
+    .create();
+
+  SpreadsheetApp.getUi().alert('✅ 매일 오후 5:30 가격/종목 히스토리 자동기록 트리거가 등록되었습니다.');
+}
+
+function deleteNewSystemDailyTrigger() {
+  const triggers = ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'scheduledNewSystemDaily');
+  triggers.forEach(t => ScriptApp.deleteTrigger(t));
+  SpreadsheetApp.getUi().alert(`🗑️ 새 시스템 자동기록 트리거 ${triggers.length}개 삭제 완료`);
 }
 
 function onEdit(e) {
