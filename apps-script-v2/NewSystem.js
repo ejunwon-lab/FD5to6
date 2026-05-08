@@ -1,12 +1,14 @@
 /**
- * NewSystem.js — 새 포트폴리오 DB 시스템
+ * NewSystem.js — 새 포트폴리오 DB 시스템 (독립 버전)
  *
  * 시트 구성:
  *   *거래_원장*    : 전체 거래 이력 (불변 원장)
  *   *거래_입력폼*  : 거래 입력 UI (체크박스 → 원장 자동 추가)
- *   *현재가_이력*: 날짜 × 종목코드 Wide 포맷 현재단가
- *   *보유현황*       : 원장 기반 현재 보유현황 자동 계산
+ *   *현재가_이력*  : 날짜 × 종목코드 Wide 포맷 현재단가
+ *   *보유현황*     : 원장 기반 현재 보유현황 자동 계산
  *   *실현손익*     : 매도 완료 건별 확정 손익
+ *   *대시보드*     : 요약 대시보드
+ *   *설정*         : FX 환율 수동 입력
  */
 
 const NS = {
@@ -15,6 +17,7 @@ const NS = {
   PRICE_HISTORY: '*현재가_이력*',
   POSITION:      '*보유현황*',
   REALIZED_PNL:  '*실현손익*',
+  SETTINGS:      '*설정*',
 
   BROKERS:    ['미래에셋투자증권', '삼성증권'],
   ACCOUNTS: {
@@ -25,11 +28,9 @@ const NS = {
   TX_TYPES:   ['매수', '매도'],
   KIS_SKIP:   ['펀드', '예금', '보험', '기타'],
 
-  // *거래_입력폼* 입력셀 위치 (B열 = col 2)
   FORM_COL: 2,
   FR: { DATE:3, TYPE:4, CODE:5, NAME:6, CAT:7, BROKER:8, ACCT:9, QTY:10, PRICE:11, AMT:12, FEE:13, MEMO:14, SUBMIT:16 },
 
-  // *거래_원장* 컬럼 순서 (1-based)
   LC: { DATE:1, TYPE:2, CODE:3, NAME:4, CAT:5, BROKER:6, ACCT:7, QTY:8, PRICE:9, AMT:10, FEE:11, MEMO:12 },
 
   HDR_BG:   '#1a1a2e',
@@ -37,6 +38,201 @@ const NS = {
   ROW_EVEN: '#f8f9fa',
   ROW_ODD:  '#ffffff',
 };
+
+// ═══════════════════════════════════════════════════
+//  [수동 실행] 새 시스템 시트 초기화 (최초 1회)
+// ═══════════════════════════════════════════════════
+
+function setupNewSystem() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  _setupLedgerSheet(ss);
+  _setupFormSheet(ss);
+  _setupPriceHistorySheet(ss);
+  _setupPositionSheet(ss);
+  _setupRealizedPnLSheet(ss);
+  _setupSettingsSheet(ss);
+  ss.toast('새 시스템 시트 6개 생성 완료', '✅ 완료', 4);
+  Logger.log('setupNewSystem 완료');
+}
+
+// ───────────────────────────────────────────────────
+//  *거래_원장*
+// ───────────────────────────────────────────────────
+
+function _setupLedgerSheet(ss) {
+  if (ss.getSheetByName(NS.LEDGER)) { Logger.log('*거래_원장* 이미 존재'); return; }
+  const sheet = ss.insertSheet(NS.LEDGER);
+
+  const header = ['날짜','구분','종목코드','종목명','분류','증권사','계좌','수량','단가','금액','수수료','메모'];
+  sheet.getRange(1, 1, 1, header.length)
+    .setValues([header]).setFontWeight('bold')
+    .setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+  sheet.setFrozenRows(1);
+  [110, 60, 90, 220, 80, 130, 160, 70, 110, 130, 80, 160]
+    .forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+}
+
+// ───────────────────────────────────────────────────
+//  *거래_입력폼*
+// ───────────────────────────────────────────────────
+
+function _setupFormSheet(ss) {
+  if (ss.getSheetByName(NS.FORM)) { Logger.log('*거래_입력폼* 이미 존재'); return; }
+  const sheet = ss.insertSheet(NS.FORM);
+  const C = NS.FORM_COL;
+  const FR = NS.FR;
+
+  sheet.getRange(1, 1, 1, 3).merge()
+    .setValue('📝 거래 입력')
+    .setFontSize(13).setFontWeight('bold')
+    .setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.setRowHeight(1, 36);
+
+  const fields = [
+    [FR.DATE,  '날짜',   new Date()],
+    [FR.TYPE,  '구분',   '매수'],
+    [FR.CODE,  '종목코드', ''],
+    [FR.NAME,  '종목명',  ''],
+    [FR.CAT,   '분류',   '국내ETF'],
+    [FR.BROKER,'증권사', '삼성증권'],
+    [FR.ACCT,  '계좌',   '종합'],
+    [FR.QTY,   '수량',   ''],
+    [FR.PRICE, '단가',   ''],
+    [FR.AMT,   '금액',   ''],
+    [FR.FEE,   '수수료',  0],
+    [FR.MEMO,  '메모',   ''],
+  ];
+
+  fields.forEach(([row, label, def]) => {
+    sheet.getRange(row, 1).setValue(label)
+      .setFontWeight('bold').setBackground('#f0f4f8')
+      .setVerticalAlignment('middle');
+    if (row === FR.AMT) {
+      sheet.getRange(row, C)
+        .setFormula(`=IF(AND(ISNUMBER(B${FR.QTY}),ISNUMBER(B${FR.PRICE})),B${FR.QTY}*B${FR.PRICE},"")`)
+        .setBackground('#e8f4ea').setFontColor('#444444');
+    } else {
+      sheet.getRange(row, C).setValue(def);
+    }
+    sheet.getRange(row, C)
+      .setBorder(true,true,true,true,false,false,'#cccccc',SpreadsheetApp.BorderStyle.SOLID);
+  });
+
+  sheet.getRange(FR.DATE, C).setNumberFormat('yyyy-MM-dd');
+
+  const dv = (list) => SpreadsheetApp.newDataValidation().requireValueInList(list, true).build();
+  sheet.getRange(FR.TYPE,   C).setDataValidation(dv(NS.TX_TYPES));
+  sheet.getRange(FR.CAT,    C).setDataValidation(dv(NS.CATEGORIES));
+  sheet.getRange(FR.BROKER, C).setDataValidation(dv(NS.BROKERS));
+  const allAccounts = [...new Set(Object.values(NS.ACCOUNTS).flat())];
+  sheet.getRange(FR.ACCT,   C).setDataValidation(dv(allAccounts));
+
+  sheet.getRange(FR.SUBMIT - 1, 1, 1, 3).setBackground('#dddddd');
+  sheet.setRowHeight(FR.SUBMIT - 1, 6);
+
+  sheet.getRange(FR.SUBMIT, 1).setValue('✅ 체크하면 원장에 추가')
+    .setFontWeight('bold').setBackground('#fff3cd');
+  sheet.getRange(FR.SUBMIT, C).insertCheckboxes()
+    .setBackground('#fff3cd');
+
+  sheet.getRange(FR.SUBMIT + 2, 1, 1, 4).merge()
+    .setValue('📋 최근 입력 5건').setFontWeight('bold').setBackground('#f0f4f8');
+
+  sheet.setColumnWidth(1, 110);
+  sheet.setColumnWidth(2, 220);
+  sheet.setColumnWidth(3, 30);
+  sheet.setFrozenRows(1);
+}
+
+// ───────────────────────────────────────────────────
+//  *현재가_이력*
+// ───────────────────────────────────────────────────
+
+function _setupPriceHistorySheet(ss) {
+  if (ss.getSheetByName(NS.PRICE_HISTORY)) { Logger.log('*현재가_이력* 이미 존재'); return; }
+  const sheet = ss.insertSheet(NS.PRICE_HISTORY);
+  sheet.getRange(1, 1).setValue('날짜')
+    .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+  sheet.setColumnWidth(1, 110);
+  sheet.setFrozenRows(1);
+  sheet.setFrozenColumns(1);
+}
+
+// ───────────────────────────────────────────────────
+//  *보유현황*
+// ───────────────────────────────────────────────────
+
+function _setupPositionSheet(ss) {
+  if (ss.getSheetByName(NS.POSITION)) { Logger.log('*보유현황* 이미 존재'); return; }
+  const sheet = ss.insertSheet(NS.POSITION);
+  const header = ['종목코드','종목명','분류','증권사','계좌','보유기간','보유수량','평균단가','매입금액','현재단가','평가금액','손익','수익률(%)','수동평가금액','비고'];
+  sheet.getRange(1, 1, 1, header.length)
+    .setValues([header]).setFontWeight('bold')
+    .setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+  sheet.setFrozenRows(1);
+  [90,220,80,130,170,90,70,110,130,110,130,110,90,120,100]
+    .forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+}
+
+// ───────────────────────────────────────────────────
+//  *실현손익*
+// ───────────────────────────────────────────────────
+
+function _setupRealizedPnLSheet(ss) {
+  if (ss.getSheetByName(NS.REALIZED_PNL)) { Logger.log('*실현손익* 이미 존재'); return; }
+  const sheet = ss.insertSheet(NS.REALIZED_PNL);
+  const header = ['매도일','종목코드','종목명','분류','증권사','계좌',
+                  '매도수량','매도단가','매도금액','평균매입단가','매입원가','수수료','실현손익','수익률(%)'];
+  sheet.getRange(1, 1, 1, header.length)
+    .setValues([header]).setFontWeight('bold')
+    .setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+  sheet.setFrozenRows(1);
+  [100,90,220,80,130,170,70,110,130,110,130,80,110,90]
+    .forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+}
+
+// ───────────────────────────────────────────────────
+//  *설정* (FX 환율 — GOOGLEFINANCE 자동 조회)
+// ───────────────────────────────────────────────────
+
+function _setupSettingsSheet(ss) {
+  if (ss.getSheetByName(NS.SETTINGS)) return;
+  const sheet = ss.insertSheet(NS.SETTINGS);
+  sheet.getRange(1, 1, 1, 3)
+    .setValues([['항목', '값', '설명']]).setFontWeight('bold')
+    .setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+  sheet.getRange(2, 1, 2, 3).setValues([
+    ['USD/KRW', 1400, 'updateAllNew() 실행 시 GOOGLEFINANCE로 자동 갱신'],
+    ['GBP/KRW', 1700, 'updateAllNew() 실행 시 GOOGLEFINANCE로 자동 갱신'],
+  ]);
+  [120, 100, 260].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  sheet.setFrozenRows(1);
+}
+
+// GOOGLEFINANCE로 환율 자동 업데이트 → *설정* B2/B3에 저장
+function updateFxRates(ss) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(NS.SETTINGS);
+  if (!sheet) return;
+
+  const usdCell = sheet.getRange(2, 2);
+  const gbpCell = sheet.getRange(3, 2);
+
+  usdCell.setFormula('=GOOGLEFINANCE("CURRENCY:USDKRW")');
+  gbpCell.setFormula('=GOOGLEFINANCE("CURRENCY:GBPKRW")');
+  SpreadsheetApp.flush();
+  Utilities.sleep(300);
+
+  let usd = usdCell.getValue();
+  let gbp = gbpCell.getValue();
+  if (typeof usd !== 'number' || isNaN(usd) || usd <= 0) usd = 1400;
+  if (typeof gbp !== 'number' || isNaN(gbp) || gbp <= 0) gbp = 1700;
+
+  usdCell.setValue(usd);
+  gbpCell.setValue(gbp);
+  Logger.log('환율 업데이트: USD=' + usd + ', GBP=' + gbp);
+}
 
 // ═══════════════════════════════════════════════════
 //  [수동 실행] 과거 매수/매도 이력 원장에 추가
@@ -130,7 +326,6 @@ function importHistoricalTrades() {
     [],
   ];
 
-  // 기존 원장 데이터 + 신규 데이터 합쳐서 날짜순 정렬 후 전체 재작성
   const lastRow = ledger.getLastRow();
   const existing = lastRow >= 2
     ? ledger.getRange(2, 1, lastRow - 1, 12).getValues()
@@ -139,7 +334,6 @@ function importHistoricalTrades() {
   const all = [...existing, ...data].filter(r => r[0] && r[3]);
   all.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
 
-  // 기존 데이터 지우고 재작성
   if (lastRow >= 2) ledger.getRange(2, 1, lastRow - 1, 12).clearContent().clearFormat();
   ledger.getRange(2, 1, all.length, 12).setValues(all);
   all.forEach((_, i) => {
@@ -149,222 +343,11 @@ function importHistoricalTrades() {
   ledger.getRange(2, 11, all.length, 1).setNumberFormat('#,##0');
 
   Logger.log('importHistoricalTrades 완료: 신규 ' + data.length + '건 추가, 전체 ' + all.length + '건');
-  ss.toast('과거 이력 ' + data.length + '건 추가 완료 (전체 ' + all.length + '건)', '✅ 완료', 5);
+  SpreadsheetApp.getActiveSpreadsheet().toast('과거 이력 ' + data.length + '건 추가 완료 (전체 ' + all.length + '건)', '✅ 완료', 5);
 }
 
 // ═══════════════════════════════════════════════════
-//  [수동 실행] 새 시스템 4개 시트 초기화
-// ═══════════════════════════════════════════════════
-
-function setupNewSystem() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  _setupLedgerSheet(ss);
-  _setupFormSheet(ss);
-  _setupPriceHistorySheet(ss);
-  _setupPositionSheet(ss);
-  _setupRealizedPnLSheet(ss);
-  ss.toast('새 시스템 시트 5개 생성 완료', '✅ 완료', 4);
-  Logger.log('setupNewSystem 완료');
-}
-
-// ───────────────────────────────────────────────────
-//  *거래_원장*
-// ───────────────────────────────────────────────────
-
-function _setupLedgerSheet(ss) {
-  if (ss.getSheetByName(NS.LEDGER)) { Logger.log('*거래_원장* 이미 존재'); return; }
-  const sheet = ss.insertSheet(NS.LEDGER);
-
-  // 헤더
-  const header = ['날짜','구분','종목코드','종목명','분류','증권사','계좌','수량','단가','금액','수수료','메모'];
-  sheet.getRange(1, 1, 1, header.length)
-    .setValues([header]).setFontWeight('bold')
-    .setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
-  sheet.setFrozenRows(1);
-
-  // 열 너비
-  [110, 60, 90, 220, 80, 130, 160, 70, 110, 130, 80, 160]
-    .forEach((w, i) => sheet.setColumnWidth(i + 1, w));
-
-  // 초기 데이터 (현재 보유 내역 전체 매수 입력)
-  const data = [
-    // ── 미래에셋투자증권 / 종합_랩 ──
-    ['2025-11-21','매수','000660','SK하이닉스',        '국내주식','미래에셋투자증권','종합_랩',           30,  525500, 15765000,   0,''],
-    ['2025-05-13','매수','257720','실리콘투',           '국내주식','미래에셋투자증권','종합_랩',          430,   40441, 17389630,   0,''],
-    ['2026-04-01','매수','009150','삼성전기',           '국내주식','미래에셋투자증권','종합_랩',           35,  510571, 17870000,   0,''],
-    ['2025-12-29','매수','455850','SOL AI반도체소부장', '국내ETF', '미래에셋투자증권','종합_랩',          900,   19597, 17637300,   0,''],
-    ['2026-01-06','매수','445290','KODEX 로봇액티브',   '국내ETF', '미래에셋투자증권','종합_랩',          300,   26455,  7936500,   0,''],
-    ['2025-05-21','매수','0047A0','TIGER 차이나테크 TOP10','국내ETF','미래에셋투자증권','종합_랩',       1500,   10031, 15046500,   0,''],
-    ['2026-04-01','매수','487240','KODEX AI전력핵심설비','국내ETF','미래에셋투자증권','종합_랩',          890,   32333, 28776100,   0,''],
-    // ── 미래에셋투자증권 / 퇴직연금_개인IRP ──
-    ['2024-06-18','매수','483280','KODEX 미국AI테크TOP10타겟커버드콜','국내ETF','미래에셋투자증권','퇴직연금_개인IRP', 859, 10960,  9414640,  0,''],
-    ['2025-05-29','매수','0047A0','TIGER 차이나테크 TOP10','국내ETF','미래에셋투자증권','퇴직연금_개인IRP',1198,  9695, 11614610,  0,''],
-    ['2026-02-27','매수','487240','KODEX AI전력핵심설비','국내ETF','미래에셋투자증권','퇴직연금_개인IRP',  290, 34795, 10090550,  0,''],
-    ['2024-03-29','매수','','유리필라델피아반도체인덱스증권자투자신탁UH[주식] Class C-P1e','펀드','미래에셋투자증권','퇴직연금_개인IRP',1,838,838,0,''],
-    ['2025-09-22','매수','','미래에세차이나과창판증권투자신탁(주식) 종류 C-P2e','펀드','미래에셋투자증권','퇴직연금_개인IRP',1,620477,620477,0,''],
-    ['2024-10-30','매수','','삼성글로벌 Chat AI 증권자투자신탁UH[주식]_Cpe(퇴직연금)','펀드','미래에셋투자증권','퇴직연금_개인IRP',1,478554,478554,0,''],
-    ['2023-06-09','매수','','(신) 신한정기예금 DC/IRP 3Y_퇴직','예금','미래에셋투자증권','퇴직연금_개인IRP',1,42847287,42847287,0,''],
-    ['2024-06-13','매수','','(통합)무배당 교보 이율보증형보험 3년형(DC/IRP)','보험','미래에셋투자증권','퇴직연금_개인IRP',1,9581,9581,0,''],
-    // ── 삼성증권 / 종합 ──
-    ['2026-02-27','매수','005930','삼성전자',           '국내주식','삼성증권','종합',  72, 212333, 15287976, 378,''],
-    ['2026-01-06','매수','196170','알테오젠',           '국내주식','삼성증권','종합',  42, 470000, 19740000, 532,''],
-    ['2026-02-27','매수','487240','KODEX AI전력핵심설비','국내ETF','삼성증권','종합', 577,  34795, 20076715,   0,''],
-    ['2024-08-08','매수','AVGO',  '브로드컴',           '해외주식','삼성증권','종합',   1, 194565,   194565,   0,''],
-    // ── 삼성증권 / ISA ──
-    ['2025-06-11','매수','0047A0','TIGER 차이나테크 TOP10','국내ETF','삼성증권','ISA',1367,  9800, 13396600, 563,''],
-    ['2026-02-19','매수','471990','KODEX AI반도체핵심장비','국내ETF','삼성증권','ISA', 970, 20810, 20185700, 849,''],
-    ['2026-02-19','매수','495230','KoAct 코리아밸류업액티브','국내ETF','삼성증권','ISA',800, 25155, 20124000, 846,''],
-    ['2026-02-24','매수','396500','TIGER 반도체TOP10',  '국내ETF','삼성증권','ISA',   504, 31530, 15891120, 855,''],
-    // ── 삼성증권 / 퇴직연금_개인IRP(범용) ──
-    ['2026-03-18','매수','0163Y0','KoAct 코스닥액티브', '국내ETF','삼성증권','퇴직연금_개인IRP(범용)',1772, 12955, 22956260, 0,''],
-    ['2026-02-03','매수','447660','PLUS 애플채권혼합',  '국내ETF','삼성증권','퇴직연금_개인IRP(범용)', 762, 13160, 10027920, 0,''],
-    ['2026-01-15','매수','438100','ACE 미국나스닥100미국채혼합50','국내ETF','삼성증권','퇴직연금_개인IRP(범용)',588,14895,8758260,0,''],
-    ['2023-01-16','매수','','우리은행 정기예금 5년',   '예금',   '삼성증권','퇴직연금_개인IRP(범용)',   1, 4294230,  4294230, 0,''],
-  ];
-
-  sheet.getRange(2, 1, data.length, 12).setValues(data);
-
-  // 교대 행 색상 + 숫자 형식
-  data.forEach((_, i) => {
-    const r = i + 2;
-    sheet.getRange(r, 1, 1, 12).setBackground(i % 2 === 0 ? NS.ROW_EVEN : NS.ROW_ODD);
-  });
-  sheet.getRange(2, 8, data.length, 4).setNumberFormat('#,##0'); // 수량~금액
-  sheet.getRange(2, 11, data.length, 1).setNumberFormat('#,##0'); // 수수료
-}
-
-// ───────────────────────────────────────────────────
-//  *거래_입력폼*
-// ───────────────────────────────────────────────────
-
-function _setupFormSheet(ss) {
-  if (ss.getSheetByName(NS.FORM)) { Logger.log('*거래_입력폼* 이미 존재'); return; }
-  const sheet = ss.insertSheet(NS.FORM);
-  const C = NS.FORM_COL;
-  const FR = NS.FR;
-
-  // 타이틀
-  sheet.getRange(1, 1, 1, 3).merge()
-    .setValue('📝 거래 입력')
-    .setFontSize(13).setFontWeight('bold')
-    .setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG)
-    .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  sheet.setRowHeight(1, 36);
-
-  // 라벨 목록 [행, 라벨, 기본값]
-  const fields = [
-    [FR.DATE,  '날짜',   new Date()],
-    [FR.TYPE,  '구분',   '매수'],
-    [FR.CODE,  '종목코드', ''],
-    [FR.NAME,  '종목명',  ''],
-    [FR.CAT,   '분류',   '국내ETF'],
-    [FR.BROKER,'증권사', '삼성증권'],
-    [FR.ACCT,  '계좌',   '종합'],
-    [FR.QTY,   '수량',   ''],
-    [FR.PRICE, '단가',   ''],
-    [FR.AMT,   '금액',   ''],   // 자동계산
-    [FR.FEE,   '수수료',  0],
-    [FR.MEMO,  '메모',   ''],
-  ];
-
-  fields.forEach(([row, label, def]) => {
-    sheet.getRange(row, 1).setValue(label)
-      .setFontWeight('bold').setBackground('#f0f4f8')
-      .setVerticalAlignment('middle');
-    if (row === FR.AMT) {
-      sheet.getRange(row, C)
-        .setFormula(`=IF(AND(ISNUMBER(B${FR.QTY}),ISNUMBER(B${FR.PRICE})),B${FR.QTY}*B${FR.PRICE},"")`)
-        .setBackground('#e8f4ea').setFontColor('#444444');
-    } else {
-      sheet.getRange(row, C).setValue(def);
-    }
-    sheet.getRange(row, C)
-      .setBorder(true,true,true,true,false,false,'#cccccc',SpreadsheetApp.BorderStyle.SOLID);
-  });
-
-  // 날짜 형식
-  sheet.getRange(FR.DATE, C).setNumberFormat('yyyy-MM-dd');
-
-  // 드롭다운
-  const dv = (list) => SpreadsheetApp.newDataValidation().requireValueInList(list, true).build();
-  sheet.getRange(FR.TYPE,   C).setDataValidation(dv(NS.TX_TYPES));
-  sheet.getRange(FR.CAT,    C).setDataValidation(dv(NS.CATEGORIES));
-  sheet.getRange(FR.BROKER, C).setDataValidation(dv(NS.BROKERS));
-  const allAccounts = [...new Set(Object.values(NS.ACCOUNTS).flat())];
-  sheet.getRange(FR.ACCT,   C).setDataValidation(dv(allAccounts));
-
-  // 구분선
-  sheet.getRange(FR.SUBMIT - 1, 1, 1, 3).setBackground('#dddddd').setHeight
-  sheet.setRowHeight(FR.SUBMIT - 1, 6);
-
-  // 제출 체크박스
-  sheet.getRange(FR.SUBMIT, 1).setValue('✅ 체크하면 원장에 추가')
-    .setFontWeight('bold').setBackground('#fff3cd');
-  sheet.getRange(FR.SUBMIT, C).insertCheckboxes()
-    .setBackground('#fff3cd');
-
-  // 최근 입력 프리뷰
-  sheet.getRange(FR.SUBMIT + 2, 1, 1, 4).merge()
-    .setValue('📋 최근 입력 5건').setFontWeight('bold').setBackground('#f0f4f8');
-
-  // 열 너비
-  sheet.setColumnWidth(1, 110);
-  sheet.setColumnWidth(2, 220);
-  sheet.setColumnWidth(3, 30);
-  sheet.setFrozenRows(1);
-}
-
-// ───────────────────────────────────────────────────
-//  *현재가_이력*
-// ───────────────────────────────────────────────────
-
-function _setupPriceHistorySheet(ss) {
-  if (ss.getSheetByName(NS.PRICE_HISTORY)) { Logger.log('*현재가_이력* 이미 존재'); return; }
-  const sheet = ss.insertSheet(NS.PRICE_HISTORY);
-  sheet.getRange(1, 1).setValue('날짜')
-    .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
-  sheet.setColumnWidth(1, 110);
-  sheet.setFrozenRows(1);
-  sheet.setFrozenColumns(1);
-  Logger.log('*현재가_이력* 생성 완료 — 종목 열은 첫 업데이트 시 자동 추가');
-}
-
-// ───────────────────────────────────────────────────
-//  *보유현황*
-// ───────────────────────────────────────────────────
-
-function _setupPositionSheet(ss) {
-  if (ss.getSheetByName(NS.POSITION)) { Logger.log('*보유현황* 이미 존재'); return; }
-  const sheet = ss.insertSheet(NS.POSITION);
-  const header = ['종목코드','종목명','분류','증권사','계좌','보유기간','보유수량','평균단가','매입금액','현재단가','평가금액','손익','수익률(%)','수동평가금액','비고'];
-  sheet.getRange(1, 1, 1, header.length)
-    .setValues([header]).setFontWeight('bold')
-    .setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
-  sheet.setFrozenRows(1);
-  [90,220,80,130,170,90,70,110,130,110,130,110,90,120,100]
-    .forEach((w, i) => sheet.setColumnWidth(i + 1, w));
-}
-
-// ───────────────────────────────────────────────────
-//  *실현손익*
-// ───────────────────────────────────────────────────
-
-function _setupRealizedPnLSheet(ss) {
-  if (ss.getSheetByName(NS.REALIZED_PNL)) { Logger.log('*실현손익* 이미 존재'); return; }
-  const sheet = ss.insertSheet(NS.REALIZED_PNL);
-  const header = ['매도일','종목코드','종목명','분류','증권사','계좌',
-                  '매도수량','매도단가','매도금액','평균매입단가','매입원가','수수료','실현손익','수익률(%)'];
-  sheet.getRange(1, 1, 1, header.length)
-    .setValues([header]).setFontWeight('bold')
-    .setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
-  sheet.setFrozenRows(1);
-  [100,90,220,80,130,170,70,110,130,110,130,80,110,90]
-    .forEach((w, i) => sheet.setColumnWidth(i + 1, w));
-  Logger.log('*실현손익* 생성 완료');
-}
-
-// ═══════════════════════════════════════════════════
-//  폼 제출 처리 (onEdit 체크박스 → 호출)
+//  폼 제출 처리
 // ═══════════════════════════════════════════════════
 
 function _handleFormOnEdit(e) {
@@ -381,7 +364,6 @@ function addTransactionFromForm() {
   const C = NS.FORM_COL;
   const FR = NS.FR;
 
-  // 값 읽기
   const dateVal  = form.getRange(FR.DATE,  C).getValue();
   const type     = String(form.getRange(FR.TYPE,   C).getValue() || '').trim();
   const code     = String(form.getRange(FR.CODE,   C).getValue() || '').trim();
@@ -394,7 +376,6 @@ function addTransactionFromForm() {
   const fee      = Number(form.getRange(FR.FEE,    C).getValue()) || 0;
   const memo     = String(form.getRange(FR.MEMO,   C).getValue() || '').trim();
 
-  // 유효성 검사
   if (!dateVal || !type || !name || qty <= 0 || price <= 0) {
     form.getRange(FR.SUBMIT, C).setValue(false);
     ss.toast('날짜, 구분, 종목명, 수량, 단가는 필수입니다', '⚠️ 입력 오류', 4);
@@ -407,7 +388,6 @@ function addTransactionFromForm() {
   );
   const amount = qty * price;
 
-  // *거래_원장*에 추가
   const ledger = ss.getSheetByName(NS.LEDGER);
   const newRowNum = ledger.getLastRow() + 1;
   const newRow = [dateStr, type, code, name, category, broker, account, qty, price, amount, fee, memo];
@@ -416,7 +396,6 @@ function addTransactionFromForm() {
   ledger.getRange(newRowNum, 8, 1, 4).setNumberFormat('#,##0');
   ledger.getRange(newRowNum, 11, 1, 1).setNumberFormat('#,##0');
 
-  // 폼 초기화
   form.getRange(FR.DATE,  C).setValue(new Date());
   form.getRange(FR.CODE,  C).setValue('');
   form.getRange(FR.NAME,  C).setValue('');
@@ -426,10 +405,7 @@ function addTransactionFromForm() {
   form.getRange(FR.MEMO,  C).setValue('');
   form.getRange(FR.SUBMIT, C).setValue(false);
 
-  // 최근 입력 프리뷰 갱신
   _refreshFormPreview(ss, form, ledger);
-
-  // 보유현황 자동 갱신
   updatePositionFromLedger();
 
   ss.toast(`${dateStr} ${type} ${name} ${qty.toLocaleString()}주 @${price.toLocaleString()}`, '✅ 원장에 추가됨', 5);
@@ -458,16 +434,12 @@ function _refreshFormPreview(ss, form, ledger) {
 //  보유현황 계산
 // ═══════════════════════════════════════════════════
 
-/**
- * [수동 실행 or 자동] *거래_원장* 기반 *보유현황* 재계산
- */
 function updatePositionFromLedger() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ledger   = ss.getSheetByName(NS.LEDGER);
   const posSheet = ss.getSheetByName(NS.POSITION);
   if (!ledger || !posSheet) return;
 
-  // 헤더가 구형(14열, 보유기간 없음)이면 15열로 업데이트
   const hdrRange = posSheet.getRange(1, 1, 1, Math.max(posSheet.getLastColumn(), 15));
   const currentHdr = hdrRange.getValues()[0];
   if (currentHdr[5] !== '보유기간') {
@@ -484,7 +456,6 @@ function updatePositionFromLedger() {
 
   const rows = ledger.getRange(2, 1, lastRow - 1, 12).getValues();
 
-  // 보유현황 맵: key = '코드||이름||증권사||계좌'
   const posMap = {};
   const realizedRows = [];
 
@@ -527,15 +498,13 @@ function updatePositionFromLedger() {
     }
   }
 
-  // 현재단가 (*현재가_이력* 최신 행에서)
   const priceMap = _getLatestPrices(ss);
 
-  // 보유 중인 보유현황만, 증권사/계좌 순 정렬
   const positions = Object.values(posMap)
     .filter(p => p.qty > 0.0001)
     .sort((a, b) => a.broker.localeCompare(b.broker) || a.acct.localeCompare(b.acct));
 
-  // KIS_SKIP(펀드·예금·보험) 행 전체 백업 — 지우기 전에 그대로 보존
+  // KIS_SKIP 행 백업 (펀드·예금·보험 수동입력 보존)
   const skipRowMap = {};
   if (posSheet.getLastRow() > 1) {
     const sheetCols   = posSheet.getLastColumn();
@@ -547,13 +516,11 @@ function updatePositionFromLedger() {
         if (!NS.KIS_SKIP.includes(cat)) return;
         const k   = `${String(r[1]).trim()}|${String(r[3]).trim()}|${String(r[4]).trim()}`;
         let row   = r.slice(0, sheetCols);
-        // 구형(14열) 행이면 보유기간 열(인덱스 5)을 빈 칸으로 삽입해 15열로 정규화
         if (isOldLayout) row.splice(5, 0, '');
         skipRowMap[k] = row.slice(0, 15);
       });
   }
 
-  // 기존 데이터 지우기 (헤더 제외)
   if (posSheet.getLastRow() > 1) {
     posSheet.getRange(2, 1, posSheet.getLastRow() - 1, 15).clearContent().clearFormat();
   }
@@ -563,13 +530,11 @@ function updatePositionFromLedger() {
     const key = `${String(p.name).trim()}|${String(p.broker).trim()}|${String(p.acct).trim()}`;
 
     if (NS.KIS_SKIP.includes(p.cat)) {
-      // 펀드·예금·보험: 기존 행 전체를 그대로 보존 (보유기간만 최신화)
       if (skipRowMap[key]) {
         const row = skipRowMap[key].slice();
         row[5] = _holdingPeriod(p.firstDate);
         return row;
       }
-      // 시트에 없는 신규 항목: 빈 값으로 초기화 (사용자가 직접 입력)
       const avgPrice = p.qty > 0 ? Math.round(p.totalCost / p.qty) : 0;
       return [p.code, p.name, p.cat, p.broker, p.acct,
               _holdingPeriod(p.firstDate), p.qty, avgPrice, Math.round(p.totalCost),
@@ -590,17 +555,15 @@ function updatePositionFromLedger() {
 
   posSheet.getRange(2, 1, posRows.length, 15).setValues(posRows);
 
-  // 서식
   posRows.forEach((_, i) => {
     posSheet.getRange(i + 2, 1, 1, 15)
       .setBackground(i % 2 === 0 ? NS.ROW_EVEN : NS.ROW_ODD);
   });
-  posSheet.getRange(2, 7, posRows.length, 1).setNumberFormat('#,##0');          // 수량
-  posSheet.getRange(2, 8, posRows.length, 5).setNumberFormat('#,##0');          // 단가~손익
-  posSheet.getRange(2, 13, posRows.length, 1).setNumberFormat('0.00"%"');       // 수익률
-  posSheet.getRange(2, 14, posRows.length, 1).setNumberFormat('#,##0');         // 수동평가금액
+  posSheet.getRange(2, 7, posRows.length, 1).setNumberFormat('#,##0');
+  posSheet.getRange(2, 8, posRows.length, 5).setNumberFormat('#,##0');
+  posSheet.getRange(2, 13, posRows.length, 1).setNumberFormat('0.00"%"');
+  posSheet.getRange(2, 14, posRows.length, 1).setNumberFormat('#,##0');
 
-  // 합계행
   const sumRow = posRows.length + 2;
   const totalBuy    = posRows.reduce((s, r) => s + (r[8]  || 0), 0);
   const totalCur    = posRows.reduce((s, r) => s + (r[10] || 0), 0);
@@ -615,7 +578,6 @@ function updatePositionFromLedger() {
 
   Logger.log('updatePositionFromLedger 완료: ' + positions.length + '개 종목');
 
-  // *실현손익* 시트 갱신 (없으면 자동 생성)
   _setupRealizedPnLSheet(ss);
   const pnlSheet = ss.getSheetByName(NS.REALIZED_PNL);
   if (pnlSheet) {
@@ -629,17 +591,16 @@ function updatePositionFromLedger() {
         pnlSheet.getRange(i + 2, 1, 1, 14)
           .setBackground(i % 2 === 0 ? NS.ROW_EVEN : NS.ROW_ODD);
       });
-      pnlSheet.getRange(2, 7,  realizedRows.length, 6).setNumberFormat('#,##0'); // 수량~매입원가
-      pnlSheet.getRange(2, 12, realizedRows.length, 2).setNumberFormat('#,##0'); // 수수료~실현손익
-      pnlSheet.getRange(2, 14, realizedRows.length, 1).setNumberFormat('0.00"%"'); // 수익률
+      pnlSheet.getRange(2, 7,  realizedRows.length, 6).setNumberFormat('#,##0');
+      pnlSheet.getRange(2, 12, realizedRows.length, 2).setNumberFormat('#,##0');
+      pnlSheet.getRange(2, 14, realizedRows.length, 1).setNumberFormat('0.00"%"');
 
-      // 합계행
       const sumRow = realizedRows.length + 2;
       const totalRealized = realizedRows.reduce((s, r) => s + (r[12] || 0), 0);
       const totalCost     = realizedRows.reduce((s, r) => s + (r[10] || 0), 0);
       const totalRate     = totalCost > 0 ? Math.round(totalRealized / totalCost * 10000) / 100 : 0;
       pnlSheet.getRange(sumRow, 1, 1, 14)
-        .setValues([['합계','','','','','','','','','','','' ,totalRealized, totalRate]])
+        .setValues([['합계','','','','','','','','','','','',totalRealized, totalRate]])
         .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
       pnlSheet.getRange(sumRow, 13, 1, 1).setNumberFormat('#,##0');
       pnlSheet.getRange(sumRow, 14, 1, 1).setNumberFormat('0.00"%"');
@@ -650,7 +611,6 @@ function updatePositionFromLedger() {
   buildDashboard();
 }
 
-// 보유기간 → "X년 Y개월 Z일" 형식 (0년/0개월은 생략)
 function _holdingPeriod(dateStr) {
   if (!dateStr) return '';
   const start = new Date(String(dateStr).replace(' ', 'T'));
@@ -663,63 +623,9 @@ function _holdingPeriod(dateStr) {
   return (y > 0 ? y + '년 ' : '') + (m > 0 ? m + '개월 ' : '') + d + '일';
 }
 
-// 순수 숫자 코드는 앞 0 제거 (005930 → 5930), 혼합 코드는 유지 (0047A0 → 0047A0)
 function _normCode(c) {
   const s = String(c || '').trim();
   return /^\d+$/.test(s) ? String(parseInt(s, 10)) : s;
-}
-
-// ═══════════════════════════════════════════════════
-//  [수동 실행] 새 구글 시트로 마이그레이션
-//  실행 후 Apps Script 로그에서 새 시트 URL + ID 확인
-// ═══════════════════════════════════════════════════
-function migrateToNewSpreadsheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-  const newSs = SpreadsheetApp.create('FD5to6 뉴시스템');
-  Logger.log('새 스프레드시트 생성: ' + newSs.getUrl());
-  Logger.log('스프레드시트 ID: ' + newSs.getId());
-
-  // 데이터 시트 복사 (보유현황·대시보드·입력폼은 새 시트에서 재생성)
-  [NS.LEDGER, NS.PRICE_HISTORY, NS.REALIZED_PNL].forEach(name => {
-    const sheet = ss.getSheetByName(name);
-    if (!sheet) { Logger.log(name + ' 없음 — 건너뜀'); return; }
-    const copied = sheet.copyTo(newSs);
-    copied.setName(name);
-    Logger.log(name + ' 복사 완료');
-  });
-
-  // 기본 Sheet1 제거
-  const def = newSs.getSheetByName('Sheet1');
-  if (def && newSs.getSheets().length > 1) newSs.deleteSheet(def);
-
-  // 나머지 시트 신규 생성 (데이터 없는 시트들)
-  _setupPositionSheet(newSs);
-  _setupFormSheet(newSs);
-  _setupSettingsSheet(newSs);
-
-  const url = newSs.getUrl();
-  Logger.log('──────────────────────────────────────────');
-  Logger.log('✅ 마이그레이션 완료');
-  Logger.log('새 시트 URL: ' + url);
-  Logger.log('새 시트 Script ID는 새 시트에서 확장 → Apps Script → 프로젝트 설정에서 확인');
-  Logger.log('──────────────────────────────────────────');
-  ss.toast('마이그레이션 완료! Apps Script 로그(Ctrl+Enter)에서 URL 확인', '✅', 10);
-}
-
-// FX 환율 수동 입력 시트
-function _setupSettingsSheet(ss) {
-  if (ss.getSheetByName('*설정*')) return;
-  const sheet = ss.insertSheet('*설정*');
-  const hdr = [['항목', '값', '설명']];
-  sheet.getRange(1, 1, 1, 3).setValues(hdr).setFontWeight('bold')
-    .setBackground('#1a1a2e').setFontColor('#ffffff');
-  sheet.getRange(2, 1, 2, 3).setValues([
-    ['USD/KRW', 1400, 'USD 환율 (직접 입력)'],
-    ['GBP/KRW', 1700, 'GBP 환율 (직접 입력)'],
-  ]);
-  [120, 100, 200].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
-  sheet.setFrozenRows(1);
 }
 
 function _getLatestPrices(ss) {
@@ -734,20 +640,16 @@ function _getLatestPrices(ss) {
 }
 
 // ═══════════════════════════════════════════════════
-//  *현재가_이력* 업데이트 (logToTrendSheet에서 거래일에 호출)
+//  현재가 업데이트: KIS API → *현재가_이력* (구 시스템 독립)
 // ═══════════════════════════════════════════════════
 
-/**
- * 트래커 현재단가 → *현재가_이력* Wide 포맷으로 upsert
- * KIS 업데이트(updateStockStatus) 완료 후 호출해야 함
- */
 function updateNewPriceHistory(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   const sheet  = ss.getSheetByName(NS.PRICE_HISTORY);
   const ledger = ss.getSheetByName(NS.LEDGER);
   if (!sheet || !ledger || ledger.getLastRow() < 2) return;
 
-  // 거래_원장에서 KIS 조회 가능한 고유 종목코드 추출 (앞 0 제거 정규화)
+  // *거래_원장*에서 KIS 조회 대상 종목코드 추출
   const ledgerRows = ledger.getRange(2, 1, ledger.getLastRow() - 1, 5).getValues();
   const codeSet = new Set();
   ledgerRows.forEach(r => {
@@ -758,7 +660,10 @@ function updateNewPriceHistory(ss) {
   const codes = [...codeSet].sort();
   if (codes.length === 0) return;
 
-  // 헤더 열 확인 및 신규 코드 추가 (읽을 때도 정규화)
+  // KIS API 직접 가격 조회 (구 트래커 시트 의존성 제거)
+  const trackerPriceMap = _fetchPricesFromKIS(codes);
+
+  // 헤더 열 확인 및 신규 코드 추가
   const lastCol = sheet.getLastColumn();
   const existingCodes = lastCol >= 2
     ? sheet.getRange(1, 2, 1, lastCol - 1).getValues()[0].map(_normCode).filter(Boolean)
@@ -773,16 +678,7 @@ function updateNewPriceHistory(ss) {
     }
   });
 
-  // 트래커 현재단가 읽기 (코드 정규화 후 map)
-  const { values, idx } = getTrackerActiveData(ss);
-  const trackerPriceMap = {};
-  values.forEach(row => {
-    const code  = _normCode(row[idx.CODE]);
-    const price = Number(row[idx.CURRENT_PRICE]) || 0;
-    if (code && price > 0) trackerPriceMap[code] = price;
-  });
-
-  // 오늘 날짜 행 upsert (날짜 prefix 일치로 판단, 셀엔 시분초 저장)
+  // 오늘 날짜 행 upsert
   const now = new Date();
   const today    = Utilities.formatDate(now, 'Asia/Seoul', 'yyyy-MM-dd');
   const todayDT  = Utilities.formatDate(now, 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
@@ -806,4 +702,29 @@ function updateNewPriceHistory(ss) {
     sheet.getRange(writeRow, 2, 1, priceRow.length).setValues([priceRow])
       .setNumberFormat('#,##0');
   }
+
+  Logger.log('updateNewPriceHistory 완료: ' + Object.keys(trackerPriceMap).length + '개 종목 업데이트');
+}
+
+// KIS API로 종목코드 배열의 현재가를 일괄 조회
+function _fetchPricesFromKIS(codes) {
+  KIS_API.ensureToken();
+  const priceMap = {};
+  codes.forEach(code => {
+    try {
+      const isOverseas = /^[A-Z]{1,5}$/.test(code);
+      let price = 0;
+      if (isOverseas) {
+        const info = KIS_API.getOverseasStockInfoAuto(code);
+        price = (info && info.price) ? Number(info.price) : 0;
+      } else {
+        price = Number(KIS_API.getKisPrice(code)) || 0;
+      }
+      if (price > 0) priceMap[code] = price;
+      Utilities.sleep(150); // API rate limit
+    } catch (e) {
+      Logger.log('가격 조회 실패(' + code + '): ' + e);
+    }
+  });
+  return priceMap;
 }
