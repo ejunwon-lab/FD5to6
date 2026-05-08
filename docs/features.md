@@ -1,6 +1,6 @@
 # 기능 현황
 
-last updated: 2026-04-26
+last updated: 2026-05-08
 
 ## ✅ 완료
 
@@ -31,6 +31,15 @@ last updated: 2026-04-26
 - KIS 해외지수 API (SPX/NDX/DJI/SOX) — tr_id HHDFS00000300
 - KIS 국내선물 API (코스피200선물) — tr_id FHMIF10000000
 - GOOGLEFINANCE 금 (`COMEX:GC1!`), WTI (`NYMEX:CL1!`), 달러인덱스 (`DX-Y.NYB`)
+
+### 웹앱 (React PWA)
+- Google OAuth 로그인 (GIS)
+- 대시보드 — 합계수익/오늘수익/확정운용/환율 + 수익 히스토리 차트
+- 종목 목록 — 검색/계좌필터/정렬/expandable 카드
+- 분석 — 매트릭스/계좌별5탭/연환산차트/52주포지션
+- 참고지표 — 카테고리별 섹션 + 갱신 버튼
+- GitHub Actions 자동 배포 → https://ejunwon-lab.github.io/FD5to6/
+- PWA (홈화면 설치 가능)
 
 ## ❌ 미완료
 
