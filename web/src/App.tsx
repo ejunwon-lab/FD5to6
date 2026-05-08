@@ -19,8 +19,13 @@ function KeyInputScreen() {
     setError('')
     try {
       await signIn(key.trim())
-    } catch {
-      setError('접근 코드가 올바르지 않습니다')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg === 'UNAUTHORIZED') {
+        setError('접근 코드가 올바르지 않습니다')
+      } else {
+        setError(`오류: ${msg}`)
+      }
       setLoading(false)
     }
   }

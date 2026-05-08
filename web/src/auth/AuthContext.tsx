@@ -33,8 +33,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async (key: string) => {
     localStorage.setItem(KEY_STORAGE, key)
-    await gasApi.ping() // 키 유효성 검증 — UNAUTHORIZED면 예외 발생
-    setState({ isSignedIn: true, isLoading: false })
+    try {
+      await gasApi.ping()
+      setState({ isSignedIn: true, isLoading: false })
+    } catch (e) {
+      localStorage.removeItem(KEY_STORAGE)
+      throw e
+    }
   }, [])
 
   const signOut = useCallback(() => {
