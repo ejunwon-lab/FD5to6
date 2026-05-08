@@ -33,7 +33,7 @@ function UpdateButton({ icon, label, onClick, disabled }: {
 }
 
 export function DashboardPage() {
-  const { signOut } = useAuth()
+  const { signOut, getToken } = useAuth()
   const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -44,7 +44,8 @@ export function DashboardPage() {
   const fetchPortfolio = useCallback(async () => {
     try {
       setIsLoading(true)
-      const res = await gasApi.getPortfolio()
+      const token = await getToken()
+      const res = await gasApi.getPortfolio(token)
       if (res.success) {
         setPortfolio(res)
         setError('')
@@ -56,16 +57,17 @@ export function DashboardPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [getToken])
 
   useEffect(() => { fetchPortfolio() }, [fetchPortfolio])
 
-  const runUpdate = async (fn: () => Promise<PortfolioResponse>, msg: string) => {
+  const runUpdate = async (fn: (token: string) => Promise<PortfolioResponse>, msg: string) => {
     if (isUpdating) return
     setIsUpdating(true)
     setUpdateMsg(msg)
     try {
-      const res = await fn()
+      const token = await getToken()
+      const res = await fn(token)
       if (res.success) {
         setPortfolio(res)
         setError('')

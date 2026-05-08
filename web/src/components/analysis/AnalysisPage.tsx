@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { gasApi } from '../../api/gasApi'
+import { useAuth } from '../../auth/AuthContext'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import {
@@ -35,7 +36,7 @@ const TAG_COLORS: Record<string, string> = {
 }
 
 export function AnalysisPage() {
-
+  const { getToken } = useAuth()
   const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -48,7 +49,8 @@ export function AnalysisPage() {
   const fetchPortfolio = useCallback(async () => {
     try {
       setIsLoading(true)
-      const res = await gasApi.getPortfolio()
+      const token = await getToken()
+      const res = await gasApi.getPortfolio(token)
       if (res.success) {
         setPortfolio(res)
         const accs = Object.keys(res.byAccount ?? {})
@@ -62,7 +64,7 @@ export function AnalysisPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [activeAccount])
+  }, [getToken, activeAccount])
 
   useEffect(() => { fetchPortfolio() }, [fetchPortfolio])
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { gasApi } from '../../api/gasApi'
+import { useAuth } from '../../auth/AuthContext'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { HoldingCard } from './HoldingCard'
@@ -17,7 +18,7 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 ]
 
 export function HoldingsPage() {
-
+  const { getToken } = useAuth()
   const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -28,7 +29,8 @@ export function HoldingsPage() {
   const fetchPortfolio = useCallback(async () => {
     try {
       setIsLoading(true)
-      const res = await gasApi.getPortfolio()
+      const token = await getToken()
+      const res = await gasApi.getPortfolio(token)
       if (res.success) {
         setPortfolio(res)
         setError('')
@@ -40,7 +42,7 @@ export function HoldingsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [getToken])
 
   useEffect(() => { fetchPortfolio() }, [fetchPortfolio])
 
