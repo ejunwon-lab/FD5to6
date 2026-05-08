@@ -3,15 +3,9 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: light;
   --card-bg: 255 255 255;
   --page-bg: 242 242 247;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --card-bg: 44 44 46;
-    --page-bg: 28 28 30;
-  }
 }
 
 * {

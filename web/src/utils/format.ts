@@ -1,15 +1,5 @@
 export function krwCompact(value: number): string {
-  const abs = Math.abs(value)
-  const sign = value < 0 ? '-' : ''
-  if (abs >= 100_000_000) {
-    const eo = abs / 100_000_000
-    return sign + eo.toFixed(eo >= 10 ? 1 : 2) + '억'
-  }
-  if (abs >= 10_000) {
-    const man = abs / 10_000
-    return sign + man.toFixed(man >= 100 ? 0 : 1) + '만'
-  }
-  return sign + Math.round(abs).toLocaleString('ko-KR')
+  return krwFull(value)
 }
 
 export function krwCompactSigned(value: number): string {
