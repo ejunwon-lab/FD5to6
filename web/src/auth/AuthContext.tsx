@@ -112,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [initClient])
 
   const signIn = useCallback(() => {
-    tokenClientRef.current?.requestAccessToken({ prompt: '' })
+    tokenClientRef.current?.requestAccessToken({ prompt: 'select_account' })
   }, [])
 
   const signOut = useCallback(() => {
