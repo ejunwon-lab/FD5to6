@@ -9,9 +9,7 @@ async function callGAS<T>(action: string): Promise<T> {
   const url = import.meta.env.VITE_GAS_WEBAPP_URL
   if (!url) throw new Error('VITE_GAS_WEBAPP_URL not set')
 
-  const res = await fetch(url, {
-    method: 'POST',
-    body: JSON.stringify({ action, key }),
+  const res = await fetch(`${url}?${new URLSearchParams({ action, key })}`, {
     redirect: 'follow',
   })
 

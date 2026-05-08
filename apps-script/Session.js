@@ -8,9 +8,10 @@
  * 배포: 웹앱으로 배포 (Execute as: Me, Who has access: Anyone)
  */
 
-function doPost(e) {
+function doGet(e) {
   try {
-    const { action, key } = JSON.parse(e.postData.contents)
+    const action = e.parameter.action
+    const key    = e.parameter.key
 
     const expectedKey = PropertiesService.getScriptProperties().getProperty('APP_KEY')
     if (!expectedKey || key !== expectedKey) {
@@ -38,7 +39,7 @@ function doPost(e) {
  * 실행 전 아래 key 값을 원하는 비밀 코드로 변경할 것
  */
 function setupAppKey() {
-  const key = 'CHANGE_THIS_TO_YOUR_SECRET_CODE'
+  const key = 'Dhsmfehrhrh1!'
   PropertiesService.getScriptProperties().setProperty('APP_KEY', key)
   Logger.log('APP_KEY 설정 완료: ' + key)
 }
