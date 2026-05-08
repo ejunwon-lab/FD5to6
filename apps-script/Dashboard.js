@@ -353,8 +353,11 @@ function _calcTodayProfit(priceHistSheet, posRows) {
   let prevRowIdx  = -1;  // 오늘 이전 날짜 행 중 마지막
 
   for (let i = 0; i < dataRows; i++) {
-    const d = String(dates[i][0]).slice(0, 10);
-    if (d === today)       todayRowIdx = i;
+    const raw = dates[i][0];
+    const d   = raw instanceof Date
+      ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
+      : String(raw).slice(0, 10);
+    if (d === today)  todayRowIdx = i;
     else if (d < today && d.length === 10) prevRowIdx = i;
   }
 

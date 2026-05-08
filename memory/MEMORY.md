@@ -13,3 +13,4 @@
 - [할 수 있는 건 바로 실행](feedback_just_do_it.md) — 배포·커밋 등 직접 실행 가능한 작업은 사용자에게 넘기지 않고 바로 한다
 - [GAS 에디터 직접 실행 시 getUi() 금지](feedback_gas_editor_ui.md) — setup/trigger 등록 함수에서 getUi().alert() 쓰면 에디터에서 멈춤, Logger.log() 사용
 - [존댓말 사용 필수](feedback_speech_level.md) — 모든 한국어 대화에서 예외 없이 존댓말 사용
+- [함수 실행 안내 시 파일명 포함](feedback_function_file.md) — 함수 실행 안내 시 항상 GAS 파일명 함께 명시

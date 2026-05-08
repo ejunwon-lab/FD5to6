@@ -126,24 +126,28 @@ function logToTrendSheet(ss) {
 
     const writeRow = todayRow ? todayRow : (lastFilled + 1);
 
-    // 확정 데이터 일괄 읽기 (K=11, V=22, X=24 → K부터 14열 배치 읽기)
-    const soldStartRow = getTrackerSoldData(ss).startRow;
+    // 확정 데이터: A열 비어있고 K열 값 있는 합계행을 찾아 K·V·X 직접 읽기
+    const soldStartRow = getTrackerSoldData(sys).startRow;
     const trackLastRow = track.getLastRow();
     let confirmedBuy = 0, confirmedSell = 0, confirmedProfit = 0;
     const soldHeight = Math.max(trackLastRow - soldStartRow + 1, 0);
     if (soldHeight > 0) {
-      const soldVals = track.getRange(soldStartRow, 11, soldHeight, 14).getValues();
-      for (let i = soldVals.length - 1; i >= 0; i--) {
-        if (!confirmedBuy    && soldVals[i][0])  confirmedBuy    = toNumberLoose(soldVals[i][0]);  // K
-        if (!confirmedSell   && soldVals[i][11]) confirmedSell   = toNumberLoose(soldVals[i][11]); // V
-        if (!confirmedProfit && soldVals[i][13]) confirmedProfit = toNumberLoose(soldVals[i][13]); // X
-        if (confirmedBuy && confirmedSell && confirmedProfit) break;
+      const soldVals = track.getRange(soldStartRow, 1, soldHeight, 24).getValues();
+      for (let i = 0; i < soldVals.length; i++) {
+        const code = String(soldVals[i][0] || '').trim();
+        const kVal = soldVals[i][10]; // K열 (index 10)
+        if (!code && kVal !== '' && kVal !== null && kVal !== 0) {
+          confirmedBuy    = toNumberLoose(kVal);           // K
+          confirmedSell   = toNumberLoose(soldVals[i][21]); // V
+          confirmedProfit = toNumberLoose(soldVals[i][23]); // X
+          break;
+        }
       }
     }
     const confirmedRate   = confirmedBuy ? (confirmedProfit / confirmedBuy) * 100 : 0;
 
     // 운용 합계는 ACTIVE_TOTAL Named Range 기준으로 동적 조회
-    const totalRange    = getNamedRange(ss, CONFIG.NAMED_RANGES.ACTIVE_TOTAL);
+    const totalRange    = getNamedRange(sys, CONFIG.NAMED_RANGES.ACTIVE_TOTAL);
     const totalRow      = totalRange.getRow();
     const totalSheet    = track;
     const operatingBuy    = toNumberLoose(totalSheet.getRange(totalRow, 11).getValue()); // K열
@@ -199,10 +203,10 @@ function logToTrendSheet(ss) {
 }
 
 /**
- * 종목_히스토리 시트 확보 (없으면 생성)
+ * 종목현황_이력 시트 확보 (없으면 생성)
  */
 /**
- * [수동 실행용] 종목_히스토리 즉시 기록 (거래일 여부 무관)
+ * [수동 실행용] 종목현황_이력 즉시 기록 (거래일 여부 무관)
  * GAS 에디터에서 직접 실행
  */
 function runHoldingsHistoryNow() {
@@ -212,7 +216,7 @@ function runHoldingsHistoryNow() {
   const dateOnly = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
   const timeStr  = Utilities.formatDate(now, tz, 'a h시 m분 s초').replace('AM', '오전').replace('PM', '오후');
   _upsertHoldingsHistory(ss, dateOnly, timeStr);
-  Logger.log('종목_히스토리 기록 완료 — ' + dateOnly + ' ' + timeStr);
+  Logger.log('종목현황_이력 기록 완료 — ' + dateOnly + ' ' + timeStr);
 }
 
 function _ensureHoldingsHistorySheet(ss) {
@@ -234,7 +238,7 @@ function _ensureHoldingsHistorySheet(ss) {
 }
 
 /**
- * 종목_히스토리 upsert (날짜+종목코드 기준, 보유 종목만)
+ * 종목현황_이력 upsert (날짜+종목코드 기준, 보유 종목만)
  */
 function _upsertHoldingsHistory(ss, dateOnly, timeStr) {
   const sheet = _ensureHoldingsHistorySheet(ss);
