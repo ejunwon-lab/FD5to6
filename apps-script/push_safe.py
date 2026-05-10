@@ -15,8 +15,8 @@ from pathlib import Path
 import requests
 
 SCRIPTS = {
-    "old": "12MAcPpoVE39N_Sz0B79G0rjGvevJ8-S_ibVC1Ot61fyVPZnaSQmrJyiR",
-    "new": "1DC8llpWYz2ZvzsqVCaz60qomATwxP_CBzuHBitCf0uQT5NbBF-n7IHdZ",
+    "old": ("12MAcPpoVE39N_Sz0B79G0rjGvevJ8-S_ibVC1Ot61fyVPZnaSQmrJyiR", "apps-script"),
+    "new": ("1DC8llpWYz2ZvzsqVCaz60qomATwxP_CBzuHBitCf0uQT5NbBF-n7IHdZ",  "apps-script-new"),
 }
 PROTECTED = {"Secret", "Secret.gs"}   # never overwrite these on remote
 CLASPRC   = Path.home() / ".clasprc.json"
@@ -61,8 +61,8 @@ def main():
         print(f"Usage: push_safe.py [old|new]")
         sys.exit(1)
 
-    script_id  = SCRIPTS[target]
-    script_dir = Path(__file__).parent
+    script_id, folder = SCRIPTS[target]
+    script_dir = Path(__file__).parent.parent / folder
     token      = get_token()
     base       = f"https://script.googleapis.com/v1/projects/{script_id}"
 
