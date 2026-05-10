@@ -46,6 +46,14 @@ function SignInScreen() {
 function MainApp() {
   const { isSignedIn, isLoading } = useAuth()
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
+  const [dashboardTap, setDashboardTap] = useState(0)
+
+  const handleTabChange = (tab: Tab) => {
+    if (tab === 'dashboard' && activeTab === 'dashboard') {
+      setDashboardTap(n => n + 1)
+    }
+    setActiveTab(tab)
+  }
 
   if (isLoading) {
     return (
@@ -59,11 +67,11 @@ function MainApp() {
 
   return (
     <div className="relative max-w-[430px] mx-auto">
-      {activeTab === 'dashboard'  && <DashboardPage />}
+      {activeTab === 'indicators' && <IndicatorsPage />}
+      {activeTab === 'dashboard'  && <DashboardPage scrollToTopSignal={dashboardTap} />}
       {activeTab === 'holdings'   && <HoldingsPage />}
       {activeTab === 'analysis'   && <AnalysisPage />}
-      {activeTab === 'indicators' && <IndicatorsPage />}
-      <TabBar active={activeTab} onChange={setActiveTab} />
+      <TabBar active={activeTab} onChange={handleTabChange} />
     </div>
   )
 }
