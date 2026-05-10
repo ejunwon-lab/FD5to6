@@ -16,6 +16,7 @@ const NS = {
   POSITION:      '*보유현황*',
   REALIZED_PNL:  '*실현손익*',
   STOCK_STATUS:  '*종목상태*',
+  SETTINGS:      '*설정*',
 
   BROKERS:    ['미래에셋투자증권', '삼성증권'],
   ACCOUNTS: {
@@ -746,6 +747,39 @@ function _getLatestPrices(ss) {
   return priceMap;
 }
 
+function _getActiveCodes(ss) {
+  const ledger = ss.getSheetByName(NS.LEDGER);
+  if (!ledger || ledger.getLastRow() < 2) return [];
+  const rows = ledger.getRange(2, 1, ledger.getLastRow() - 1, 5).getValues();
+  const codeSet = new Set();
+  rows.forEach(r => {
+    const code = _normCode(r[2]);
+    const cat  = String(r[4] || '').trim();
+    if (code && !NS.KIS_SKIP.includes(cat)) codeSet.add(code);
+  });
+  return [...codeSet].sort();
+}
+
+function _readStockStatusRaw(ss) {
+  const map = {};
+  const sheet = ss.getSheetByName(NS.STOCK_STATUS);
+  if (!sheet || sheet.getLastRow() < 2) return map;
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 11).getValues();
+  rows.forEach(r => { const code = _normCode(r[0]); if (code) map[code] = r.slice(); });
+  return map;
+}
+
+function _writeStockStatusRows(ss, statusRows) {
+  const sheet = ss.getSheetByName(NS.STOCK_STATUS);
+  if (sheet.getLastRow() > 1)
+    sheet.getRange(2, 1, sheet.getLastRow() - 1, 11).clearContent();
+  if (statusRows.length > 0) {
+    sheet.getRange(2, 1, statusRows.length, 11).setValues(statusRows);
+    sheet.getRange(2, 2, statusRows.length, 3).setNumberFormat('#,##0');
+    sheet.getRange(2, 5, statusRows.length, 2).setNumberFormat('#,##0');
+  }
+}
+
 // ═══════════════════════════════════════════════════
 //  *종목상태* / *현재가_이력* 업데이트
 // ═══════════════════════════════════════════════════
@@ -792,56 +826,92 @@ function _getStockStatusMap(ss) {
 }
 
 /**
- * KIS API → *종목상태* 전체 갱신 + *현재가_이력* upsert
- * 구 트래커에 의존하지 않고 완전 독립 동작
+ * 현재가·등락만 업데이트 — 장중 여러 번 호출용
+ * 1M~1Y·52주 컬럼은 건드리지 않고 기존 값 보존
  */
-function updateNewStockStatus(ss) {
+function updateNewCurrentPrice(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   _ensureStockStatusSheet(ss);
 
-  const ledger = ss.getSheetByName(NS.LEDGER);
-  if (!ledger || ledger.getLastRow() < 2) return;
-
-  // 원장에서 활성 종목코드 추출
-  const ledgerRows = ledger.getRange(2, 1, ledger.getLastRow() - 1, 5).getValues();
-  const codeSet = new Set();
-  ledgerRows.forEach(r => {
-    const code = _normCode(r[2]);
-    const cat  = String(r[4] || '').trim();
-    if (code && !NS.KIS_SKIP.includes(cat)) codeSet.add(code);
-  });
-  const allCodes = [...codeSet].sort();
+  const allCodes = _getActiveCodes(ss);
   if (allCodes.length === 0) return;
 
-  // 국내 / 해외 분류 (순수 영문 1~5자 = 해외)
   const domCodes = allCodes.filter(c => !/^[A-Za-z]{1,5}$/.test(c));
   const ovsCodes = allCodes.filter(c => /^[A-Za-z]{1,5}$/.test(c));
 
   KIS_API.ensureToken();
   const usdKrw = _getSettingsFxRate(ss, 'USD/KRW');
 
-  // ── 국내 조회 ──
   const domInfoMap = {};
   if (domCodes.length > 0) {
     const kisCodes = domCodes.map(c => /^\d+$/.test(c) ? c.padStart(6, '0') : c);
     const raw = KIS_API.getKisStockInfoBatch(kisCodes);
-    domCodes.forEach((nc, i) => {
-      const info = raw[kisCodes[i]];
-      if (info) domInfoMap[nc] = info;
-    });
+    domCodes.forEach((nc, i) => { const info = raw[kisCodes[i]]; if (info) domInfoMap[nc] = info; });
   }
-
-  // ── 해외 조회 ──
   const ovsInfoMap = {};
   if (ovsCodes.length > 0) {
     const raw = KIS_API.getOverseasStockInfoBatch(ovsCodes);
-    ovsCodes.forEach(nc => {
-      const info = raw[nc];
-      if (info) ovsInfoMap[nc] = info;
-    });
+    ovsCodes.forEach(nc => { const info = raw[nc]; if (info) ovsInfoMap[nc] = info; });
   }
 
-  // ── 히스토리(1M~1Y) 조회 ──
+  const existing = _readStockStatusRaw(ss);
+  const now = new Date();
+  const updatedAt = Utilities.formatDate(now, 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+  const statusMap = {};
+
+  const statusRows = allCodes.map(nc => {
+    const isDom = !/^[A-Za-z]{1,5}$/.test(nc);
+    const info  = isDom ? domInfoMap[nc] : ovsInfoMap[nc];
+    const ex    = existing[nc] || [];
+    const rawP  = info ? (info.price || 0) : 0;
+    const price = info ? (isDom ? rawP : Math.round(rawP * usdKrw)) : (ex[1] || 0);
+    const change = info ? (isDom ? (info.change || 0) : Math.round((info.change || 0) * usdKrw)) : (ex[2] || 0);
+    const changePct = info && info.changeRate != null
+      ? (info.changeRate.toFixed ? info.changeRate.toFixed(2) + '%' : String(info.changeRate))
+      : (ex[3] || '');
+    statusMap[nc] = { price };
+    // 1M~1Y·52주는 기존 값 그대로 보존
+    return [nc, price, change, changePct,
+            ex[4] || 0, ex[5] || 0,
+            ex[6] || '-', ex[7] || '-', ex[8] || '-', ex[9] || '-',
+            updatedAt];
+  });
+
+  _writeStockStatusRows(ss, statusRows);
+  _updatePriceHistory(ss, allCodes, statusMap, now);
+  Logger.log('updateNewCurrentPrice 완료: ' + statusRows.length + '개 종목');
+}
+
+/**
+ * 히스토리(1M~1Y·52주) 업데이트 — 7:55 AM 1회 실행
+ * 현재가도 함께 갱신하고 *종목상태* M1에 타임스탬프 기록
+ */
+function updateNewStockHistory(ss) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  _ensureStockStatusSheet(ss);
+
+  const allCodes = _getActiveCodes(ss);
+  if (allCodes.length === 0) return;
+
+  const domCodes = allCodes.filter(c => !/^[A-Za-z]{1,5}$/.test(c));
+  const ovsCodes = allCodes.filter(c => /^[A-Za-z]{1,5}$/.test(c));
+
+  KIS_API.ensureToken();
+  const usdKrw = _getSettingsFxRate(ss, 'USD/KRW');
+
+  const domInfoMap = {};
+  if (domCodes.length > 0) {
+    const kisCodes = domCodes.map(c => /^\d+$/.test(c) ? c.padStart(6, '0') : c);
+    const raw = KIS_API.getKisStockInfoBatch(kisCodes);
+    domCodes.forEach((nc, i) => { const info = raw[kisCodes[i]]; if (info) domInfoMap[nc] = info; });
+  }
+  const ovsInfoMap = {};
+  if (ovsCodes.length > 0) {
+    const raw = KIS_API.getOverseasStockInfoBatch(ovsCodes);
+    ovsCodes.forEach(nc => { const info = raw[nc]; if (info) ovsInfoMap[nc] = info; });
+  }
+
+  // 히스토리 조회
   const histItems = [
     ...domCodes.map(c => ({ code: /^\d+$/.test(c) ? c.padStart(6, '0') : c, isOverseas: false, _norm: c })),
     ...ovsCodes.map(c => ({
@@ -850,66 +920,55 @@ function updateNewStockStatus(ss) {
       _norm: c
     })),
   ];
-  let histMap = {};
+  const histMap = {};
   try {
     const rawHist = KIS_API.fetchAllStockHistory(histItems);
     histItems.forEach(item => {
       const history = rawHist[item.code];
       if (!history || history.length === 0) return;
-      const infoEntry = domInfoMap[item._norm] || ovsInfoMap[item._norm];
-      const curPrice  = infoEntry
-        ? (item.isOverseas ? infoEntry.price * usdKrw : infoEntry.price)
-        : 0;
-      if (curPrice > 0) {
-        const stats = KIS_API.calculateStats(history, item.isOverseas ? infoEntry.price : curPrice);
-        if (stats) histMap[item._norm] = stats;
-      }
+      const info = domInfoMap[item._norm] || ovsInfoMap[item._norm];
+      if (!info) return;
+      const stats = KIS_API.calculateStats(history, info.price);
+      if (stats) histMap[item._norm] = stats;
     });
   } catch (e) { Logger.log('히스토리 조회 실패: ' + e); }
 
-  // ── statusMap 빌드 ──
   const now = new Date();
   const updatedAt = Utilities.formatDate(now, 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
   const statusMap = {};
 
-  allCodes.forEach(nc => {
-    const isDom = !/^[A-Za-z]{1,5}$/.test(nc);
-    const info  = isDom ? domInfoMap[nc] : ovsInfoMap[nc];
-    if (!info) return;
-    const rawPrice = info.price || 0;
-    const price    = isDom ? rawPrice : Math.round(rawPrice * usdKrw);
-    const stats    = histMap[nc] || {};
-    statusMap[nc] = {
-      price,
-      change:    isDom ? (info.change || 0) : Math.round((info.change || 0) * usdKrw),
-      changePct: info.changeRate != null ? (info.changeRate.toFixed ? info.changeRate.toFixed(2) + '%' : String(info.changeRate)) : '',
-      high52:    isDom ? (info.high52 || 0) : Math.round((stats.high52 || 0) * usdKrw),
-      low52:     isDom ? (info.low52  || 0) : Math.round((stats.low52  || 0) * usdKrw),
-      m1:        stats.return1M  || '-',
-      m3:        stats.return3M  || '-',
-      m6:        stats.return6M  || '-',
-      m1y:       stats.return1Y  || '-',
-    };
+  const statusRows = allCodes.map(nc => {
+    const isDom  = !/^[A-Za-z]{1,5}$/.test(nc);
+    const info   = isDom ? domInfoMap[nc] : ovsInfoMap[nc];
+    const stats  = histMap[nc] || {};
+    const rawP   = info ? (info.price || 0) : 0;
+    const price  = info ? (isDom ? rawP : Math.round(rawP * usdKrw)) : 0;
+    const change = info ? (isDom ? (info.change || 0) : Math.round((info.change || 0) * usdKrw)) : 0;
+    const changePct = info && info.changeRate != null
+      ? (info.changeRate.toFixed ? info.changeRate.toFixed(2) + '%' : String(info.changeRate))
+      : '';
+    statusMap[nc] = { price };
+    return [nc, price, change, changePct,
+            isDom ? (info ? info.high52 || 0 : 0) : Math.round((stats.high52 || 0) * usdKrw),
+            isDom ? (info ? info.low52  || 0 : 0) : Math.round((stats.low52  || 0) * usdKrw),
+            stats.return1M || '-', stats.return3M || '-',
+            stats.return6M || '-', stats.return1Y || '-',
+            updatedAt];
   });
 
-  // ── *종목상태* 시트 갱신 ──
-  const statusSheet = ss.getSheetByName(NS.STOCK_STATUS);
-  if (statusSheet.getLastRow() > 1) {
-    statusSheet.getRange(2, 1, statusSheet.getLastRow() - 1, 11).clearContent();
-  }
-  const statusRows = Object.entries(statusMap).map(([nc, s]) =>
-    [nc, s.price, s.change, s.changePct, s.high52, s.low52, s.m1, s.m3, s.m6, s.m1y, updatedAt]
-  );
-  if (statusRows.length > 0) {
-    statusSheet.getRange(2, 1, statusRows.length, 11).setValues(statusRows);
-    statusSheet.getRange(2, 2, statusRows.length, 3).setNumberFormat('#,##0');   // 현재단가·등락
-    statusSheet.getRange(2, 5, statusRows.length, 2).setNumberFormat('#,##0');   // 52주
-  }
+  _writeStockStatusRows(ss, statusRows);
 
-  Logger.log('updateNewStockStatus 완료: ' + statusRows.length + '개 종목');
+  // 히스토리 갱신 타임스탬프를 M1에 기록
+  ss.getSheetByName(NS.STOCK_STATUS).getRange(1, 13).setValue(updatedAt);
 
-  // ── *현재가_이력* upsert ──
   _updatePriceHistory(ss, allCodes, statusMap, now);
+  Logger.log('updateNewStockHistory 완료: ' + statusRows.length + '개 종목');
+}
+
+// 전체 갱신 wrapper (초기 설정 또는 수동 전체 실행)
+function updateNewStockStatus(ss) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  updateNewStockHistory(ss);
 }
 
 function _updatePriceHistory(ss, allCodes, statusMap, now) {
@@ -954,7 +1013,7 @@ function _updatePriceHistory(ss, allCodes, statusMap, now) {
   }
 }
 
-// *현재가_이력* 업데이트 진입점 — Main.js 트리거 및 메뉴 호환용 wrapper
+// Main.js 호환 wrapper
 function updateNewPriceHistory(ss) {
-  updateNewStockStatus(ss || SpreadsheetApp.getActiveSpreadsheet());
+  updateNewCurrentPrice(ss || SpreadsheetApp.getActiveSpreadsheet());
 }

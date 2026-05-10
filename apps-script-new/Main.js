@@ -7,6 +7,7 @@ function onOpen() {
     .createMenu('📊 뉴시스템')
     .addItem('🔄 전체 업데이트 (가격 + 보유현황 + 대시보드)', 'updateAllNew')
     .addItem('💹 현재가만 업데이트', 'menuUpdatePricesOnly')
+    .addItem('📈 1M~1Y 히스토리 갱신 (수동)', 'menuUpdateHistory')
     .addItem('📋 보유현황 재계산', 'updatePositionFromLedger')
     .addItem('📊 대시보드 갱신', 'buildDashboard')
     .addToUi();
@@ -53,26 +54,46 @@ function menuUpdatePricesOnly() {
 //  트리거 관리
 // ══════════════════════════════════════════
 
-/** 매일 17:30 자동 업데이트 트리거 (장 마감 후) */
+function menuUpdateHistory() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.toast('1M~1Y 히스토리 갱신 중 (1~2분 소요)...', '📈', 120);
+  try {
+    updateNewStockHistory(ss);
+    updatePositionFromLedger();
+    buildDashboard();
+    ss.toast('히스토리 갱신 완료', '✅', 4);
+  } catch (e) {
+    ss.toast('오류: ' + e.message, '❌', 5);
+    Logger.log('menuUpdateHistory 오류: ' + e);
+  }
+}
+
+/** 매일 7:55 히스토리 갱신 트리거 (장 전) */
+function scheduledHistoryUpdate() {
+  updateNewStockHistory(SpreadsheetApp.getActiveSpreadsheet());
+}
+
+/** 매일 17:30 현재가 + 보유현황 + 대시보드 트리거 (장 마감 후) */
 function scheduledDailyUpdate() {
   updateAllNew();
 }
 
-function setupDailyTrigger() {
-  deleteDailyTrigger();
+function setupTriggers() {
+  // 기존 트리거 전부 삭제
+  ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
+
+  // 7:55 히스토리
+  ScriptApp.newTrigger('scheduledHistoryUpdate')
+    .timeBased().atHour(7).nearMinute(55).everyDays(1).create();
+
+  // 17:30 현재가·보유현황·대시보드
   ScriptApp.newTrigger('scheduledDailyUpdate')
-    .timeBased()
-    .atHour(18)
-    .nearMinute(0)
-    .everyDays(1)
-    .create();
-  Logger.log('트리거 설정 완료: 매일 17:30 scheduledDailyUpdate');
-  SpreadsheetApp.getActiveSpreadsheet()
-    .toast('매일 17:30 자동 업데이트 트리거 설정 완료', '⏰', 4);
+    .timeBased().atHour(17).nearMinute(30).everyDays(1).create();
+
+  Logger.log('트리거 설정 완료: 7:55 히스토리 + 17:30 전체');
 }
 
-function deleteDailyTrigger() {
-  ScriptApp.getProjectTriggers()
-    .filter(t => t.getHandlerFunction() === 'scheduledDailyUpdate')
-    .forEach(t => ScriptApp.deleteTrigger(t));
+function deleteTriggers() {
+  ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
+  Logger.log('모든 트리거 삭제 완료');
 }
