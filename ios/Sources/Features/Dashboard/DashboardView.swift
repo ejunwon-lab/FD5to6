@@ -124,7 +124,7 @@ struct DashboardView: View {
                 }
                 .padding(.vertical, 28)
                 .frame(maxWidth: .infinity)
-                .background(dayAmt >= 0 ? Color(red: 0.85, green: 0.10, blue: 0.10) : Color(red: 0.05, green: 0.35, blue: 0.85))
+                .background(dayAmt >= 0 ? Color.profit : Color.loss)
                 .scaleEffect(dayCardPressed ? 0.97 : 1.0)
                 .animation(.easeInOut(duration: 0.12), value: dayCardPressed)
                 .contentShape(Rectangle())

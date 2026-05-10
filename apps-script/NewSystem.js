@@ -854,14 +854,15 @@ function updateNewStockStatus(ss) {
   try {
     const rawHist = KIS_API.fetchAllStockHistory(histItems);
     histItems.forEach(item => {
-      const history = rawHist[item.code];
-      if (!history || history.length === 0) return;
+      const weeklyH = (rawHist.weekly || rawHist)[item.code] || [];
+      const dailyH  = (rawHist.daily  || {})[item.code] || [];
+      if (weeklyH.length === 0) return;
       const infoEntry = domInfoMap[item._norm] || ovsInfoMap[item._norm];
       const curPrice  = infoEntry
         ? (item.isOverseas ? infoEntry.price * usdKrw : infoEntry.price)
         : 0;
       if (curPrice > 0) {
-        const stats = KIS_API.calculateStats(history, item.isOverseas ? infoEntry.price : curPrice);
+        const stats = KIS_API.calculateStats(weeklyH, item.isOverseas ? infoEntry.price : curPrice, dailyH);
         if (stats) histMap[item._norm] = stats;
       }
     });

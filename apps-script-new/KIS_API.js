@@ -513,24 +513,28 @@ const KIS_API = {
   },
   /**
    * [신규] 병렬 처리를 위한 요청 객체 생성 헬퍼
+   * @param {string} period 'D' (일봉, 1M/3M용) | 'W' (주봉, 6M/1Y용)
    */
-  createHistoryRequest: function(code, isOverseas, exchange) {
+  createHistoryRequest: function(code, isOverseas, exchange, period) {
     if (!code) return null;
-    
+    period = period || 'W';
+
     const token = this.getAccessToken();
     const today = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd');
-    
-    // 1년 전 날짜 계산 (주봉이므로 넉넉하게 1년 2개월 전부터 조회)
+
     const d = new Date();
-    d.setFullYear(d.getFullYear() - 1);
-    d.setMonth(d.getMonth() - 2); 
+    if (period === 'D') {
+      d.setMonth(d.getMonth() - 4); // 일봉: 4개월치 (1M/3M + 버퍼)
+    } else {
+      d.setFullYear(d.getFullYear() - 1);
+      d.setMonth(d.getMonth() - 2); // 주봉: 1년 2개월치 (6M/1Y)
+    }
     const startDate = Utilities.formatDate(d, 'Asia/Seoul', 'yyyyMMdd');
-    
+
     let url, headers;
-    
+
     if (isOverseas) {
-      // 해외주식: FID_ORG_ADJ_PRC=1 (수정주가 반영) 추가
-      url = `${SECRET.KIS_BASE_URL}/uapi/overseas-price/v1/quotations/inquire-daily-chartprice?FID_COND_MRKT_DIV_CODE=${exchange}&FID_INPUT_ISCD=${code}&FID_INPUT_DATE_1=${startDate}&FID_INPUT_DATE_2=${today}&FID_PERIOD_DIV_CODE=W&FID_ORG_ADJ_PRC=1`;
+      url = `${SECRET.KIS_BASE_URL}/uapi/overseas-price/v1/quotations/inquire-daily-chartprice?FID_COND_MRKT_DIV_CODE=${exchange}&FID_INPUT_ISCD=${code}&FID_INPUT_DATE_1=${startDate}&FID_INPUT_DATE_2=${today}&FID_PERIOD_DIV_CODE=${period}&FID_ORG_ADJ_PRC=1`;
       headers = {
         "content-type": "application/json; charset=utf-8",
         "authorization": "Bearer " + token,
@@ -539,7 +543,7 @@ const KIS_API = {
         "tr_id": "HHDFS76410000"
       };
     } else {
-      url = `${SECRET.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${code}&FID_INPUT_DATE_1=${startDate}&FID_INPUT_DATE_2=${today}&FID_PERIOD_DIV_CODE=W&FID_ORG_ADJ_PRC=1`;
+      url = `${SECRET.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${code}&FID_INPUT_DATE_1=${startDate}&FID_INPUT_DATE_2=${today}&FID_PERIOD_DIV_CODE=${period}&FID_ORG_ADJ_PRC=1`;
       headers = {
         "content-type": "application/json; charset=utf-8",
         "authorization": "Bearer " + token,
@@ -548,16 +552,16 @@ const KIS_API = {
         "tr_id": "FHKST03010100"
       };
     }
-    
+
     return {
       url: url,
       headers: headers,
       method: 'get',
       muteHttpExceptions: true,
-      // 사용자 정의 필드 (나중에 응답 매핑용)
       _code: code,
       _isOverseas: isOverseas,
-      _exchange: exchange
+      _exchange: exchange,
+      _period: period
     };
   },
   /**
@@ -566,18 +570,18 @@ const KIS_API = {
   parseHistoryResponse: function(res, isOverseas, code, exchange) {
     try {
       const data = JSON.parse(res.getContentText());
-      
+
       if (data.rt_cd === "0" && data.output2 && data.output2.length > 0) {
-        return data.output2.map(item => ({
-          date: item.stck_bsop_date || item.xymd,
-          close: parseFloat(item.stck_clpr || item.clos),
-          high: parseFloat(item.stck_hgpr || item.high),
-          low: parseFloat(item.stck_lwpr || item.low)
-        }));
-      } else if (isOverseas) {
-        // 주봉 실패 시 Fallback은 병렬 처리에서 제외 (복잡도 증가 방지)
-        // 필요하다면 여기서 동기적으로 호출하거나 무시
-        return []; 
+        const rows = data.output2
+          .map(item => ({
+            date:  item.stck_bsop_date || item.xymd || '',
+            close: parseFloat(item.stck_clpr || item.clos) || 0,
+            high:  parseFloat(item.stck_hgpr || item.high) || 0,
+            low:   parseFloat(item.stck_lwpr || item.low)  || 0
+          }))
+          .filter(r => r.date && r.close > 0); // date 없거나 가격 0인 레코드 제거
+        rows.sort((a, b) => b.date.localeCompare(a.date)); // 내림차순 보장
+        return rows;
       }
     } catch (e) {
       Logger.log(`Parse Error(${code}): ${e}`);
@@ -587,35 +591,31 @@ const KIS_API = {
   /**
    * [신규] 다수 종목 히스토리 병렬 조회 (Batch Processing)
    * @param {Array} items - [{code: '005930', isOverseas: false}, ...]
-   * @return {Object} { '005930': [history...], 'AAPL': [history...] }
+   * @return {Object} { daily: {'005930': [...]}, weekly: {'005930': [...]} }
+   *   daily  — 일봉 4개월 (1M/3M 계산용)
+   *   weekly — 주봉 14개월 (6M/1Y 계산용)
    */
   fetchAllStockHistory: function(items) {
-    if (!items || items.length === 0) return {};
-    
-    // 1. 요청 객체 생성
-    const requests = items.map(item => {
-      const req = this.createHistoryRequest(item.code, item.isOverseas, item.exchange || 'NAS');
-      return req ? { ...req, _code: item.code } : null; // _code 보존
+    if (!items || items.length === 0) return { daily: {}, weekly: {} };
+
+    const mkReqs = (period) => items.map(item => {
+      const req = this.createHistoryRequest(item.code, item.isOverseas, item.exchange || 'NAS', period);
+      return req ? { ...req, _code: item.code } : null;
     }).filter(r => r !== null);
-    
-    if (requests.length === 0) return {};
-    // 2. 병렬 실행 (UrlFetchApp.fetchAll)
-    // GAS fetchAll은 요청 객체 배열을 받음 (headers, method 등 포함)
-    const responses = UrlFetchApp.fetchAll(requests);
-    
-    // 3. 결과 매핑
-    const resultMap = {};
-    
-    responses.forEach((res, index) => {
-      const req = requests[index];
-      const code = req._code;
-      const isOverseas = req._isOverseas;
-      const exchange = req._exchange;
-      
-      resultMap[code] = this.parseHistoryResponse(res, isOverseas, code, exchange);
+
+    const allReqs = [...mkReqs('D'), ...mkReqs('W')];
+    if (allReqs.length === 0) return { daily: {}, weekly: {} };
+
+    const responses = UrlFetchApp.fetchAll(allReqs);
+
+    const daily = {}, weekly = {};
+    allReqs.forEach((req, i) => {
+      const history = this.parseHistoryResponse(responses[i], req._isOverseas, req._code, req._exchange);
+      if (req._period === 'D') daily[req._code] = history;
+      else                     weekly[req._code] = history;
     });
-    
-    return resultMap;
+
+    return { daily, weekly };
   },
   /**
    * 해외주식 일봉 조회 Fallback (최근 100일)
@@ -654,46 +654,38 @@ const KIS_API = {
    * [개선] 히스토리 데이터를 기반으로 통계 계산
    * 데이터가 부족할 경우(예: 상장한 지 1년 미만), 가능한 가장 오래된 데이터를 사용하여 계산 시도
    */
-  calculateStats: function(history, currentPrice) {
-    if (!history || history.length === 0) return null;
-    
+  /**
+   * @param {Array} weeklyHistory 주봉 히스토리 (6M/1Y용)
+   * @param {number} currentPrice 현재가
+   * @param {Array} dailyHistory  일봉 히스토리 (1M/3M용, 없으면 weeklyHistory fallback)
+   */
+  calculateStats: function(weeklyHistory, currentPrice, dailyHistory) {
+    if (!weeklyHistory || weeklyHistory.length === 0) return null;
+
     const now = new Date();
-    
-    // 날짜 차이 계산 헬퍼
-    const findPriceAgo = (months) => {
+
+    // history(내림차순)에서 months개월 전 종가 반환
+    const findPriceAgo = (histArr, months) => {
       const targetDate = new Date(now);
       targetDate.setMonth(targetDate.getMonth() - months);
       const targetStr = Utilities.formatDate(targetDate, 'Asia/Seoul', 'yyyyMMdd');
-      
-      // targetStr보다 작거나 같은 날짜 중 가장 최근 날짜 찾기
-      // history는 내림차순(최신->과거) 정렬되어 있다고 가정
-      // 따라서 뒤에서부터 찾거나, filter 후 0번을 쓰거나 해야 함.
-      // history: [20241206, 20241205, ...]
-      
-      // targetStr 이하인 날짜들 중 가장 큰(최신) 날짜
-      const candidates = history.filter(h => h.date <= targetStr);
-      
-      if (candidates.length > 0) {
-        return candidates[0].close; // 그 중 가장 최신(가장 가까운 과거)
-      } else {
-        // 만약 targetStr보다 더 과거의 데이터가 아예 없다면? (즉, 상장한 지 얼마 안 됨)
-        // 가장 오래된 데이터(history의 마지막)라도 사용할지 결정해야 함.
-        // 1년 수익률인데 상장 6개월차라면 '-' 표시가 맞을 수도 있고, 상장 이후 수익률을 보여줄 수도 있음.
-        // 여기서는 '데이터 없음'으로 처리하되, 1년 미만 신규 상장주 등을 위해
-        // 요청 기간보다 데이터가 짧으면 가장 오래된 데이터를 리턴하지 않고 null 리턴.
-        return null; 
-      }
+      // 내림차순 정렬 기준: targetStr 이하인 첫 번째 항목 = 가장 가까운 과거
+      const candidates = histArr.filter(h => h.date <= targetStr);
+      return candidates.length > 0 ? candidates[0].close : null;
     };
-    const price1M = findPriceAgo(1);
-    const price3M = findPriceAgo(3);
-    const price6M = findPriceAgo(6);
-    const price1Y = findPriceAgo(12);
+
+    const shortHist = (dailyHistory && dailyHistory.length > 0) ? dailyHistory : weeklyHistory;
+
+    const price1M = findPriceAgo(shortHist, 1);
+    const price3M = findPriceAgo(shortHist, 3);
+    const price6M = findPriceAgo(weeklyHistory, 6);
+    const price1Y = findPriceAgo(weeklyHistory, 12);
     
-    // 52주(1년) 최고/최저
+    // 52주(1년) 최고/최저 — 주봉 기준
     let high52 = 0;
     let low52 = 999999999;
-    
-    history.forEach(h => {
+
+    weeklyHistory.forEach(h => {
       if (h.high > high52) high52 = h.high;
       if (h.low > 0 && h.low < low52) low52 = h.low;
     });
