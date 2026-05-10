@@ -5,112 +5,153 @@ import { useAuth } from '../../auth/AuthContext'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import {
-  krwCompact, pctFormatted, profitTextClass,
-  holdingDays, annualizedReturn, position52w,
+  krwFull, pctFormatted, profitTextClass,
+  holdingDays, annualizedReturn, position52w, holdingDurationText,
 } from '../../utils/format'
-import type { Holding, PortfolioResponse } from '../../models/types'
+import type { Holding, PortfolioResponse, GroupStat } from '../../models/types'
 
-type AccountTab = '현황' | '수익률' | '비중' | '오늘수익' | '대장/골칫'
-const ACCOUNT_TABS: AccountTab[] = ['현황', '수익률', '비중', '오늘수익', '대장/골칫']
+// ── Constants ──────────────────────────────────────────────────────────────
+const ACCOUNT_ORDER = ['종합_랩', '퇴직연금_개인IRP', '종합', 'ISA', '퇴직연금_개인형IRP(범용)']
+const MATRIX_THRESHOLD = 180
+const ACC_PALETTE = ['#F97316', '#2563EB', '#405AE6', '#0D9488', '#7C3AED']
 
-const PIE_COLORS = ['#405AE6', '#7340D9', '#D91919', '#0D5AD9', '#E67340', '#40D9A0', '#D9C840']
+type AccountTab = '현황' | '수익률' | '비중' | '오늘' | '종목'
+const ACCOUNT_TABS: AccountTab[] = ['현황', '수익률', '비중', '오늘', '종목']
 
-function tag52w(h: Holding): string {
-  const pos = position52w(h.currentPrice, h.low52, h.high52)
+type InsightTag = '핵심 보유' | '잠자는 돈' | '고점 근접' | '깊은 손실' | '단기'
+const TAG_STYLE: Record<InsightTag, string> = {
+  '핵심 보유': 'bg-profit/10 text-profit',
+  '잠자는 돈': 'bg-orange-500/10 text-orange-500',
+  '고점 근접': 'bg-yellow-600/10 text-yellow-600',
+  '깊은 손실': 'bg-loss/10 text-loss',
+  '단기':      'bg-gray-400/10 text-gray-400',
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function acctLabel(type: string, holdings: Holding[]): string {
+  const broker = holdings.find(h => h.accountType === type)?.broker ?? ''
+  const short = broker.slice(0, 2)
+  return short ? `${short}_${type}` : type
+}
+
+function acctColor(type: string, holdings: Holding[], idx: number): string {
+  const b = holdings.find(h => h.accountType === type)?.broker.toLowerCase() ?? ''
+  if (b.includes('미래')) return '#F97316'
+  if (b.includes('삼성')) return '#2563EB'
+  return ACC_PALETTE[idx % ACC_PALETTE.length]
+}
+
+function insightTags(h: Holding, totalBuy: number): InsightTag[] {
+  const tags: InsightTag[] = []
   const days = holdingDays(h.buyDate)
-  if (days <= 14) return '단기'
-  if (h.profitRate > 15 && pos > 50) return '핵심보유'
-  const pctFromHigh = h.high52 > 0 ? ((h.high52 - h.currentPrice) / h.high52) * 100 : 100
-  if (pctFromHigh < 5) return '고점근접'
-  if (pos < 20) return '깊은손실'
-  if (h.opProfit < 0 && pos > 40) return '잠자는돈'
-  return ''
+  const ann  = annualizedReturn(h.profitRate, h.buyDate)
+  const buyPct = h.opBuy / totalBuy * 100
+  if (days >= 30) {
+    if (ann >= 15 && days >= 180) tags.push('핵심 보유')
+    if (buyPct >= 8 && ann < 5 && days >= 90) tags.push('잠자는 돈')
+  }
+  const range = h.high52 - h.low52
+  if (range > 0 && (h.currentPrice - h.low52) / range >= 0.95) tags.push('고점 근접')
+  if (h.profitRate <= -15) tags.push('깊은 손실')
+  if (days > 0 && days < 90) tags.push('단기')
+  return tags
 }
 
-const TAG_COLORS: Record<string, string> = {
-  '핵심보유': 'bg-profit/15 text-profit',
-  '잠자는돈': 'bg-blue-500/15 text-blue-500',
-  '고점근접': 'bg-orange-500/15 text-orange-500',
-  '깊은손실': 'bg-loss/15 text-loss',
-  '단기':    'bg-gray-400/15 text-gray-400',
+function pos52Color(pos: number): string {
+  if (pos >= 90) return '#D97706'
+  if (pos >= 40) return '#D91919'
+  if (pos >= 20) return '#9CA3AF'
+  return '#0D5AD9'
 }
 
+// ── Main Component ─────────────────────────────────────────────────────────
 export function AnalysisPage() {
   const { getToken } = useAuth()
-  const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [activeAccount, setActiveAccount] = useState('')
-  const [accountTab, setAccountTab] = useState<AccountTab>('현황')
-  const [openSection, setOpenSection] = useState<Record<string, boolean>>({
-    matrix: true, account: true, annualized: false, week52: false,
-  })
+  const [portfolio, setPortfolio]       = useState<PortfolioResponse | null>(null)
+  const [isLoading, setIsLoading]       = useState(true)
+  const [error, setError]               = useState('')
+  const [expandedSection, setExpanded]  = useState<string | null>('matrix')
+  const [accountTab, setAccountTab]     = useState<AccountTab>('현황')
+  const [expandedQuad, setExpandedQuad] = useState<Set<string>>(new Set())
 
   const fetchPortfolio = useCallback(async () => {
     try {
       setIsLoading(true)
       const token = await getToken()
       const res = await gasApi.getPortfolio(token)
-      if (res.success) {
-        setPortfolio(res)
-        const accs = Object.keys(res.byAccount ?? {})
-        if (accs.length > 0 && !activeAccount) setActiveAccount(accs[0])
-        setError('')
-      } else {
-        setError(res.error ?? '조회 실패')
-      }
+      if (res.success) { setPortfolio(res); setError('') }
+      else setError(res.error ?? '조회 실패')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setIsLoading(false)
-    }
-  }, [getToken, activeAccount])
+    } finally { setIsLoading(false) }
+  }, [getToken])
 
   useEffect(() => { fetchPortfolio() }, [fetchPortfolio])
 
   const holdings = portfolio?.holdings ?? []
 
+  const totalBuy = useMemo(() =>
+    Math.max(holdings.reduce((s, h) => s + h.opBuy, 0), 1), [holdings])
+
+  const orderedAccounts = useMemo((): { key: string; value: GroupStat }[] => {
+    const by = portfolio?.byAccount ?? {}
+    const ordered = ACCOUNT_ORDER.filter(k => k in by).map(k => ({ key: k, value: by[k] }))
+    const rest = Object.keys(by).filter(k => !ACCOUNT_ORDER.includes(k)).sort().map(k => ({ key: k, value: by[k] }))
+    return [...ordered, ...rest]
+  }, [portfolio])
+
   const matrix = useMemo(() => {
-    const q = { shortProfit: [] as Holding[], shortLoss: [] as Holding[], longProfit: [] as Holding[], longLoss: [] as Holding[] }
+    const g = { shortProfit: [] as Holding[], longProfit: [] as Holding[], shortLoss: [] as Holding[], longLoss: [] as Holding[] }
     for (const h of holdings) {
-      const days = holdingDays(h.buyDate)
-      const isLong = days > 30
-      const isProfit = h.opProfit >= 0
-      if (!isLong && isProfit) q.shortProfit.push(h)
-      else if (!isLong && !isProfit) q.shortLoss.push(h)
-      else if (isLong && isProfit) q.longProfit.push(h)
-      else q.longLoss.push(h)
+      const long = holdingDays(h.buyDate) >= MATRIX_THRESHOLD
+      if (!long && h.opProfit >= 0)  g.shortProfit.push(h)
+      else if (long && h.opProfit >= 0) g.longProfit.push(h)
+      else if (!long) g.shortLoss.push(h)
+      else g.longLoss.push(h)
     }
-    return q
+    return g
   }, [holdings])
 
-  const accountHoldings = useMemo(() => {
-    if (!activeAccount) return []
-    return holdings.filter(h => h.accountType === activeAccount)
-  }, [holdings, activeAccount])
+  const annItems = useMemo(() => holdings
+    .filter(h => holdingDays(h.buyDate) >= 30)
+    .map(h => {
+      const short = h.broker.slice(0, 2)
+      const baseName = short ? `${h.name} (${short}_${h.accountType})` : h.name
+      const duration = holdingDurationText(h.buyDate) ?? `${holdingDays(h.buyDate)}일`
+      const ann = parseFloat(annualizedReturn(h.profitRate, h.buyDate).toFixed(1))
+      return { name: `${h.code}|${h.accountType}`, baseName, duration, ann, profitRate: h.profitRate }
+    })
+    .sort((a, b) => b.ann - a.ann)
+    .slice(0, 15),
+  [holdings])
 
-  const accountDayChange = useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const h of holdings) {
-      map[h.accountType] = (map[h.accountType] ?? 0) + h.change * h.quantity
-    }
-    return map
-  }, [holdings])
+  const pos52Items = useMemo(() => holdings
+    .filter(h => h.high52 > h.low52)
+    .map(h => ({ h, pos: position52w(h.currentPrice, h.low52, h.high52), tags: insightTags(h, totalBuy) }))
+    .sort((a, b) => b.pos - a.pos),
+  [holdings, totalBuy])
 
-  const annualizedData = useMemo(() => {
-    return holdings
-      .filter(h => holdingDays(h.buyDate) >= 30)
-      .map(h => ({ name: h.name, value: parseFloat(annualizedReturn(h.profitRate, h.buyDate).toFixed(1)) }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 15)
-  }, [holdings])
+  const toggleSection = (id: string) => setExpanded(p => p === id ? null : id)
+  const toggleQuad = (title: string) => setExpandedQuad(prev => {
+    const n = new Set(prev)
+    n.has(title) ? n.delete(title) : n.add(title)
+    return n
+  })
 
-  const toggleSection = (key: string) =>
-    setOpenSection(s => ({ ...s, [key]: !s[key] }))
+  const matrixDefs: { title: string; items: Holding[]; highlight: boolean; warn: boolean }[] = [
+    { title: '빠른 수익',  items: matrix.shortProfit, highlight: false, warn: false },
+    { title: '장기 우량 ★', items: matrix.longProfit,  highlight: true,  warn: false },
+    { title: '판단 유보',  items: matrix.shortLoss,   highlight: false, warn: false },
+    { title: '자본 묶임 ⚠', items: matrix.longLoss,    highlight: false, warn: true  },
+  ]
 
-  if (isLoading) return <LoadingSpinner message="분석 데이터 불러오는 중..." />
+  if (isLoading) return (
+    <div className="h-[100dvh] flex items-center justify-center bg-[rgb(var(--page-bg))]">
+      <LoadingSpinner message="분석 데이터 불러오는 중..." />
+    </div>
+  )
   if (error) return (
-    <div className="p-4">
+    <div className="h-[100dvh] bg-[rgb(var(--page-bg))] p-4 pt-12">
       <Card className="p-4 text-sm text-red-500">{error}</Card>
     </div>
   )
@@ -118,347 +159,341 @@ export function AnalysisPage() {
   return (
     <div className="h-[100dvh] overflow-y-auto no-scrollbar bg-[rgb(var(--page-bg))] pb-32">
       <div className="px-4 pt-12 pb-3">
-        <h2 className="text-2xl font-bold">분석</h2>
+        <h2 className="text-[28px] font-bold">분석</h2>
       </div>
 
       <div className="px-4 space-y-3">
 
-        {/* ─────── 투자 효율 매트릭스 ─────── */}
-        <SectionAccordion
-          title="투자 효율 매트릭스"
-          open={openSection.matrix}
-          onToggle={() => toggleSection('matrix')}
-        >
-          <div className="grid grid-cols-2 gap-2 pt-3">
-            {[
-              { label: '단기 수익', key: 'shortProfit' as const, profitSign: 1 },
-              { label: '단기 손실', key: 'shortLoss' as const, profitSign: -1 },
-              { label: '장기 수익', key: 'longProfit' as const, profitSign: 1 },
-              { label: '장기 손실', key: 'longLoss' as const, profitSign: -1 },
-            ].map(q => {
-              const items = matrix[q.key]
-              const total = items.reduce((s, h) => s + h.opProfit, 0)
-              return (
-                <div
-                  key={q.label}
-                  className={`rounded-2xl p-3 ${q.profitSign > 0 ? 'bg-profit/8' : 'bg-loss/8'}`}
-                >
-                  <p className="text-[10px] text-gray-400 mb-1">{q.label}</p>
-                  <p className="text-xl font-bold">{items.length}<span className="text-xs font-normal text-gray-400 ml-0.5">종목</span></p>
-                  <p className={`text-xs font-semibold mt-0.5 ${profitTextClass(total)}`}>
-                    {krwCompact(total)}
-                  </p>
-                </div>
-              )
-            })}
+        {/* ── 1. 투자 효율 매트릭스 ── */}
+        <SectionCard title="투자 효율 매트릭스"
+          expanded={expandedSection === 'matrix'} onToggle={() => toggleSection('matrix')}>
+          <div
+            className="grid gap-2 pt-2"
+            style={{ gridTemplateColumns: '18px 1fr 1fr' }}
+          >
+            {/* Row 0: header */}
+            <div />
+            <div className="text-[10px] text-gray-400 text-center pb-1">단기 (6개월 미만)</div>
+            <div className="text-[10px] text-gray-400 text-center pb-1">장기 (6개월 이상)</div>
+            {/* Row 1: 수익 */}
+            <div className="text-[10px] text-gray-400 flex items-center justify-center">수익</div>
+            <QuadrantCell g={matrixDefs[0]} expanded={expandedQuad.has(matrixDefs[0].title)} onToggle={() => toggleQuad(matrixDefs[0].title)} />
+            <QuadrantCell g={matrixDefs[1]} expanded={expandedQuad.has(matrixDefs[1].title)} onToggle={() => toggleQuad(matrixDefs[1].title)} />
+            {/* Row 2: 손실 */}
+            <div className="text-[10px] text-gray-400 flex items-center justify-center">손실</div>
+            <QuadrantCell g={matrixDefs[2]} expanded={expandedQuad.has(matrixDefs[2].title)} onToggle={() => toggleQuad(matrixDefs[2].title)} />
+            <QuadrantCell g={matrixDefs[3]} expanded={expandedQuad.has(matrixDefs[3].title)} onToggle={() => toggleQuad(matrixDefs[3].title)} />
           </div>
-        </SectionAccordion>
+        </SectionCard>
 
-        {/* ─────── 계좌별 분석 ─────── */}
-        <SectionAccordion
-          title="계좌별 분석"
-          open={openSection.account}
-          onToggle={() => toggleSection('account')}
-        >
-          <div className="pt-3">
-            {/* 계좌 선택 */}
-            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-3">
-              {Object.keys(portfolio?.byAccount ?? {}).map(acc => (
-                <button
-                  key={acc}
-                  onClick={() => setActiveAccount(acc)}
-                  className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    activeAccount === acc ? 'bg-accent text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'
-                  }`}
-                >
-                  {acc}
-                </button>
-              ))}
-            </div>
-
-            {/* 5 탭 */}
-            <div className="flex gap-1 overflow-x-auto no-scrollbar mb-3">
+        {/* ── 2. 계좌별 분석 ── */}
+        <SectionCard title="계좌별 분석"
+          expanded={expandedSection === 'account'} onToggle={() => toggleSection('account')}>
+          <div className="pt-2">
+            <div className="flex gap-1.5 mb-4 flex-wrap">
               {ACCOUNT_TABS.map(t => (
-                <button
-                  key={t}
-                  onClick={() => setAccountTab(t)}
-                  className={`shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
-                    accountTab === t ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'text-gray-400'
-                  }`}
-                >
+                <button key={t} onClick={() => setAccountTab(t)}
+                  className={`px-3 py-1.5 rounded-full text-[11px] transition-colors ${
+                    accountTab === t
+                      ? 'bg-accent text-white font-bold'
+                      : 'bg-[rgb(var(--page-bg))] text-gray-500 font-normal'
+                  }`}>
                   {t}
                 </button>
               ))}
             </div>
-
-            {/* 탭 콘텐츠 */}
-            {accountTab === '현황' && (
-              <AccountStatus account={activeAccount} stat={portfolio?.byAccount?.[activeAccount]} />
-            )}
-            {accountTab === '수익률' && (
-              <AccountProfitRateChart holdings={accountHoldings} />
-            )}
-            {accountTab === '비중' && (
-              <AccountAllocationChart
-                byCategory={portfolio?.byCategory ?? {}}
-                byAccount={portfolio?.byAccount ?? {}}
-              />
-            )}
-            {accountTab === '오늘수익' && (
-              <AccountDayProfit map={accountDayChange} active={activeAccount} />
-            )}
-            {accountTab === '대장/골칫' && (
-              <TopBottom holdings={accountHoldings} />
-            )}
+            {accountTab === '현황'  && <AccSummaryView   accounts={orderedAccounts} holdings={holdings} />}
+            {accountTab === '수익률' && <AccProfitView    accounts={orderedAccounts} holdings={holdings} />}
+            {accountTab === '비중'  && <AccAllocView     accounts={orderedAccounts} holdings={holdings} />}
+            {accountTab === '오늘'  && <AccTodayView     accounts={orderedAccounts} holdings={holdings} />}
+            {accountTab === '종목'  && <AccTopBottomView accounts={orderedAccounts} holdings={holdings} />}
           </div>
-        </SectionAccordion>
+        </SectionCard>
 
-        {/* ─────── 연 환산 수익률 ─────── */}
-        <SectionAccordion
-          title="연 환산 수익률"
-          open={openSection.annualized}
-          onToggle={() => toggleSection('annualized')}
-        >
-          <div className="pt-3">
-            {annualizedData.length === 0 ? (
+        {/* ── 3. 연 환산 수익률 ── */}
+        <SectionCard title="연 환산 수익률"
+          expanded={expandedSection === 'annualized'} onToggle={() => toggleSection('annualized')}>
+          <div className="pt-2">
+            {annItems.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">30일 이상 보유 종목 없음</p>
             ) : (
-              <ResponsiveContainer width="100%" height={annualizedData.length * 28 + 20}>
-                <BarChart
-                  layout="vertical"
-                  data={annualizedData}
-                  margin={{ top: 0, right: 40, bottom: 0, left: 0 }}
-                >
-                  <XAxis
-                    type="number"
-                    tickFormatter={v => `${v}%`}
-                    tick={{ fontSize: 9, fill: '#9CA3AF' }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={72}
-                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip formatter={(v: number) => [`${v}%`, '연환산']} />
+              <ResponsiveContainer width="100%" height={annItems.length * 56 + 20}>
+                <BarChart layout="vertical" data={annItems} margin={{ top: 0, right: 52, bottom: 0, left: 4 }}>
+                  <XAxis type="number" tickFormatter={v => `${v}%`}
+                    tick={{ fontSize: 9, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="name" width={150}
+                    tick={(props: any) => <AnnYTick {...props} items={annItems} />}
+                    tickLine={false} axisLine={false} />
+                  <Tooltip formatter={(v: number) => [`${v.toFixed(1)}%`, '연환산']} />
                   <ReferenceLine x={0} stroke="#E5E7EB" />
-                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                    {annualizedData.map(entry => (
-                      <Cell key={entry.name} fill={entry.value >= 0 ? '#D91919' : '#0D5AD9'} />
+                  <Bar dataKey="ann" radius={[0, 4, 4, 0]}
+                    label={{ position: 'right', formatter: (v: number) => `${v.toFixed(1)}%`, fontSize: 10, fontWeight: 600, fill: '#6B7280' }}>
+                    {annItems.map(e => (
+                      <Cell key={e.name} fill={e.ann >= 0 ? '#D91919' : '#0D5AD9'} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
           </div>
-        </SectionAccordion>
+        </SectionCard>
 
-        {/* ─────── 52주 포지션 ─────── */}
-        <SectionAccordion
-          title="52주 포지션"
-          open={openSection.week52}
-          onToggle={() => toggleSection('week52')}
-        >
-          <div className="pt-3 space-y-3">
-            {holdings.map(h => {
-              const pos = position52w(h.currentPrice, h.low52, h.high52)
-              const tagLabel = tag52w(h)
-              return (
+        {/* ── 4. 52주 포지션 ── */}
+        <SectionCard title="52주 포지션"
+          expanded={expandedSection === 'position52'} onToggle={() => toggleSection('position52')}>
+          <div className="pt-2">
+            <div className="flex justify-between text-[10px] text-gray-400 mb-3">
+              <span>저점</span><span>고점</span>
+            </div>
+            <div className="space-y-4">
+              {pos52Items.map(({ h, pos, tags }) => (
                 <div key={`${h.code}-${h.accountType}`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium truncate max-w-[120px]">{h.name}</span>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium truncate max-w-[130px]">{h.name}</span>
                     <div className="flex items-center gap-1">
-                      {tagLabel && (
-                        <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${TAG_COLORS[tagLabel] ?? ''}`}>
-                          {tagLabel}
+                      {tags.map(tag => (
+                        <span key={tag} className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${TAG_STYLE[tag]}`}>
+                          {tag}
                         </span>
-                      )}
-                      <span className={`text-[10px] font-semibold ${profitTextClass(h.opProfit)}`}>
-                        {pctFormatted(h.profitRate)}
-                      </span>
+                      ))}
+                      <span className="text-[10px] text-gray-400 w-7 text-right">{Math.round(pos)}%</span>
                     </div>
                   </div>
-                  <div className="relative h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      className="absolute h-full rounded-full bg-accent/40"
-                      style={{ width: `${Math.max(2, Math.min(100, pos))}%` }}
-                    />
-                    <div
-                      className="absolute w-2 h-2 rounded-full bg-accent -translate-x-1/2"
-                      style={{ left: `${Math.max(2, Math.min(98, pos))}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
-                    <span>{krwCompact(h.low52)}</span>
-                    <span>{krwCompact(h.high52)}</span>
+                  <div className="relative h-[5px] bg-gray-100 dark:bg-gray-700 rounded-full">
+                    <div className="absolute h-full rounded-full"
+                      style={{ width: `${Math.max(2, Math.min(100, pos))}%`, background: pos52Color(pos) + '50' }} />
+                    <div className="absolute w-[9px] h-[9px] rounded-full -translate-x-1/2 -translate-y-[2px]"
+                      style={{ left: `${Math.max(2, Math.min(98, pos))}%`, background: pos52Color(pos) }} />
                   </div>
                 </div>
-              )
-            })}
+              ))}
+            </div>
           </div>
-        </SectionAccordion>
+        </SectionCard>
 
       </div>
     </div>
   )
 }
 
-// ── Sub-components ──
+// ── Sub-components ─────────────────────────────────────────────────────────
 
-function SectionAccordion({
-  title, open, onToggle, children,
-}: {
-  title: string; open: boolean; onToggle: () => void; children: React.ReactNode
+function SectionCard({ title, expanded, onToggle, children }: {
+  title: string; expanded: boolean; onToggle: () => void; children: React.ReactNode
 }) {
   return (
     <Card className="overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between px-4 py-4"
-        onClick={onToggle}
-      >
-        <span className="font-semibold text-sm">{title}</span>
-        <span className="text-gray-400 text-xs">{open ? '▲' : '▼'}</span>
+      <button className="w-full flex items-center justify-between px-5 py-5" onClick={onToggle}>
+        <span className="font-semibold text-base">{title}</span>
+        <span className="text-gray-400 text-xs">{expanded ? '▲' : '▼'}</span>
       </button>
-      {open && <div className="px-4 pb-4">{children}</div>}
+      {expanded && <div className="px-5 pb-5">{children}</div>}
     </Card>
   )
 }
 
-function AccountStatus({ account, stat }: { account: string; stat?: { current: number; buy: number; profit: number; profitRate: number; count: number; pct: number } }) {
-  if (!stat) return <p className="text-sm text-gray-400 text-center py-4">계좌를 선택하세요</p>
+function QuadrantCell({ g, expanded, onToggle }: {
+  g: { title: string; items: Holding[]; highlight: boolean; warn: boolean }
+  expanded: boolean; onToggle: () => void
+}) {
+  const bg = g.highlight
+    ? 'bg-profit/10 border border-profit/30'
+    : g.warn
+    ? 'bg-loss/8 border border-loss/25'
+    : 'bg-gray-50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50'
+  const titleColor = g.highlight ? 'text-profit' : g.warn ? 'text-loss' : 'text-gray-600 dark:text-gray-300'
+  const displayed = expanded ? g.items : g.items.slice(0, 3)
+
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {[
-        { label: '계좌', val: account },
-        { label: '종목 수', val: `${stat.count}종목` },
-        { label: '평가금액', val: krwCompact(stat.current) },
-        { label: '매입금액', val: krwCompact(stat.buy) },
-        { label: '수익금', val: krwCompact(stat.profit), colored: true, v: stat.profit },
-        { label: '수익률', val: pctFormatted(stat.profitRate), colored: true, v: stat.profit },
-      ].map(item => (
-        <div key={item.label} className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3">
-          <p className="text-[10px] text-gray-400 mb-0.5">{item.label}</p>
-          <p className={`text-sm font-bold ${item.colored ? profitTextClass(item.v ?? 0) : ''}`}>
-            {item.val}
-          </p>
+    <div className={`rounded-xl p-2.5 min-h-[80px] ${bg} ${g.items.length > 3 ? 'cursor-pointer' : ''}`}
+      onClick={() => g.items.length > 3 && onToggle()}>
+      <div className="flex items-center justify-between mb-1.5">
+        <p className={`text-[10px] font-semibold ${titleColor}`}>{g.title}</p>
+        {g.items.length > 3 && <span className="text-[9px] text-gray-400">{expanded ? '▲' : '▼'}</span>}
+      </div>
+      {g.items.length === 0
+        ? <p className="text-[10px] text-gray-400">없음</p>
+        : <>
+            {displayed.map(h => (
+              <p key={h.code + h.accountType} className="text-[10px] truncate leading-snug">{h.name}</p>
+            ))}
+            {!expanded && g.items.length > 3 && (
+              <p className="text-[10px] text-gray-400">+{g.items.length - 3}개</p>
+            )}
+          </>
+      }
+    </div>
+  )
+}
+
+function AnnYTick({ x, y, payload, items }: any) {
+  const item = (items as { name: string; baseName: string; duration: string; profitRate: number }[])
+    .find(i => i.name === payload.value)
+  if (!item) return null
+  const truncated = item.baseName.length > 15 ? item.baseName.slice(0, 15) + '…' : item.baseName
+  const rateColor = item.profitRate >= 0 ? '#D91919' : '#0D5AD9'
+  const sign = item.profitRate >= 0 ? '+' : ''
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x={-4} y={-6} textAnchor="end" fontSize={10} fontWeight={500} fill="currentColor">{truncated}</text>
+      <text x={-4} y={7} textAnchor="end" fontSize={9} fill="#9CA3AF">
+        {item.duration} · <tspan fill={rateColor} fontWeight={600}>{sign}{item.profitRate.toFixed(1)}%</tspan>
+      </text>
+    </g>
+  )
+}
+
+function AccSummaryView({ accounts, holdings }: { accounts: { key: string; value: GroupStat }[]; holdings: Holding[] }) {
+  return (
+    <div>
+      <div className="flex text-[10px] text-gray-400 pb-2 border-b border-gray-100 dark:border-gray-700">
+        <span className="flex-1">계좌</span>
+        <span className="w-28 text-right">평가금액</span>
+        <span className="w-16 text-right">수익률</span>
+      </div>
+      {accounts.map(({ key, value }) => (
+        <div key={key} className="flex items-center py-2.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
+          <div className="flex-1 min-w-0 pr-2">
+            <p className="text-xs font-medium truncate">{acctLabel(key, holdings)}</p>
+            <p className="text-[10px] text-gray-400">매입 {krwFull(value.buy)}</p>
+          </div>
+          <span className="w-28 text-right text-xs font-medium shrink-0">{krwFull(value.current)}</span>
+          <span className={`w-16 text-right text-xs font-semibold shrink-0 ${profitTextClass(value.profitRate)}`}>
+            {pctFormatted(value.profitRate)}
+          </span>
         </div>
       ))}
     </div>
   )
 }
 
-function AccountProfitRateChart({ holdings }: { holdings: Holding[] }) {
-  const data = [...holdings]
-    .sort((a, b) => b.profitRate - a.profitRate)
-    .slice(0, 10)
-    .map(h => ({ name: h.name, value: h.profitRate }))
+function AccProfitView({ accounts, holdings }: { accounts: { key: string; value: GroupStat }[]; holdings: Holding[] }) {
+  const data = accounts.map((a, i) => ({
+    name: acctLabel(a.key, holdings),
+    value: a.value.profitRate,
+    color: acctColor(a.key, holdings, i),
+  }))
+  const rates = data.map(d => d.value)
+  const xMin = Math.min(...rates, 0) - 2
+  const xMax = Math.max(...rates, 0) + 5
 
   return (
-    <ResponsiveContainer width="100%" height={data.length * 28 + 20}>
-      <BarChart layout="vertical" data={data} margin={{ top: 0, right: 40, bottom: 0, left: 0 }}>
-        <XAxis type="number" tickFormatter={v => `${v}%`} tick={{ fontSize: 9, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-        <YAxis type="category" dataKey="name" width={72} tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
+    <ResponsiveContainer width="100%" height={data.length * 52}>
+      <BarChart layout="vertical" data={data} margin={{ top: 0, right: 56, bottom: 0, left: 4 }}>
+        <XAxis type="number" tickFormatter={v => `${v}%`}
+          tick={{ fontSize: 9, fill: '#9CA3AF' }} axisLine={false} tickLine={false}
+          domain={[xMin, xMax]} />
+        <YAxis type="category" dataKey="name" width={104}
+          tick={{ fontSize: 10, fill: '#6B7280' }} tickLine={false} axisLine={false} />
         <Tooltip formatter={(v: number) => [`${v.toFixed(2)}%`, '수익률']} />
         <ReferenceLine x={0} stroke="#E5E7EB" />
-        <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-          {data.map(entry => <Cell key={entry.name} fill={entry.value >= 0 ? '#D91919' : '#0D5AD9'} />)}
+        <Bar dataKey="value" radius={[0, 4, 4, 0]}
+          label={{
+            position: 'right',
+            formatter: (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`,
+            fontSize: 11, fontWeight: 600, fill: '#6B7280',
+          }}>
+          {data.map((d, i) => <Cell key={i} fill={d.color} />)}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
   )
 }
 
-function AccountAllocationChart({
-  byCategory,
-  byAccount,
-}: {
-  byCategory: Record<string, { pct: number; current: number }>
-  byAccount: Record<string, { pct: number; current: number }>
-}) {
-  const categoryData = Object.entries(byCategory).map(([name, v]) => ({ name, value: v.pct }))
-  const accountData = Object.entries(byAccount).map(([name, v]) => ({ name, value: v.pct }))
+function AccAllocView({ accounts, holdings }: { accounts: { key: string; value: GroupStat }[]; holdings: Holding[] }) {
+  const data = accounts.map((a, i) => ({
+    name: acctLabel(a.key, holdings),
+    buy: a.value.buy,
+    pct: a.value.pct,
+    profitRate: a.value.profitRate,
+    color: ACC_PALETTE[i % ACC_PALETTE.length],
+  }))
+  return (
+    <div className="flex items-center gap-4">
+      <PieChart width={116} height={116}>
+        <Pie data={data} dataKey="buy" cx={53} cy={53} innerRadius={28} outerRadius={53} paddingAngle={2}>
+          {data.map((d, i) => <Cell key={i} fill={d.color} />)}
+        </Pie>
+        <Tooltip formatter={(v: number) => [krwFull(v), '매입금액']} />
+      </PieChart>
+      <div className="flex-1 space-y-1.5">
+        <div className="flex text-[10px] text-gray-400 pb-1 border-b border-gray-100 dark:border-gray-700">
+          <span className="flex-1">계좌</span>
+          <span className="w-8 text-right">비중</span>
+          <span className="w-14 text-right">수익률</span>
+        </div>
+        {data.map((d, i) => (
+          <div key={i} className="flex items-center">
+            <div className="w-2 h-2 rounded-full shrink-0 mr-1.5" style={{ background: d.color }} />
+            <span className="text-[10px] flex-1 truncate">{d.name}</span>
+            <span className="text-[10px] text-gray-500 w-8 text-right">{Math.round(d.pct)}%</span>
+            <span className={`text-[10px] font-semibold w-14 text-right ${profitTextClass(d.profitRate)}`}>
+              {pctFormatted(d.profitRate)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function AccTodayView({ accounts, holdings }: { accounts: { key: string; value: GroupStat }[]; holdings: Holding[] }) {
+  const todayMap: Record<string, number> = {}
+  for (const h of holdings) todayMap[h.accountType] = (todayMap[h.accountType] ?? 0) + h.change * h.quantity
 
   return (
-    <div className="space-y-4">
-      {[
-        { title: '분류별', data: categoryData },
-        { title: '계좌별', data: accountData },
-      ].map(({ title, data }) => (
-        <div key={title}>
-          <p className="text-xs text-gray-400 mb-2">{title}</p>
-          <div className="flex items-center gap-4">
-            <PieChart width={120} height={120}>
-              <Pie data={data} cx={55} cy={55} innerRadius={28} outerRadius={55} dataKey="value" paddingAngle={2}>
-                {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-              </Pie>
-              <Tooltip formatter={(v: number) => [`${v.toFixed(1)}%`]} />
-            </PieChart>
-            <div className="flex-1 space-y-1">
-              {data.map((item, i) => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                  <span className="text-[10px] text-gray-500 truncate flex-1">{item.name}</span>
-                  <span className="text-[10px] font-semibold">{item.value.toFixed(1)}%</span>
-                </div>
-              ))}
+    <div className="space-y-2">
+      {accounts.map(({ key, value }) => {
+        const amt = todayMap[key] ?? 0
+        const pct = value.current > 0 ? amt / value.current * 100 : 0
+        return (
+          <div key={key} className="flex items-center justify-between p-3 rounded-xl"
+            style={{ background: (amt >= 0 ? '#D91919' : '#0D5AD9') + '12' }}>
+            <div>
+              <p className="text-xs font-medium">{acctLabel(key, holdings)}</p>
+              <p className="text-[10px] text-gray-400">종목 {value.count}개</p>
+            </div>
+            <div className="text-right">
+              <p className={`text-sm font-bold ${profitTextClass(amt)}`}>{krwFull(amt)}</p>
+              <p className={`text-[10px] ${profitTextClass(pct)}`}>{pctFormatted(pct)}</p>
             </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
 
-function AccountDayProfit({ map, active }: { map: Record<string, number>; active: string }) {
-  const val = map[active] ?? 0
-  return (
-    <div className="text-center py-4">
-      <p className="text-xs text-gray-400 mb-1">오늘 수익 ({active})</p>
-      <p className={`text-3xl font-bold ${profitTextClass(val)}`}>{krwCompact(val)}</p>
-      <div className="mt-4 space-y-2">
-        {Object.entries(map).map(([acc, v]) => (
-          <div key={acc} className="flex items-center justify-between">
-            <span className="text-xs text-gray-400">{acc}</span>
-            <span className={`text-xs font-semibold ${profitTextClass(v)}`}>{krwCompact(v)}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function TopBottom({ holdings }: { holdings: Holding[] }) {
-  const sorted = [...holdings].sort((a, b) => b.profitRate - a.profitRate)
-  const top3 = sorted.slice(0, 3)
-  const bottom3 = sorted.slice(-3).reverse()
+function AccTopBottomView({ accounts, holdings }: { accounts: { key: string; value: GroupStat }[]; holdings: Holding[] }) {
   return (
     <div className="space-y-3">
-      <div>
-        <p className="text-[10px] text-gray-400 mb-2">대장 (수익률 상위)</p>
-        {top3.map(h => (
-          <div key={h.code} className="flex items-center justify-between py-1.5">
-            <span className="text-xs truncate max-w-[120px]">{h.name}</span>
-            <span className={`text-xs font-bold ${profitTextClass(h.opProfit)}`}>
-              {pctFormatted(h.profitRate)}
-            </span>
+      {accounts.map(({ key }, idx) => {
+        const list = holdings.filter(h => h.accountType === key).sort((a, b) => b.profitRate - a.profitRate)
+        const top    = list[0]
+        const bottom = list.length > 1 ? list[list.length - 1] : null
+        return (
+          <div key={key}>
+            <p className="text-[10px] font-semibold text-gray-400 mb-1.5">{acctLabel(key, holdings)}</p>
+            <div className="flex gap-2">
+              {top && (
+                <div className="flex-1 p-2 rounded-lg bg-profit/8">
+                  <p className="text-[9px] font-bold text-profit mb-1">대장</p>
+                  <p className="text-[10px] font-medium truncate">{top.name}</p>
+                  <p className={`text-[10px] font-bold ${profitTextClass(top.profitRate)}`}>{pctFormatted(top.profitRate)}</p>
+                </div>
+              )}
+              {bottom && (
+                <div className="flex-1 p-2 rounded-lg bg-loss/8">
+                  <p className="text-[9px] font-bold text-loss mb-1">골칫</p>
+                  <p className="text-[10px] font-medium truncate">{bottom.name}</p>
+                  <p className={`text-[10px] font-bold ${profitTextClass(bottom.profitRate)}`}>{pctFormatted(bottom.profitRate)}</p>
+                </div>
+              )}
+            </div>
+            {idx < accounts.length - 1 && <div className="border-b border-gray-100 dark:border-gray-700 mt-3" />}
           </div>
-        ))}
-      </div>
-      <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
-        <p className="text-[10px] text-gray-400 mb-2">골칫 (수익률 하위)</p>
-        {bottom3.map(h => (
-          <div key={h.code} className="flex items-center justify-between py-1.5">
-            <span className="text-xs truncate max-w-[120px]">{h.name}</span>
-            <span className={`text-xs font-bold ${profitTextClass(h.opProfit)}`}>
-              {pctFormatted(h.profitRate)}
-            </span>
-          </div>
-        ))}
-      </div>
+        )
+      })}
     </div>
   )
 }
