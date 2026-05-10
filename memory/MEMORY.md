@@ -14,3 +14,5 @@
 - [GAS 에디터 직접 실행 시 getUi() 금지](feedback_gas_editor_ui.md) — setup/trigger 등록 함수에서 getUi().alert() 쓰면 에디터에서 멈춤, Logger.log() 사용
 - [존댓말 사용 필수](feedback_speech_level.md) — 모든 한국어 대화에서 예외 없이 존댓말 사용
 - [함수 실행 안내 시 파일명 포함](feedback_function_file.md) — 함수 실행 안내 시 항상 GAS 파일명 함께 명시
+- [GAS 배포 양쪽 동시 진행](feedback_deploy_both.md) — KIS_API.js 수정 시 구/신 시스템 양쪽 배포, 추가 승인 없이 진행
+- [대시보드가 유일한 UI](project_dashboard_primary.md) — 사용자는 대시보드만 봄. 모든 정보는 대시보드에 표시해야 함
