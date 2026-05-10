@@ -164,15 +164,27 @@ function buildDashboard() {
     acctMap[key].cur += Number(row[10]) || 0;
   });
 
+  const ACCT_ORDER = {
+    '미래에셋투자증권|종합_랩': 0, '미래에셋투자증권|퇴직연금_개인IRP': 1,
+    '삼성증권|종합': 2, '삼성증권|ISA': 3, '삼성증권|퇴직연금_개인IRP(범용)': 4,
+  };
+
   Object.values(acctMap)
-    .sort((a, b) => a.broker.localeCompare(b.broker) || a.acct.localeCompare(b.acct))
+    .sort((a, b) => {
+      const ka = ACCT_ORDER[a.broker + '|' + a.acct] ?? 99;
+      const kb = ACCT_ORDER[b.broker + '|' + b.acct] ?? 99;
+      return ka - kb;
+    })
     .forEach((a, i) => {
       const pnl  = a.cur - a.buy;
       const rate = a.buy > 0 ? pnl / a.buy * 100 : 0;
       const wt   = totalCur > 0 ? a.cur / totalCur * 100 : 0;
-      dash.getRange(r, 1, 1, 8).setValues([[_shortBroker(a.broker), a.acct, a.cnt,
+      const rng  = dash.getRange(r, 1, 1, 8);
+      rng.setValues([[_shortBroker(a.broker), _shortAcct(a.acct), a.cnt,
         _dbNum(a.buy), _dbNum(a.cur), _dbPnl(pnl), _dbRate(rate), _dbRate(wt)]]);
-      dash.getRange(r, 1, 1, 8).setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
+      rng.setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
+      dash.getRange(r, 1, 1, 2).setHorizontalAlignment('center');
+      dash.getRange(r, 3, 1, 6).setHorizontalAlignment('right');
       _dbColorCell(dash, r, 6, pnl); _dbColorCell(dash, r, 7, rate);
       r++;
     });
@@ -181,6 +193,8 @@ function buildDashboard() {
     .setValues([['합계', '', posRows.length, _dbNum(totalBuy), _dbNum(totalCur),
       _dbPnl(opProfit), _dbRate(opRate), '100%']])
     .setFontWeight('bold').setBackground(DB.BG_TOTAL);
+  dash.getRange(r, 1, 1, 2).setHorizontalAlignment('center');
+  dash.getRange(r, 3, 1, 6).setHorizontalAlignment('right');
   _dbColorCell(dash, r, 6, opProfit); _dbColorCell(dash, r, 7, opRate);
   r += 2;
 
@@ -210,6 +224,8 @@ function buildDashboard() {
       dash.getRange(r, 1, 1, 7).setValues([[cat, c.cnt,
         _dbNum(c.buy), _dbNum(c.cur), _dbPnl(pnl), _dbRate(rate), _dbRate(wt)]]);
       dash.getRange(r, 1, 1, 7).setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
+      dash.getRange(r, 1, 1, 1).setHorizontalAlignment('center');
+      dash.getRange(r, 2, 1, 6).setHorizontalAlignment('right');
       _dbColorCell(dash, r, 5, pnl); _dbColorCell(dash, r, 6, rate);
       r++;
     });
@@ -218,6 +234,8 @@ function buildDashboard() {
     .setValues([['합계', posRows.length, _dbNum(totalBuy), _dbNum(totalCur),
       _dbPnl(opProfit), _dbRate(opRate), '100%']])
     .setFontWeight('bold').setBackground(DB.BG_TOTAL);
+  dash.getRange(r, 1, 1, 1).setHorizontalAlignment('center');
+  dash.getRange(r, 2, 1, 6).setHorizontalAlignment('right');
   _dbColorCell(dash, r, 5, opProfit); _dbColorCell(dash, r, 6, opRate);
   r += 2;
 
@@ -228,18 +246,32 @@ function buildDashboard() {
   _dbHeader(dash, r, 1, ['종목명', '분류', '증권사 / 계좌', '수량', '평균단가', '현재단가', '손익', '수익률', '보유기간', '1M', '3M', '6M', '1Y']);
   r++;
 
+  const POS_ORDER = {
+    '미래에셋투자증권|종합_랩': 0, '미래에셋투자증권|퇴직연금_개인IRP': 1,
+    '삼성증권|종합': 2, '삼성증권|ISA': 3, '삼성증권|퇴직연금_개인IRP(범용)': 4,
+  };
+
   [...posRows]
-    .sort((a, b) => (Number(b[12]) || 0) - (Number(a[12]) || 0))
+    .sort((a, b) => {
+      const ka = POS_ORDER[String(a[3]) + '|' + String(a[4])] ?? 99;
+      const kb = POS_ORDER[String(b[3]) + '|' + String(b[4])] ?? 99;
+      return ka !== kb ? ka - kb : String(a[1]).localeCompare(String(b[1]));
+    })
     .forEach((row, i) => {
       const pnl  = Number(row[11]) || 0;
       const rate = Number(row[12]) || 0;
       dash.getRange(r, 1, 1, DB.COLS).setValues([[
-        row[1], row[2], _shortBroker(row[3]) + ' / ' + row[4],
+        row[1], row[2], _shortBroker(row[3]) + ' / ' + _shortAcct(row[4]),
         _dbNum(row[6]), _dbNum(row[7]), _dbNum(row[9]),
         _dbPnl(pnl), _dbRate(rate), row[5],
-        row[17] || '-', row[18] || '-', row[19] || '-', row[20] || '-'
+        _fmtRateStr(row[17]), _fmtRateStr(row[18]), _fmtRateStr(row[19]), _fmtRateStr(row[20])
       ]]);
       dash.getRange(r, 1, 1, DB.COLS).setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
+      // 텍스트: 중앙 / 숫자: 우측
+      dash.getRange(r, 1, 1, 3).setHorizontalAlignment('center'); // 종목명·분류·증권사
+      dash.getRange(r, 4, 1, 5).setHorizontalAlignment('right');  // 수량~수익률
+      dash.getRange(r, 9, 1, 1).setHorizontalAlignment('center'); // 보유기간
+      dash.getRange(r, 10, 1, 4).setHorizontalAlignment('right'); // 1M~1Y
       _dbColorCell(dash, r, 7, pnl);
       _dbColorCell(dash, r, 8, rate);
       _dbColorRateStr(dash, r, 10, row[17]);
@@ -353,9 +385,20 @@ function _dbColorRateStr(sheet, row, col, val) {
 }
 
 function _shortBroker(s) { return String(s || '').slice(0, 2); }
+function _shortAcct(s) {
+  return String(s || '')
+    .replace('퇴직연금_개인IRP(범용)', '퇴직IRP(범용)')
+    .replace('퇴직연금_개인IRP', '퇴직IRP');
+}
 function _dbNum(n)  { return (Number(n) || 0).toLocaleString('ko-KR'); }
 function _dbPnl(n)  { const v = Number(n) || 0; return (v >= 0 ? '+' : '') + v.toLocaleString('ko-KR'); }
 function _dbRate(n) { const v = Number(n) || 0; return (v >= 0 ? '+' : '') + v.toFixed(2) + '%'; }
+function _fmtRateStr(val) {
+  if (!val || val === '-') return '-';
+  const v = parseFloat(String(val));
+  if (isNaN(v)) return String(val);
+  return (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+}
 
 // ── 오늘의 수익 ──────────────────────────────────
 function _calcTodayProfit(priceHistSheet, posRows) {
