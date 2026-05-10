@@ -13,10 +13,10 @@ const DB = {
   BG_EVEN:     '#f8f9fa',
   BG_ODD:      '#ffffff',
   BG_TOTAL:    '#e3f2fd',
-  FG_POS:      '#1565c0',
-  FG_NEG:      '#c62828',
-  BG_CARD_POS: '#e8f5e9',
-  BG_CARD_NEG: '#fce4ec',
+  FG_POS:      '#c62828',
+  FG_NEG:      '#1565c0',
+  BG_CARD_POS: '#fde8e8',
+  BG_CARD_NEG: '#e8f0fe',
   BG_CARD_NEU: '#f3f4f6',
   COLS:        13,
 };
@@ -317,8 +317,8 @@ function buildDashboard() {
 
     // ── Top 5 / Bottom 5 ──
     r = _dbSectionTitle(dash, r, '수익 Top 5  ·  손실 Top 5');
-    _dbHeader(dash, r, 1, ['종목명', '매도일', '실현손익', '수익률'], '#1b5e20', '#ffffff');
-    _dbHeader(dash, r, 5, ['종목명', '매도일', '실현손익', '수익률'], '#b71c1c', '#ffffff');
+    _dbHeader(dash, r, 1, ['종목명', '매도일', '실현손익', '수익률'], '#b71c1c', '#ffffff');
+    _dbHeader(dash, r, 5, ['종목명', '매도일', '실현손익', '수익률'], '#1565c0', '#ffffff');
     r++;
 
     const sorted = [...pnlRows].sort((a, b) => (Number(b[12]) || 0) - (Number(a[12]) || 0));
@@ -330,13 +330,13 @@ function buildDashboard() {
       if (t) {
         dash.getRange(r, 1, 1, 4)
           .setValues([[t[2], String(t[0]).slice(0, 10), _dbPnl(Number(t[12])), _dbRate(Number(t[13]))]])
-          .setBackground('#e8f5e9');
+          .setBackground('#fde8e8');
         dash.getRange(r, 3).setFontColor(DB.FG_POS).setFontWeight('bold');
       }
       if (b) {
         dash.getRange(r, 5, 1, 4)
           .setValues([[b[2], String(b[0]).slice(0, 10), _dbPnl(Number(b[12])), _dbRate(Number(b[13]))]])
-          .setBackground('#fce4ec');
+          .setBackground('#e8f0fe');
         dash.getRange(r, 7).setFontColor(DB.FG_NEG).setFontWeight('bold');
       }
       r++;

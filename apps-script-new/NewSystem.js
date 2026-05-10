@@ -943,11 +943,12 @@ function updateNewStockHistory(ss) {
   try {
     const rawHist = KIS_API.fetchAllStockHistory(histItems);
     histItems.forEach(item => {
-      const history = rawHist[item.code];
-      if (!history || history.length === 0) return;
+      const weeklyH = (rawHist.weekly || {})[item.code] || [];
+      const dailyH  = (rawHist.daily  || {})[item.code] || [];
+      if (weeklyH.length === 0) return;
       const info = domInfoMap[item._norm] || ovsInfoMap[item._norm];
       if (!info) return;
-      const stats = KIS_API.calculateStats(history, info.price);
+      const stats = KIS_API.calculateStats(weeklyH, info.price, dailyH);
       if (stats) histMap[item._norm] = stats;
     });
   } catch (e) { Logger.log('히스토리 조회 실패: ' + e); }

@@ -12,7 +12,7 @@ struct ProfitHistoryView: View {
     private var result: (amount: Double, startDate: String)? { vm.profitChange(forDays: selectedDays) }
     private var isProfit: Bool { (result?.amount ?? 0) >= 0 }
     private var accentColor: Color {
-        isProfit ? Color(red: 0.85, green: 0.10, blue: 0.10) : Color(red: 0.05, green: 0.35, blue: 0.85)
+        isProfit ? Color.profit : Color.loss
     }
 
     private var periodEntries: [(date: Date, value: Double)] {
@@ -175,19 +175,19 @@ struct ProfitHistoryView: View {
                 label: "일평균",
                 value: (avg >= 0 ? "+" : "") + avg.krwFormatted,
                 sub: " ",
-                color: avg >= 0 ? Color(red: 0.85, green: 0.10, blue: 0.10) : Color(red: 0.05, green: 0.35, blue: 0.85)
+                color: avg >= 0 ? Color.profit : Color.loss
             )
             statCell(
                 label: "최고 하루",
                 value: "+" + best.change.krwFormatted,
                 sub: formattedDate(best.date),
-                color: Color(red: 0.85, green: 0.10, blue: 0.10)
+                color: Color.profit
             )
             statCell(
                 label: "최저 하루",
                 value: worst.change.krwFormatted,
                 sub: formattedDate(worst.date),
-                color: worst.change < 0 ? Color(red: 0.05, green: 0.35, blue: 0.85) : Color(red: 0.85, green: 0.10, blue: 0.10)
+                color: worst.change < 0 ? Color.loss : Color.profit
             )
         }
     }

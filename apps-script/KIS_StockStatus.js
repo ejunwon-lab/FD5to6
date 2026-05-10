@@ -273,14 +273,15 @@ function updateStockStatusAuto() {
       bufSet(COL_PRICE, rowOffset, Math.round(info.price * fx));
       if (isExcluded) continue;
 
-      let history = historyMap[target.code];
-      if ((!history || history.length === 0) && target.isOverseas) {
+      let weeklyH = (historyMap.weekly || historyMap)[target.code] || [];
+      let dailyH  = (historyMap.daily  || {})[target.code] || [];
+      if (weeklyH.length === 0 && target.isOverseas) {
         try {
-          history = KIS_API.getOverseasDailyPriceFallback(target.code, info.exchange || 'NAS');
+          weeklyH = KIS_API.getOverseasDailyPriceFallback(target.code, info.exchange || 'NAS');
         } catch (e) { Logger.log(`[Fallback] 실패(${target.code}): ${e}`); }
       }
 
-      const stats = KIS_API.calculateStats(history, info.price);
+      const stats = KIS_API.calculateStats(weeklyH, info.price, dailyH);
 
       bufSet(COL_CHANGE,     rowOffset, Math.round((info.change || 0) * fx));
       const _pct2 = info.changeRate || 0;

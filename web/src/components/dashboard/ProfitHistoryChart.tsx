@@ -64,6 +64,8 @@ export function ProfitHistoryChart() {
     min: minProfit,
   }
 
+  const lineColor = rangeProfit >= 0 ? '#D91919' : '#0D5AD9'
+
   return (
     <div className="flex flex-col h-full bg-[rgb(var(--page-bg))] pb-32">
       <div className="px-4 pt-12 pb-4">
@@ -132,10 +134,10 @@ export function ProfitHistoryChart() {
                   <Line
                     type="monotone"
                     dataKey="totalProfit"
-                    stroke="#405AE6"
+                    stroke={lineColor}
                     strokeWidth={2}
                     dot={false}
-                    activeDot={{ r: 4, fill: '#405AE6' }}
+                    activeDot={{ r: 4, fill: lineColor }}
                   />
                 </LineChart>
               </ResponsiveContainer>
