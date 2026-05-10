@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Card } from '../ui/Card'
 import { krwCompact, krwFull, pctFormatted, profitTextClass, holdingDurationText } from '../../utils/format'
 import type { Holding } from '../../models/types'
@@ -8,10 +7,11 @@ type SortKey = 'change' | 'agedDays' | 'opCurrent' | 'profitRate' | 'opProfit' |
 interface HoldingCardProps {
   holding: Holding
   sortKey: SortKey
+  isExpanded: boolean
+  onExpand: () => void
 }
 
-export function HoldingCard({ holding: h, sortKey }: HoldingCardProps) {
-  const [expanded, setExpanded] = useState(false)
+export function HoldingCard({ holding: h, sortKey, isExpanded, onExpand }: HoldingCardProps) {
   const isProfit = h.opProfit >= 0
   const isUp = h.change >= 0
   const duration = holdingDurationText(h.buyDate)
@@ -47,7 +47,7 @@ export function HoldingCard({ holding: h, sortKey }: HoldingCardProps) {
 
   if (sortKey === 'allInfo') {
     return (
-      <Card className={`overflow-hidden border-2 ${borderColor}`}>
+      <Card className={`overflow-hidden border-2 ${borderColor} cursor-pointer`} onClick={onExpand}>
         <div className="p-4">
           {/* 상단: 이름 + 현재가 */}
           <div className="flex items-start justify-between mb-3">
@@ -55,9 +55,12 @@ export function HoldingCard({ holding: h, sortKey }: HoldingCardProps) {
               <p className="font-semibold text-sm">{h.name}</p>
               <p className="text-[10px] text-gray-400">{h.code} {duration ? `· ${duration}` : ''}</p>
             </div>
-            <div className="text-right">
-              <p className="font-bold text-base">{krwFull(h.currentPrice)}</p>
-              <p className={`text-xs font-medium ${profitTextClass(h.change)}`}>{h.changePct}</p>
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <p className="font-bold text-base">{krwFull(h.currentPrice)}</p>
+                <p className={`text-xs font-medium ${profitTextClass(h.change)}`}>{h.changePct}</p>
+              </div>
+              <span className="text-gray-300 dark:text-gray-600 text-xs">{isExpanded ? '▲' : '▼'}</span>
             </div>
           </div>
           {/* 중단: 매입/평가/수익 */}
@@ -84,17 +87,14 @@ export function HoldingCard({ holding: h, sortKey }: HoldingCardProps) {
               <p className={`text-xs font-bold ${profitTextClass(h.opProfit)}`}>{pctFormatted(h.profitRate)}</p>
             </div>
           </div>
-          {detailGrid}
+          {isExpanded && detailGrid}
         </div>
       </Card>
     )
   }
 
   return (
-    <Card
-      className={`border-2 ${borderColor}`}
-      onClick={() => setExpanded(e => !e)}
-    >
+    <Card className={`border-2 ${borderColor} cursor-pointer`} onClick={onExpand}>
       <div className="p-4">
         <div className="flex items-center gap-3">
           <div className="flex-1 min-w-0">
@@ -146,11 +146,11 @@ export function HoldingCard({ holding: h, sortKey }: HoldingCardProps) {
           </div>
 
           <span className="text-gray-300 dark:text-gray-600 text-xs ml-1">
-            {expanded ? '▲' : '▼'}
+            {isExpanded ? '▲' : '▼'}
           </span>
         </div>
 
-        {expanded && detailGrid}
+        {isExpanded && detailGrid}
       </div>
     </Card>
   )
