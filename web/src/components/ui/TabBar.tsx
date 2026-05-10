@@ -1,10 +1,10 @@
 type Tab = 'dashboard' | 'holdings' | 'analysis' | 'indicators'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: 'indicators', label: '지표',     icon: '◈' },
   { id: 'dashboard',  label: '대시보드', icon: '◎' },
   { id: 'holdings',   label: '종목',     icon: '≡' },
   { id: 'analysis',   label: '분석',     icon: '△' },
-  { id: 'indicators', label: '지표',     icon: '◈' },
 ]
 
 interface TabBarProps {
