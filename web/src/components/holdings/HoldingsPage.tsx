@@ -58,6 +58,7 @@ export function HoldingsPage() {
   const [selectedAccount, setSelectedAccount] = useState<string>('전체')
   const [sortKey, setSortKey] = useState<SortKey>('allInfo')
   const [sortAsc, setSortAsc] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const fetchPortfolio = useCallback(async () => {
     try {
@@ -111,6 +112,11 @@ export function HoldingsPage() {
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(a => !a)
     else { setSortKey(key); setSortAsc(false) }
+    setExpandedId(null)
+  }
+
+  const handleExpand = (id: string) => {
+    setExpandedId(prev => prev === id ? null : id)
   }
 
   const accountLabel = selectedAccount === '전체' ? '전체' : (ACCOUNT_DISPLAY[selectedAccount] ?? selectedAccount)
@@ -192,9 +198,18 @@ export function HoldingsPage() {
         </div>
       ) : (
         <div className="px-4 pt-2 space-y-2">
-          {filtered.map(h => (
-            <HoldingCard key={`${h.code}-${h.accountType}`} holding={h} sortKey={sortKey} />
-          ))}
+          {filtered.map(h => {
+            const id = `${h.code}-${h.accountType}`
+            return (
+              <HoldingCard
+                key={id}
+                holding={h}
+                sortKey={sortKey}
+                isExpanded={expandedId === id}
+                onExpand={() => handleExpand(id)}
+              />
+            )
+          })}
           {filtered.length === 0 && (
             <p className="text-center text-gray-400 text-sm py-8">종목이 없습니다</p>
           )}
