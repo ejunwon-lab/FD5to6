@@ -47,12 +47,14 @@ function MainApp() {
   const { isSignedIn, isLoading } = useAuth()
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [dashboardTap, setDashboardTap] = useState(0)
+  const [visited, setVisited] = useState<Set<Tab>>(new Set(['dashboard']))
 
   const handleTabChange = (tab: Tab) => {
     if (tab === 'dashboard' && activeTab === 'dashboard') {
       setDashboardTap(n => n + 1)
     }
     setActiveTab(tab)
+    setVisited(prev => prev.has(tab) ? prev : new Set([...prev, tab]))
   }
 
   if (isLoading) {
@@ -67,10 +69,10 @@ function MainApp() {
 
   return (
     <div className="relative max-w-[430px] mx-auto">
-      {activeTab === 'indicators' && <IndicatorsPage />}
-      {activeTab === 'dashboard'  && <DashboardPage scrollToTopSignal={dashboardTap} />}
-      {activeTab === 'holdings'   && <HoldingsPage />}
-      {activeTab === 'analysis'   && <AnalysisPage />}
+      {visited.has('indicators') && <div className={activeTab === 'indicators' ? '' : 'hidden'}><IndicatorsPage /></div>}
+      {visited.has('dashboard')  && <div className={activeTab === 'dashboard'  ? '' : 'hidden'}><DashboardPage scrollToTopSignal={dashboardTap} /></div>}
+      {visited.has('holdings')   && <div className={activeTab === 'holdings'   ? '' : 'hidden'}><HoldingsPage /></div>}
+      {visited.has('analysis')   && <div className={activeTab === 'analysis'   ? '' : 'hidden'}><AnalysisPage /></div>}
       <TabBar active={activeTab} onChange={handleTabChange} />
     </div>
   )
