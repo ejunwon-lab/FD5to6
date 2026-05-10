@@ -4,13 +4,21 @@ GAS push that preserves Secret.js on remote.
 - GETs remote project content (Secret.js stays in memory only, never written to disk)
 - Updates only local .js / appsscript.json files
 - PUTs everything back, Secret.js untouched
+
+Usage:
+  python3 push_safe.py          # 구 시스템 (기본값)
+  python3 push_safe.py new      # 신 시스템
+  python3 push_safe.py old      # 구 시스템 명시
 """
 import json, sys, time
 from pathlib import Path
 import requests
 
-SCRIPT_ID = "12MAcPpoVE39N_Sz0B79G0rjGvevJ8-S_ibVC1Ot61fyVPZnaSQmrJyiR"
-PROTECTED = {"Secret"}   # never overwrite these on remote
+SCRIPTS = {
+    "old": "12MAcPpoVE39N_Sz0B79G0rjGvevJ8-S_ibVC1Ot61fyVPZnaSQmrJyiR",
+    "new": "1DC8llpWYz2ZvzsqVCaz60qomATwxP_CBzuHBitCf0uQT5NbBF-n7IHdZ",
+}
+PROTECTED = {"Secret", "Secret.gs"}   # never overwrite these on remote
 CLASPRC   = Path.home() / ".clasprc.json"
 
 
@@ -48,9 +56,17 @@ def api(method: str, url: str, token: str, body=None):
 
 
 def main():
+    target = sys.argv[1] if len(sys.argv) > 1 else "old"
+    if target not in SCRIPTS:
+        print(f"Usage: push_safe.py [old|new]")
+        sys.exit(1)
+
+    script_id  = SCRIPTS[target]
     script_dir = Path(__file__).parent
-    token = get_token()
-    base  = f"https://script.googleapis.com/v1/projects/{SCRIPT_ID}"
+    token      = get_token()
+    base       = f"https://script.googleapis.com/v1/projects/{script_id}"
+
+    print(f"배포 대상: {target} 시스템 ({script_id[:20]}...)")
 
     # 1. GET remote — Secret.js lives here, never touches disk
     remote_files = {f["name"]: f for f in api("GET", f"{base}/content", token).get("files", [])}
