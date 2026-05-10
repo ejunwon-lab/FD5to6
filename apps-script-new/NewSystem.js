@@ -784,6 +784,25 @@ function _writeStockStatusRows(ss, statusRows) {
 //  *종목상태* / *현재가_이력* 업데이트
 // ═══════════════════════════════════════════════════
 
+function updateFxRates(ss) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(NS.SETTINGS);
+  if (!sheet) return;
+  const usdCell = sheet.getRange(2, 2);
+  const gbpCell = sheet.getRange(3, 2);
+  usdCell.setFormula('=GOOGLEFINANCE("CURRENCY:USDKRW")');
+  gbpCell.setFormula('=GOOGLEFINANCE("CURRENCY:GBPKRW")');
+  SpreadsheetApp.flush();
+  Utilities.sleep(300);
+  let usd = usdCell.getValue();
+  let gbp = gbpCell.getValue();
+  if (typeof usd !== 'number' || isNaN(usd) || usd <= 0) usd = 1400;
+  if (typeof gbp !== 'number' || isNaN(gbp) || gbp <= 0) gbp = 1700;
+  usdCell.setValue(usd);
+  gbpCell.setValue(gbp);
+  Logger.log('환율 업데이트: USD=' + usd + ', GBP=' + gbp);
+}
+
 function _getSettingsFxRate(ss, key) {
   const sheet = ss.getSheetByName('*설정*');
   if (!sheet || sheet.getLastRow() < 2) return 1400;
