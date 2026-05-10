@@ -131,10 +131,8 @@ export function HoldingCard({ holding: h, sortKey, isExpanded, onExpand }: Holdi
             )}
             {sortKey === 'change' && (
               <>
-                <p className={`font-bold text-sm ${profitTextClass(h.change)}`}>{h.changePct}</p>
-                <p className={`text-[10px] ${profitTextClass(h.change)}`}>
-                  {krwCompact(h.change * h.quantity)}
-                </p>
+                <p className={`font-bold text-sm ${profitTextClass(h.change)}`}>{krwCompact(h.change * h.quantity)}</p>
+                <p className={`text-[10px] ${profitTextClass(h.change)}`}>{h.changePct}</p>
               </>
             )}
             {sortKey === 'agedDays' && (
