@@ -10,6 +10,7 @@ function onOpen() {
     .addItem('📈 1M~1Y 히스토리 갱신 (수동)', 'menuUpdateHistory')
     .addItem('📋 보유현황 재계산', 'updatePositionFromLedger')
     .addItem('📊 대시보드 갱신', 'buildDashboard')
+    .addItem('🔬 분석 대시보드 갱신', 'buildAnalysisDashboard')
     .addToUi();
 }
 
@@ -31,6 +32,7 @@ function updateAllNew() {
     updateFxRates(ss);
     updateNewPriceHistory(ss);
     updatePositionFromLedger();
+    buildAnalysisDashboard();
     ss.toast('전체 업데이트 완료', '✅', 4);
   } catch (e) {
     ss.toast('오류: ' + e.message, '❌', 5);
@@ -61,6 +63,7 @@ function menuUpdateHistory() {
     updateNewStockHistory(ss);
     updatePositionFromLedger();
     buildDashboard();
+    buildAnalysisDashboard();
     ss.toast('히스토리 갱신 완료', '✅', 4);
   } catch (e) {
     ss.toast('오류: ' + e.message, '❌', 5);
