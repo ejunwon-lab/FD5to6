@@ -2,8 +2,9 @@
 name: iOS 앱 UI 현황
 description: 현재 구현된 UI 상태, 디자인 결정사항
 type: project
+originSessionId: 84f0acdf-f88f-41bb-85c8-4db2e0c158ec
 ---
-last updated: 2026-04-25
+last updated: 2026-05-10
 
 **Why:** VS Code 재시작 시 컨텍스트 복원용
 **How to apply:** UI 수정 요청 시 현재 상태 파악에 활용
@@ -30,6 +31,16 @@ last updated: 2026-04-25
 - PageTabViewStyle — 네이티브 스와이프
 - 커스텀 탭바: ultraThinMaterial, safeAreaInset
 - 탭: 대시보드 / 종목 / 분석
+
+## 뉴FD7 앱 (ios2/) — 신시스템 연동
+- `ios2/`: 신시스템 연동 별도 앱, 앱명 "뉴FD7", 번들ID com.jw.newfd7
+- scriptID: `1DC8llpWYz2ZvzsqVCaz60qomATwxP_CBzuHBitCf0uQT5NbBF-n7IHdZ`
+- GAS 함수명: `newMobile*` (구시스템과 분리)
+- 배경세션 ID: `com.jw.newfd7.gas-update`
+- 캐시 키: `newfd7_portfolio_cache`, `newfd7_indicators_cache`
+- HoldingCard: 1M/3M/6M 한 행 + 1Y/52주최고/52주최저 한 행 (6M 추가)
+- IndicatorsView: "신시스템 참고지표 미구현" 안내 표시
+- ios2/NewFD7.xcodeproj 생성 완료 (xcodegen)
 
 ## 공통
 - SourceKit 에러는 XcodeGen false positive — 실제 빌드 무관
