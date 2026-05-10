@@ -3,49 +3,56 @@ import { gasApi } from '../../api/gasApi'
 import { useAuth } from '../../auth/AuthContext'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
-import { profitTextClass } from '../../utils/format'
 import type { ReferenceIndicator } from '../../models/types'
 
-const CATEGORY_COLORS: Record<string, string> = {
-  '한국시장':  'bg-blue-500',
-  '미국시장':  'bg-indigo-500',
-  '선물':     'bg-orange-500',
-  '상품':     'bg-yellow-500',
-  '매크로':   'bg-gray-500',
-  'AI/반도체': 'bg-purple-500',
-  '빅테크':   'bg-pink-500',
+const CATEGORY_ORDER = [
+  '한국시장', '한국선물', '중국시장',
+  '미국시장', '미국선물', 'AI/반도체', '빅테크',
+  '상품', '매크로',
+]
+
+function formattedValue(v: number): string {
+  if (v === 0) return '—'
+  return Math.abs(v) >= 100 ? v.toFixed(2) : v.toFixed(3)
 }
 
-function formatValue(key: string, value: number): string {
-  if (value === 0) return '—'
-  if (['USD_KRW', 'GBP_KRW', 'JPY_KRW'].some(k => key.includes(k))) {
-    return value.toLocaleString('ko-KR', { maximumFractionDigits: 2 })
-  }
-  if (value >= 10000) return value.toLocaleString('ko-KR', { maximumFractionDigits: 0 })
-  if (value >= 100) return value.toLocaleString('ko-KR', { maximumFractionDigits: 1 })
-  return value.toFixed(2)
+function formattedChange(v: number): string {
+  if (v === 0) return '0.00'
+  return (v >= 0 ? '+' : '') + v.toFixed(2)
+}
+
+function formattedPct(v: number): string {
+  if (v === 0) return '0.00%'
+  return (v >= 0 ? '+' : '') + v.toFixed(2) + '%'
+}
+
+function barColor(change: number): string {
+  if (change === 0) return 'bg-gray-300 dark:bg-gray-600'
+  return change > 0 ? 'bg-profit' : 'bg-loss'
+}
+
+function changeTextClass(change: number): string {
+  if (change === 0) return 'text-gray-400'
+  return change > 0 ? 'text-profit' : 'text-loss'
 }
 
 function IndicatorRow({ ind }: { ind: ReferenceIndicator }) {
-  const isUp = ind.change >= 0
-  const colorBar = CATEGORY_COLORS[ind.category] ?? 'bg-gray-400'
-
   return (
-    <div className="flex items-center gap-3 py-2.5">
-      <div className={`w-1 h-8 rounded-full shrink-0 ${colorBar}`} />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium truncate">{ind.name}</p>
-        <p className="text-[10px] text-gray-400">{ind.category}</p>
-      </div>
-      <div className="text-right shrink-0">
-        <p className="text-sm font-bold">{formatValue(ind.key, ind.value)}</p>
-        <div className="flex items-center justify-end gap-1">
-          <span className={`text-[10px] font-medium ${profitTextClass(ind.change)}`}>
-            {isUp ? '+' : ''}{formatValue(ind.key, ind.change)}
-          </span>
-          <span className={`text-[10px] ${profitTextClass(ind.change)}`}>
-            ({isUp ? '+' : ''}{ind.changePct.toFixed(2)}%)
-          </span>
+    <div className="flex items-stretch">
+      {/* left color bar */}
+      <div className={`w-[3px] my-2 ml-2.5 rounded-full shrink-0 ${barColor(ind.change)}`} />
+
+      <div className="flex items-center gap-2 flex-1 px-3 py-2.5">
+        {/* name */}
+        <p className="flex-1 text-[15px] font-medium truncate">{ind.name}</p>
+
+        {/* value */}
+        <p className="w-[88px] text-right text-[15px] font-semibold shrink-0">{formattedValue(ind.value)}</p>
+
+        {/* change + pct */}
+        <div className={`w-[72px] text-right shrink-0 ${changeTextClass(ind.change)}`}>
+          <p className="text-[13px] font-semibold">{formattedChange(ind.change)}</p>
+          <p className="text-[12px] font-medium">{formattedPct(ind.changePct)}</p>
         </div>
       </div>
     </div>
@@ -86,24 +93,27 @@ export function IndicatorsPage() {
     return acc
   }, {})
 
+  const orderedCategories = [
+    ...CATEGORY_ORDER.filter(c => grouped[c]),
+    ...Object.keys(grouped).filter(c => !CATEGORY_ORDER.includes(c)),
+  ]
+
   return (
     <div className="h-[100dvh] overflow-y-auto no-scrollbar bg-[rgb(var(--page-bg))] pb-32">
+      {/* Header */}
       <div className="sticky top-0 z-10 bg-[rgb(var(--page-bg))] px-4 pt-12 pb-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">참고지표</h2>
+          <h2 className="text-[28px] font-bold">참고지표</h2>
           <button
             onClick={() => fetch(true)}
             disabled={isRefreshing}
-            className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center text-sm disabled:opacity-40 active:scale-90 transition-all"
+            className="w-11 h-11 rounded-full bg-black/5 dark:bg-white/10 backdrop-blur flex items-center justify-center text-lg disabled:opacity-40 active:scale-90 transition-all"
           >
             {isRefreshing ? (
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin block" />
+              <span className="w-4 h-4 border-2 border-gray-400/40 border-t-gray-600 dark:border-t-gray-300 rounded-full animate-spin block" />
             ) : '↻'}
           </button>
         </div>
-        {updatedAt && (
-          <p className="text-[10px] text-gray-400 mt-1">갱신: {updatedAt}</p>
-        )}
       </div>
 
       {isLoading ? (
@@ -113,20 +123,29 @@ export function IndicatorsPage() {
           <Card className="p-4 text-sm text-red-500">{error}</Card>
         </div>
       ) : (
-        <div className="px-4 space-y-3">
-          {Object.entries(grouped).map(([category, inds]) => (
-            <Card key={category} className="px-4">
-              <div className="flex items-center gap-2 pt-3 pb-1 border-b border-gray-100 dark:border-gray-700">
-                <div className={`w-2.5 h-2.5 rounded-full ${CATEGORY_COLORS[category] ?? 'bg-gray-400'}`} />
-                <p className="text-xs font-semibold text-gray-500">{category}</p>
-              </div>
-              <div className="divide-y divide-gray-50 dark:divide-gray-800">
-                {inds.map(ind => <IndicatorRow key={ind.key} ind={ind} />)}
-              </div>
-            </Card>
+        <div className="px-4 space-y-5">
+          {orderedCategories.map(category => (
+            <div key={category}>
+              <p className="text-xs font-semibold text-gray-400 px-1 mb-1.5">{category}</p>
+              <Card className="overflow-hidden">
+                <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {grouped[category].map(ind => (
+                    <IndicatorRow key={ind.key} ind={ind} />
+                  ))}
+                </div>
+              </Card>
+            </div>
           ))}
           {indicators.length === 0 && (
-            <p className="text-center text-gray-400 text-sm py-8">지표 없음</p>
+            <p className="text-center text-gray-400 text-sm py-8">지표 데이터 없음</p>
+          )}
+
+          {/* Footer */}
+          {updatedAt && (
+            <div className="text-center py-4">
+              <p className="text-[10px] text-gray-400">마지막 갱신</p>
+              <p className="text-[10px] text-gray-400">{updatedAt}</p>
+            </div>
           )}
         </div>
       )}
