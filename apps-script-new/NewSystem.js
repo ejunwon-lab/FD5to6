@@ -662,6 +662,7 @@ function updatePositionFromLedger() {
   }
 
   buildDashboard();
+  buildAnalysisDashboard();
 }
 
 // 보유기간 → "X년 Y개월 Z일" 형식 (0년/0개월은 생략)
