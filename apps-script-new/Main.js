@@ -11,6 +11,8 @@ function onOpen() {
     .addItem('📋 보유현황 재계산', 'updatePositionFromLedger')
     .addItem('📊 대시보드 갱신', 'buildDashboard')
     .addItem('🔬 분석 대시보드 갱신', 'buildAnalysisDashboard')
+    .addSeparator()
+    .addItem('⚙️ 대기자금 입력란 생성 (1회)', 'setupPendingCashSection')
     .addToUi();
 }
 
