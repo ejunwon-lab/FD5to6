@@ -53,6 +53,41 @@ function newMobileGetPortfolio() {
 
     const isMarketDay = _mIsMarketDay();
 
+    // *추이 기록* 최신 행에서 AH/AI(거래일 캐시) + AJ/AK(전일 백업) 읽기
+    let dayChangAmountOut  = dayChange;
+    let dayChangePctOut    = (dayPct >= 0 ? '+' : '') + dayPct.toFixed(2) + '%';
+    let prevDayChangAmount = null;
+    let prevDayChangePct   = null;
+    try {
+      const trendSht = ss.getSheetByName(NS.TREND);
+      if (trendSht && trendSht.getLastRow() >= 2) {
+        // pCol 감지: U열(col 21) 5~50행 날짜 문자열 검사 (_updateNewTrend와 동일 로직)
+        const chkMax = Math.min(trendSht.getLastRow(), 50);
+        const useOldC = chkMax >= 5 && trendSht.getRange(5, 21, chkMax - 4, 1).getValues()
+          .some(r => /^\d{4}-\d{2}-\d{2}/.test(String(r[0])));
+        const pCol = useOldC ? 21 : 1;
+        // row 2 스냅샷 읽기 (항상 최신값)
+        const tr       = trendSht.getRange(2, pCol, 1, 17).getValues()[0];
+        const toN      = v => { const n = Number(String(v == null ? '' : v).replace(/,/g, '').replace('%', '')); return isNaN(n) ? 0 : n; };
+        const fmtD     = v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+        // row 2가 비어있으면(초기 배포 직후) 현장 계산값 그대로 사용
+        if (tr[0] !== '' && tr[0] != null) {
+          const _now2    = new Date();
+          const _dow2    = _now2.getDay();
+          const isNT     = _dow2 === 0 || _dow2 === 6 || _isKoreanHoliday(_now2);
+          const hasCache = tr[13] !== '' && tr[13] !== null && tr[13] !== undefined;
+          if (isNT && hasCache) {
+            dayChangAmountOut = toN(tr[13]);       // AH: 마지막 거래일 diff 캐시
+            dayChangePctOut   = fmtD(toN(tr[14])); // AI
+          }
+          if (tr[15] !== '' && tr[15] != null) {
+            prevDayChangAmount = toN(tr[15]);        // AJ: 전일 diff 백업
+            prevDayChangePct   = fmtD(toN(tr[16])); // AK
+          }
+        }
+      }
+    } catch (_) {}
+
     const summary = {
       totalBuy,
       totalCurrent: totalCur,
@@ -64,10 +99,10 @@ function newMobileGetPortfolio() {
       confirmedProfitRate:   cfRate,
       trendOperatingProfit:  opProfit,
       operatingProfitRate:   opRate,
-      dayChangAmount:  dayChange,
-      dayChangePct:    (dayPct >= 0 ? '+' : '') + dayPct.toFixed(2) + '%',
-      prevDayChangAmount: null,
-      prevDayChangePct:   null,
+      dayChangAmount:  dayChangAmountOut,
+      dayChangePct:    dayChangePctOut,
+      prevDayChangAmount,
+      prevDayChangePct,
       isMarketDay,
     };
 
@@ -139,15 +174,105 @@ function newMobileUpdateAll() {
 }
 
 // ══════════════════════════════════════════════════════
-//  참고지표 (신시스템 미구현 — 빈 목록 반환)
+//  참고지표 정의 (구시스템 동일)
+// ══════════════════════════════════════════════════════
+
+const NEW_REFERENCE_INDICATORS = [
+  { key: 'KOSPI',  name: 'KOSPI',  category: '한국시장', source: 'kis_domestic_index', code: '0001' },
+  { key: 'KOSDAQ', name: 'KOSDAQ', category: '한국시장', source: 'kis_domestic_index', code: '1001' },
+  { key: 'K200F',  name: 'KOSPI200', category: '한국선물', source: 'kis_domestic_index', code: '2001' },
+  { key: 'SPX', name: 'S&P500',        category: '미국시장', source: 'kis_overseas_index', code: 'SPX', excd: 'NYS', gfSymbol: 'INDEXSP:.INX' },
+  { key: 'NDX', name: 'NASDAQ100',     category: '미국시장', source: 'kis_overseas_index', code: 'NDX', excd: 'NAS', gfSymbol: 'INDEXNASDAQ:NDX' },
+  { key: 'DJI', name: '다우존스',       category: '미국시장', source: 'kis_overseas_index', code: 'DJI', excd: 'NYS', gfSymbol: 'INDEXDJX:.DJI' },
+  { key: 'SOX', name: '필라델피아반도체', category: 'AI/반도체', source: 'kis_overseas_index', code: 'SOX', excd: 'NAS', gfSymbol: 'NASDAQ:SOXX', ySymbol: '^SOX' },
+  { key: 'ES', name: 'S&P500선물',  category: '미국선물', source: 'yahoo_finance', ySymbol: 'ES=F',  gfSymbol: 'INDEXSP:.INX' },
+  { key: 'NQ', name: 'NASDAQ선물',  category: '미국선물', source: 'yahoo_finance', ySymbol: 'NQ=F',  gfSymbol: 'INDEXNASDAQ:NDX' },
+  { key: 'GC', name: '금',      category: '상품', source: 'yahoo_finance', ySymbol: 'GC=F',  gfSymbol: 'COMEX:GC1!' },
+  { key: 'CL', name: 'WTI원유', category: '상품', source: 'yahoo_finance', ySymbol: 'CL=F',  gfSymbol: 'NYMEX:CL1!' },
+  { key: 'VIX', name: 'VIX',       category: '매크로', source: 'googlefinance', gfSymbol: 'INDEXCBOE:VIX' },
+  { key: 'TNX', name: '미국10년물', category: '매크로', source: 'googlefinance', gfSymbol: 'TNX' },
+  { key: 'DXY', name: '달러인덱스', category: '매크로', source: 'yahoo_finance', ySymbol: 'DX-Y.NYB', gfSymbol: 'CURRENCYCOM:DXY' },
+  { key: 'NVDA', name: 'NVIDIA',     category: 'AI/반도체', source: 'yahoo_finance', ySymbol: 'NVDA',  gfSymbol: 'NASDAQ:NVDA' },
+  { key: 'AAPL', name: 'Apple',     category: '빅테크', source: 'yahoo_finance', ySymbol: 'AAPL',  gfSymbol: 'NASDAQ:AAPL' },
+  { key: 'MSFT', name: 'Microsoft', category: '빅테크', source: 'yahoo_finance', ySymbol: 'MSFT',  gfSymbol: 'NASDAQ:MSFT' },
+  { key: 'GOOGL', name: 'Google',   category: '빅테크', source: 'yahoo_finance', ySymbol: 'GOOGL', gfSymbol: 'NASDAQ:GOOGL' },
+  { key: 'META', name: 'Meta',      category: '빅테크', source: 'yahoo_finance', ySymbol: 'META',  gfSymbol: 'NASDAQ:META' },
+  { key: 'AMZN', name: 'Amazon',    category: '빅테크', source: 'yahoo_finance', ySymbol: 'AMZN',  gfSymbol: 'NASDAQ:AMZN' },
+  { key: 'TSLA', name: 'Tesla',     category: '빅테크', source: 'yahoo_finance', ySymbol: 'TSLA',  gfSymbol: 'NASDAQ:TSLA' },
+  { key: 'HSI', name: '항셍지수', category: '중국시장', source: 'yahoo_finance', ySymbol: '^HSI', gfSymbol: 'INDEXHANGSENG:HSI' },
+];
+
+// ══════════════════════════════════════════════════════
+//  참고지표 조회 (KIS API + Yahoo Finance + GOOGLEFINANCE)
 // ══════════════════════════════════════════════════════
 
 function newMobileGetIndicators() {
-  return JSON.stringify({
-    success: true,
-    updatedAt: null,
-    indicators: [],
-  });
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    KIS_API.ensureToken();
+
+    const summarySheet = _newEnsureIndicatorsSheet(ss);
+    const historySheet = _newEnsureIndicatorsHistorySheet(ss);
+
+    const tz        = 'Asia/Seoul';
+    const now       = new Date();
+    const updatedAt = Utilities.formatDate(now, tz, 'yyyy-MM-dd HH:mm:ss');
+    const today     = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+    const hhmmss    = Utilities.formatDate(now, tz, 'HH:mm:ss');
+
+    const results = [];
+    for (const def of NEW_REFERENCE_INDICATORS) {
+      let info = null;
+      try {
+        if (def.source === 'kis_domestic_index') {
+          info = KIS_API.getDomesticIndex(def.code);
+        } else if (def.source === 'kis_overseas_index') {
+          info = KIS_API.getOverseasIndex(def.code, def.excd || 'NAS');
+        } else if (def.source === 'kis_domestic_futures') {
+          info = KIS_API.getDomesticFutures(def.code);
+        } else if (def.source === 'yahoo_finance') {
+          info = _newGetYahooFinanceQuote(def.ySymbol);
+        }
+      } catch (e) {
+        Logger.log(`지표 ${def.key} 조회 오류: ${e}`);
+      }
+      results.push({
+        key: def.key, name: def.name, category: def.category,
+        value:     info ? info.value     : 0,
+        change:    info ? info.change    : 0,
+        changePct: info ? info.changePct : 0,
+        source:    def.source,
+        gfSymbol:  def.gfSymbol || '',
+        ySymbol:   def.ySymbol  || '',
+      });
+    }
+
+    _newFillGoogleFinanceIndicators(ss, results);
+    _newFillMissingWithYahooFinance(results);
+    _newFillMissingWithGoogleFinance(ss, results);
+
+    // 참고지표 시트 업데이트
+    summarySheet.getRange(1, 1, 1, 7).setValues([['키','지표명','카테고리','현재값','등락','등락률(%)','갱신시간']]);
+    if (results.length > 0) {
+      summarySheet.getRange(2, 1, results.length, 7).setValues(
+        results.map(r => [r.key, r.name, r.category, r.value, r.change, r.changePct, updatedAt])
+      );
+    }
+    _newUpsertIndicatorsHistory(historySheet, today, hhmmss, results);
+    SpreadsheetApp.flush();
+
+    return JSON.stringify({
+      success: true,
+      updatedAt,
+      indicators: results.map(r => ({
+        key: r.key, name: r.name, category: r.category,
+        value: r.value, change: r.change, changePct: r.changePct,
+      })),
+    });
+  } catch (e) {
+    Logger.log('newMobileGetIndicators 오류: ' + e);
+    return JSON.stringify({ success: false, error: String(e) });
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -157,59 +282,44 @@ function newMobileGetIndicators() {
 
 function newMobileGetProfitHistory() {
   try {
-    const ss        = SpreadsheetApp.getActiveSpreadsheet();
-    const posSheet  = ss.getSheetByName(NS.POSITION);
-    const histSheet = ss.getSheetByName(NS.PRICE_HISTORY);
+    const ss    = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(NS.TREND);
+    if (!sheet || sheet.getLastRow() < 1) return JSON.stringify({ success: true, entries: [] });
 
-    if (!posSheet || !histSheet ||
-        histSheet.getLastRow() < 3 || histSheet.getLastColumn() < 2) {
-      return JSON.stringify({ success: true, entries: [] });
+    const toNum = v => {
+      if (v === '' || v == null) return 0;
+      const n = Number(String(v).replace(/,/g, '').replace('%', ''));
+      return isNaN(n) ? 0 : n;
+    };
+    const toDate = v => v instanceof Date
+      ? Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd')
+      : String(v).slice(0, 10);
+    const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(toDate(v));
+
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+
+    // 구시스템 그대로 붙여넣기: col U(idx 20)에 날짜 + col AD(idx 29)에 합계수익
+    const useOldLayout = lastCol >= 30 &&
+      sheet.getRange(1, 21, Math.min(lastRow, 20), 1).getValues().some(r => isDate(r[0]));
+
+    let entries;
+    if (useOldLayout) {
+      const data = sheet.getRange(1, 21, lastRow, 10).getValues(); // U~AD
+      entries = data
+        .filter(row => isDate(row[0]))
+        .map(row => ({ date: toDate(row[0]), totalProfit: toNum(row[9]) }));
+    } else {
+      // 신규 기록 or col A=날짜 직접 붙여넣기: col A(idx 0) + col J(idx 9) or col B(idx 1)
+      const readCols = Math.min(lastCol, 10);
+      const data     = sheet.getRange(1, 1, lastRow, readCols).getValues();
+      const profitIdx = readCols >= 10 ? 9 : 1;
+      entries = data
+        .filter(row => isDate(row[0]))
+        .map(row => ({ date: toDate(row[0]), totalProfit: toNum(row[profitIdx]) }));
     }
 
-    const posRows = posSheet.getLastRow() >= 2
-      ? posSheet.getRange(2, 1, posSheet.getLastRow() - 1, 11).getValues()
-          .filter(r => String(r[1]) !== '합계' && Number(r[6]) > 0)
-      : [];
-
-    if (posRows.length === 0) return JSON.stringify({ success: true, entries: [] });
-
-    // 종목코드 → 보유수량 맵 (현재 기준)
-    const qtyMap = {};
-    posRows.forEach(r => {
-      const code = _normCode(String(r[0]));
-      if (!code || NS.KIS_SKIP.includes(String(r[2]))) return;
-      if (!qtyMap[code]) qtyMap[code] = 0;
-      qtyMap[code] += Number(r[6]) || 0;
-    });
-
-    const totalBuy = posRows.reduce((s, r) => s + (Number(r[8]) || 0), 0);
-
-    const lastCol  = histSheet.getLastColumn() - 1;
-    const codes    = histSheet.getRange(1, 2, 1, lastCol).getValues()[0].map(c => _normCode(String(c)));
-    const dataRows = histSheet.getLastRow() - 1;
-    const dates    = histSheet.getRange(2, 1, dataRows, 1).getValues();
-    const prices   = histSheet.getRange(2, 2, dataRows, lastCol).getValues();
-
-    const entries = [];
-    for (let i = 0; i < dataRows; i++) {
-      const raw     = dates[i][0];
-      const dateStr = raw instanceof Date
-        ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
-        : String(raw).slice(0, 10);
-      if (!dateStr || dateStr.length < 10) continue;
-
-      let totalCur = 0;
-      codes.forEach((code, j) => {
-        if (!code || !qtyMap[code]) return;
-        const price = Number(prices[i][j]) || 0;
-        if (price > 0) totalCur += price * qtyMap[code];
-      });
-      if (totalCur <= 0) continue;
-
-      entries.push({ date: dateStr, totalProfit: Math.round(totalCur - totalBuy) });
-    }
-
-    return JSON.stringify({ success: true, entries });
+    return JSON.stringify({ success: true, entries: entries.slice(-180) });
   } catch (e) {
     Logger.log('newMobileGetProfitHistory 오류: ' + e);
     return JSON.stringify({ success: true, entries: [] });
@@ -294,11 +404,39 @@ function _mGetFxRates(ss) {
   } catch (e) { return { usd: 1400, gbp: 1700 }; }
 }
 
+function _isKoreanHoliday(date) {
+  const dateStr = Utilities.formatDate(date, 'Asia/Seoul', 'yyyy-MM-dd');
+  const HOLIDAYS = [
+    // 2025
+    '2025-01-01',
+    '2025-01-28', '2025-01-29', '2025-01-30',
+    '2025-03-01', '2025-05-01', '2025-05-05', '2025-06-06',
+    '2025-08-15',
+    '2025-10-03', '2025-10-05', '2025-10-06', '2025-10-07', '2025-10-09',
+    '2025-12-25',
+    // 2026
+    '2026-01-01',
+    '2026-02-16', '2026-02-17', '2026-02-18',
+    '2026-03-01', '2026-03-02',
+    '2026-05-01',
+    '2026-05-05',
+    '2026-05-25',
+    '2026-06-06',
+    '2026-08-15',
+    '2026-10-03',
+    '2026-10-09',
+    '2026-12-25',
+    '2026-12-31',
+  ];
+  return HOLIDAYS.includes(dateStr);
+}
+
 function _mIsMarketDay() {
   const now     = new Date();
   const tz      = 'Asia/Seoul';
   const weekday = parseInt(Utilities.formatDate(now, tz, 'u')); // 1=월, 7=일
   if (weekday >= 6) return false;
+  if (_isKoreanHoliday(now)) return false;
   const hhmm = parseInt(Utilities.formatDate(now, tz, 'HHmm'), 10);
   return hhmm >= 900 && hhmm <= 1530;
 }
@@ -325,4 +463,121 @@ function _mGroupBy(posRows, colIdx, totalCur) {
     };
   });
   return result;
+}
+
+// ── 참고지표 헬퍼 ────────────────────────────────────────
+
+function _newGetYahooFinanceQuote(symbol) {
+  if (!symbol) return null;
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d&includePrePost=false`;
+    const res = UrlFetchApp.fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GoogleAppsScript)' },
+      muteHttpExceptions: true,
+    });
+    if (res.getResponseCode() !== 200) return null;
+    const meta = JSON.parse(res.getContentText())?.chart?.result?.[0]?.meta;
+    if (!meta || !meta.regularMarketPrice) return null;
+    const price = meta.regularMarketPrice;
+    const prev  = meta.chartPreviousClose || meta.previousClose || price;
+    const change    = price - prev;
+    const changePct = prev > 0 ? (change / prev) * 100 : 0;
+    return { value: price, change, changePct };
+  } catch (e) {
+    Logger.log(`Yahoo Finance 오류(${symbol}): ${e}`);
+    return null;
+  }
+}
+
+function _newFillGoogleFinanceIndicators(ss, results) {
+  const gfItems = results.filter(r => r.source === 'googlefinance');
+  if (gfItems.length === 0) return;
+  let tempSheet = ss.getSheetByName('Temp');
+  if (!tempSheet) { tempSheet = ss.insertSheet('Temp'); tempSheet.hideSheet(); }
+  const START_COL = 27, START_ROW = 1;
+  const formulas = gfItems.map(item => [
+    `=IFERROR(GOOGLEFINANCE("${item.gfSymbol}","price"),"")`,
+    `=IFERROR(GOOGLEFINANCE("${item.gfSymbol}","change"),"")`,
+    `=IFERROR(GOOGLEFINANCE("${item.gfSymbol}","changepct"),"")`,
+  ]);
+  tempSheet.getRange(START_ROW, START_COL, formulas.length, 3).setFormulas(formulas);
+  SpreadsheetApp.flush();
+  Utilities.sleep(1500);
+  const values = tempSheet.getRange(START_ROW, START_COL, formulas.length, 3).getValues();
+  gfItems.forEach((item, idx) => {
+    const v = values[idx];
+    const price = Number(v[0]) || 0;
+    if (price > 0) {
+      const divisor = item.key === 'TNX' ? 10 : 1;
+      item.value     = price / divisor;
+      item.change    = (Number(v[1]) || 0) / divisor;
+      item.changePct = Number(v[2]) || 0;
+    }
+  });
+  tempSheet.getRange(START_ROW, START_COL, formulas.length, 3).clearContent();
+}
+
+function _newFillMissingWithYahooFinance(results) {
+  results.filter(r => (!r.value || r.value <= 0) && r.ySymbol).forEach(item => {
+    const q = _newGetYahooFinanceQuote(item.ySymbol);
+    if (q && q.value > 0) { item.value = q.value; item.change = q.change; item.changePct = q.changePct; }
+  });
+}
+
+function _newFillMissingWithGoogleFinance(ss, results) {
+  const missing = results.filter(r => r.source !== 'googlefinance' && (!r.value || r.value <= 0) && r.gfSymbol);
+  if (missing.length === 0) return;
+  let tempSheet = ss.getSheetByName('Temp');
+  if (!tempSheet) { tempSheet = ss.insertSheet('Temp'); tempSheet.hideSheet(); }
+  const START_COL = 31, START_ROW = 1;
+  const formulas = missing.map(item => [
+    `=IFERROR(GOOGLEFINANCE("${item.gfSymbol}","price"),"")`,
+    `=IFERROR(GOOGLEFINANCE("${item.gfSymbol}","change"),"")`,
+    `=IFERROR(GOOGLEFINANCE("${item.gfSymbol}","changepct"),"")`,
+  ]);
+  tempSheet.getRange(START_ROW, START_COL, formulas.length, 3).setFormulas(formulas);
+  SpreadsheetApp.flush();
+  Utilities.sleep(1500);
+  const values = tempSheet.getRange(START_ROW, START_COL, formulas.length, 3).getValues();
+  missing.forEach((item, idx) => {
+    const price = Number(values[idx][0]) || 0;
+    if (price > 0) { item.value = price; item.change = Number(values[idx][1]) || 0; item.changePct = Number(values[idx][2]) || 0; }
+  });
+  tempSheet.getRange(START_ROW, START_COL, formulas.length, 3).clearContent();
+}
+
+function _newEnsureIndicatorsSheet(ss) {
+  let sheet = ss.getSheetByName('참고지표');
+  if (!sheet) {
+    sheet = ss.insertSheet('참고지표');
+    sheet.getRange(1, 1, 1, 7).setValues([['키','지표명','카테고리','현재값','등락','등락률(%)','갱신시간']])
+      .setFontWeight('bold').setBackground('#f0f0f0');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function _newEnsureIndicatorsHistorySheet(ss) {
+  let sheet = ss.getSheetByName('참고지표_히스토리');
+  if (!sheet) {
+    sheet = ss.insertSheet('참고지표_히스토리');
+    const header = ['날짜', '시간', ...NEW_REFERENCE_INDICATORS.map(d => d.name)];
+    sheet.getRange(1, 1, 1, header.length).setValues([header])
+      .setFontWeight('bold').setBackground('#f0f0f0');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function _newUpsertIndicatorsHistory(sheet, today, hhmmss, results) {
+  const lastRow = sheet.getLastRow();
+  let existingRow = 0;
+  if (lastRow >= 2) {
+    const dates = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (let i = 0; i < dates.length; i++) {
+      if (String(dates[i][0]) === today) { existingRow = i + 2; break; }
+    }
+  }
+  const row = [today, hhmmss, ...results.map(r => r.value)];
+  sheet.getRange(existingRow || (lastRow + 1), 1, 1, row.length).setValues([row]);
 }

@@ -17,6 +17,7 @@ const NS = {
   REALIZED_PNL:  '*실현손익*',
   STOCK_STATUS:  '*종목상태*',
   SETTINGS:      '*설정*',
+  TREND:         '*추이 기록*',
 
   BROKERS:    ['미래에셋투자증권', '삼성증권'],
   ACCOUNTS: {
@@ -737,6 +738,101 @@ function _setupSettingsSheet(ss) {
   sheet.setFrozenRows(1);
 }
 
+/**
+ * *설정* 시트에 "대기중" 대기자금 수동 입력 섹션 추가
+ * GAS 에디터에서 1회 수동 실행
+ */
+function setupPendingCashSection() {
+  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(NS.SETTINGS);
+  if (!sheet) { Logger.log('*설정* 시트 없음'); return; }
+
+  // 열 너비 재조정 (4열: 증권사/구분/대기자금/비고)
+  [150, 170, 120, 180].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+
+  // 빈 행 찾아서 섹션 시작행 결정 (기존 데이터 아래 + 1행 여백)
+  const startRow = sheet.getLastRow() + 2;
+
+  const TITLE_BG  = '#c9daf8'; // 연파랑
+  const HDR_BG    = '#a4c2f4'; // 중간파랑
+  const SS_COLOR  = '#1c4587'; // 삼성증권 짙은파랑
+  const MA_COLOR  = '#b45309'; // 미래애셋 주황
+  const SUM_BG    = '#1155cc'; // 합계 셀 파랑
+
+  const dataRows = [
+    ['미래애셋투자증권', '종합_랩',              '', '일임형 랩'],
+    ['미래애셋투자증권', '퇴직연금_개인IRP',     '', ''],
+    ['삼성증권',         '종합',                 '', ''],
+    ['삼성증권',         'ISA',                  '', ''],
+    ['삼성증권',         '퇴직연금(다이렉트IRP)', '', ''],
+    ['삼성증권',         'CMA',                  '', ''],
+  ];
+  const dataCount = dataRows.length;
+  const sumRow    = startRow + 2 + dataCount; // title(1) + header(1) + data rows
+
+  // 타이틀 행 (병합 + 연파랑)
+  const titleRange = sheet.getRange(startRow, 1, 1, 4);
+  titleRange.merge().setValue('대기중')
+    .setBackground(TITLE_BG).setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle')
+    .setFontSize(11).setBorder(true, true, true, true, false, false);
+
+  // 헤더 행
+  const hdrRange = sheet.getRange(startRow + 1, 1, 1, 4);
+  hdrRange.setValues([['증권사', '구분', '대기자금', '비고']])
+    .setBackground(HDR_BG).setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setBorder(true, true, true, true, true, true);
+
+  // 데이터 행
+  sheet.getRange(startRow + 2, 1, dataCount, 4).setValues(dataRows)
+    .setBorder(true, true, true, true, true, true);
+
+  // 증권사 글자색 지정
+  for (let i = 0; i < dataCount; i++) {
+    const row   = startRow + 2 + i;
+    const name  = dataRows[i][0];
+    const color = name === '미래애셋투자증권' ? MA_COLOR : SS_COLOR;
+    sheet.getRange(row, 1).setFontColor(color).setFontWeight('bold');
+  }
+
+  // 대기자금 열 숫자 포맷
+  sheet.getRange(startRow + 2, 3, dataCount, 1).setNumberFormat('#,##0');
+
+  // 합계 행
+  const sumFormula = `=SUM(C${startRow + 2}:C${startRow + 1 + dataCount})`;
+  sheet.getRange(sumRow, 1, 1, 4).setBorder(true, true, true, true, true, true);
+  sheet.getRange(sumRow, 1, 1, 2).merge().setValue('합계')
+    .setHorizontalAlignment('center').setFontWeight('bold');
+  sheet.getRange(sumRow, 3).setFormula(sumFormula)
+    .setBackground(SUM_BG).setFontColor('#ffffff').setFontWeight('bold')
+    .setHorizontalAlignment('center').setNumberFormat('#,##0');
+
+  Logger.log('대기중 섹션 생성 완료 — startRow=' + startRow + ', sumRow=' + sumRow);
+  Logger.log('합계 셀 위치: C' + sumRow + ' (이 주소를 _getPendingTotal()에 사용)');
+}
+
+/**
+ * *설정* 시트 대기중 합계 읽기
+ * setupPendingCashSection() 실행 후 합계 셀 주소가 확정되면 아래 주소를 맞게 수정
+ */
+function _getPendingTotal(ss) {
+  try {
+    const sheet = ss.getSheetByName(NS.SETTINGS);
+    if (!sheet) return 0;
+    const rows = sheet.getDataRange().getValues();
+    // '합계' 레이블 행의 C열 값을 찾아서 반환
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const a = String(rows[i][0] || '').trim();
+      const b = String(rows[i][1] || '').trim();
+      if ((a === '합계' || b === '합계') && rows[i][2] !== '') {
+        return Number(rows[i][2]) || 0;
+      }
+    }
+  } catch (_) {}
+  return 0;
+}
+
 function _getLatestPrices(ss) {
   const priceMap = {};
   const sheet = ss.getSheetByName(NS.PRICE_HISTORY);
@@ -899,6 +995,7 @@ function updateNewCurrentPrice(ss) {
 
   _writeStockStatusRows(ss, statusRows);
   _updatePriceHistory(ss, allCodes, statusMap, now);
+  _updateNewTrend(ss, now);
   Logger.log('updateNewCurrentPrice 완료: ' + statusRows.length + '개 종목');
 }
 
@@ -1037,4 +1134,329 @@ function _updatePriceHistory(ss, allCodes, statusMap, now) {
 // Main.js 호환 wrapper
 function updateNewPriceHistory(ss) {
   updateNewCurrentPrice(ss || SpreadsheetApp.getActiveSpreadsheet());
+}
+
+/**
+ * [수동 실행] *현재가_이력* 과거 데이터 백필 (최대 4개월치 일봉)
+ * 신시스템 초기 설정 후 1회 실행하여 기간별 수익 계산에 필요한 이력을 채운다.
+ * NewSystem.js > backfillPriceHistory 실행
+ */
+function backfillPriceHistory() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const allCodes = _getActiveCodes(ss);
+  if (allCodes.length === 0) { Logger.log('백필: 활성 종목 없음'); return; }
+
+  const domCodes = allCodes.filter(c => !/^[A-Za-z]{1,5}$/.test(c));
+  const ovsCodes = allCodes.filter(c => /^[A-Za-z]{1,5}$/.test(c));
+
+  KIS_API.ensureToken();
+  const usdKrw = _getSettingsFxRate(ss, 'USD/KRW');
+
+  // 해외 종목 거래소 정보 조회 (실패 시 NAS 기본값)
+  const ovsExchangeMap = {};
+  if (ovsCodes.length > 0) {
+    try {
+      const raw = KIS_API.getOverseasStockInfoBatch(ovsCodes);
+      ovsCodes.forEach(c => { ovsExchangeMap[c] = (raw[c] && raw[c].exchange) || 'NAS'; });
+    } catch (e) {
+      ovsCodes.forEach(c => { ovsExchangeMap[c] = 'NAS'; });
+    }
+  }
+
+  const histItems = [
+    ...domCodes.map(c => ({
+      code: /^\d+$/.test(c) ? c.padStart(6, '0') : c,
+      isOverseas: false,
+      _norm: c
+    })),
+    ...ovsCodes.map(c => ({
+      code: c,
+      isOverseas: true,
+      exchange: ovsExchangeMap[c] || 'NAS',
+      _norm: c
+    })),
+  ];
+
+  Logger.log('백필 시작: ' + histItems.length + '개 종목 일봉 조회 중...');
+  const rawHist = KIS_API.fetchAllStockHistory(histItems);
+
+  // date(YYYYMMDD) → normCode → priceKrw
+  const dateMap = {};
+  histItems.forEach(item => {
+    const dailyH = (rawHist.daily || {})[item.code] || [];
+    dailyH.forEach(row => {
+      if (!row.date || !row.close || row.close <= 0) return;
+      const d = String(row.date);
+      const dateStr = d.length === 8
+        ? d.substring(0, 4) + '-' + d.substring(4, 6) + '-' + d.substring(6, 8)
+        : d.substring(0, 10);
+      if (!dateStr || dateStr.length < 10) return;
+      if (!dateMap[dateStr]) dateMap[dateStr] = {};
+      dateMap[dateStr][item._norm] = item.isOverseas
+        ? Math.round(row.close * usdKrw)
+        : Math.round(row.close);
+    });
+  });
+
+  const sortedDates = Object.keys(dateMap).sort();
+  if (sortedDates.length === 0) { Logger.log('백필: 조회된 이력 없음'); return; }
+
+  const histSheet = ss.getSheetByName(NS.PRICE_HISTORY);
+  if (!histSheet) { Logger.log('백필: *현재가_이력* 시트 없음'); return; }
+
+  // 기존 날짜 목록
+  const lastRow = histSheet.getLastRow();
+  const existingDates = new Set();
+  if (lastRow >= 2) {
+    histSheet.getRange(2, 1, lastRow - 1, 1).getValues().forEach(r => {
+      const raw = r[0];
+      const d = raw instanceof Date
+        ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
+        : String(raw).slice(0, 10);
+      if (d && d.length === 10) existingDates.add(d);
+    });
+  }
+
+  // 헤더 코드 확인 및 신규 코드 추가
+  const curLastCol = histSheet.getLastColumn();
+  const headerCodes = curLastCol >= 2
+    ? histSheet.getRange(1, 2, 1, curLastCol - 1).getValues()[0].map(c => _normCode(String(c)))
+    : [];
+  allCodes.forEach(code => {
+    if (!headerCodes.includes(code)) {
+      const newCol = headerCodes.length + 2;
+      histSheet.getRange(1, newCol).setValue(code)
+        .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+      histSheet.setColumnWidth(newCol, 100);
+      headerCodes.push(code);
+    }
+  });
+
+  // 신규 날짜만 추가 (오름차순으로 이미 정렬된 sortedDates)
+  let insertedCount = 0;
+  sortedDates.forEach(dateStr => {
+    if (existingDates.has(dateStr)) return;
+    const priceRow = headerCodes.map(code => dateMap[dateStr][code] || '');
+    const writeRow = histSheet.getLastRow() + 1;
+    histSheet.getRange(writeRow, 1).setValue(dateStr);
+    if (priceRow.length > 0) {
+      histSheet.getRange(writeRow, 2, 1, priceRow.length).setValues([priceRow]).setNumberFormat('#,##0');
+    }
+    insertedCount++;
+  });
+
+  // 날짜 오름차순 정렬 (기존 행과 신규 행 섞였을 경우)
+  if (insertedCount > 0 && histSheet.getLastRow() > 2) {
+    histSheet.getRange(2, 1, histSheet.getLastRow() - 1, histSheet.getLastColumn()).sort(1);
+  }
+
+  Logger.log('백필 완료: ' + insertedCount + '개 날짜 추가, 총 ' + (existingDates.size + insertedCount) + '개 행');
+}
+
+/**
+ * *추이 기록* 시트에 3개 섹션 기록
+ * A(업데이트별 추이 B~L) + B(일별 추이 N~S) + C(수익 추이 U~AF)
+ * updateNewCurrentPrice() 호출 시 자동 실행
+ */
+function _updateNewTrend(ss, now) {
+  ss  = ss  || SpreadsheetApp.getActiveSpreadsheet();
+  now = now || new Date();
+
+  const tz     = 'Asia/Seoul';
+  const fmtNum = v => isNaN(v) ? 0 : Math.round(Number(v));
+  const fmtPct = n => (isFinite(n) ? n : 0).toFixed(2) + '%';
+  const toNum  = v => {
+    if (v === '' || v == null) return 0;
+    const n = Number(String(v).replace(/,/g, '').replace('%', ''));
+    return isNaN(n) ? 0 : n;
+  };
+
+  // ── 운용 수익 (opNow: *종목상태* 현재가 × 수량) ──
+  const posSheet = ss.getSheetByName(NS.POSITION);
+  const pnlSheet = ss.getSheetByName(NS.REALIZED_PNL);
+  if (!posSheet || posSheet.getLastRow() < 2) return;
+
+  const statusMap = _getStockStatusMap(ss);
+  const posRows   = posSheet.getRange(2, 1, posSheet.getLastRow() - 1, 11).getValues()
+    .filter(r => String(r[1]) !== '합계' && Number(r[6]) > 0);
+  const opBuy = posRows.reduce((s, r) => s + (Number(r[8]) || 0), 0);
+  const opNow = posRows.reduce((s, r) => {
+    const code  = _normCode(String(r[0]));
+    const qty   = Number(r[6]) || 0;
+    const price = (statusMap[code] && statusMap[code].price) || Number(r[10]) || 0;
+    return s + price * qty;
+  }, 0);
+  const opProfit = opNow - opBuy;
+  const opRate   = opBuy ? opProfit / opBuy * 100 : 0;
+
+  // ── 확정 수익 (*실현손익*) ──
+  const pnlRows = (pnlSheet && pnlSheet.getLastRow() >= 2)
+    ? pnlSheet.getRange(2, 1, pnlSheet.getLastRow() - 1, 14).getValues()
+        .filter(r => r[0] && String(r[2]) !== '합계')
+    : [];
+  const cfSell   = pnlRows.reduce((s, r) => s + (Number(r[8])  || 0), 0);
+  const cfBuy    = pnlRows.reduce((s, r) => s + (Number(r[10]) || 0), 0);
+  const cfProfit = pnlRows.reduce((s, r) => s + (Number(r[12]) || 0), 0);
+  const cfRate   = cfBuy ? cfProfit / cfBuy * 100 : 0;
+  const totProfit = Math.round(opProfit + cfProfit);
+
+  // ── 대기합계 (*설정* 시트 수동 입력) ──
+  const pendNow = _getPendingTotal(ss);
+  const sumNow  = opNow + pendNow;
+
+  // ── *추이 기록* 시트 ──
+  let sheet = ss.getSheetByName(NS.TREND);
+  if (!sheet) {
+    sheet = ss.insertSheet(NS.TREND);
+    sheet.setFrozenRows(1);
+  }
+
+  // 레이아웃 감지: U열(col 21) 5~50행에 날짜 문자열이 있으면 구시스템 붙여넣기 형식
+  const useOldCol = (() => {
+    const maxRow = sheet.getLastRow();
+    if (maxRow < 5) return false;
+    const checkH = Math.min(maxRow, 50) - 4;
+    return sheet.getRange(5, 21, checkH, 1).getValues()
+      .some(r => /^\d{4}-\d{2}-\d{2}/.test(String(r[0])));
+  })();
+  const writeCol = useOldCol ? 21 : 1;
+
+  const today   = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  const dateStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd (EEE)');
+  const timeStr = Utilities.formatDate(now, tz, 'a h시 m분 s초')
+    .replace('AM', '오전').replace('PM', '오후');
+
+  // ════════════════════════════════════════════════
+  // Section A: 업데이트별 추이 (B~L, col 2~12, 11열)
+  // 항상 append + B2:L2 스냅샷
+  // ════════════════════════════════════════════════
+  {
+    const aStart = 5, aCol = 2, aCols = 11;
+    const aLast  = sheet.getLastRow();
+    let aLastFilled = aStart - 1;
+    if (aLast >= aStart) {
+      const colB = sheet.getRange(aStart, aCol, aLast - aStart + 1, 1).getValues();
+      for (let i = colB.length - 1; i >= 0; i--) {
+        if (colB[i][0] !== '' && colB[i][0] != null) { aLastFilled = aStart + i; break; }
+      }
+    }
+    let prevOp = 0, prevPend = 0, prevSum = 0;
+    if (aLastFilled >= aStart) {
+      const prev = sheet.getRange(aLastFilled, aCol, 1, aCols).getValues()[0];
+      prevOp   = toNum(prev[2]); // D: 운용합계
+      prevPend = toNum(prev[5]); // G: 대기합계
+      prevSum  = toNum(prev[8]); // J: 전체합계
+    }
+    const opCh   = opNow   - prevOp;
+    const pendCh = pendNow - prevPend;
+    const sumCh  = sumNow  - prevSum;
+    const aRow = [
+      dateStr, timeStr,
+      fmtNum(opNow),   fmtNum(opCh),   fmtPct(prevOp   ? opCh   / prevOp   * 100 : 0),
+      fmtNum(pendNow), fmtNum(pendCh), fmtPct(prevPend ? pendCh / prevPend * 100 : 0),
+      fmtNum(sumNow),  fmtNum(sumCh),  fmtPct(prevSum  ? sumCh  / prevSum  * 100 : 0),
+    ];
+    const aWriteRow = Math.max(aLastFilled, aStart - 1) + 1;
+    sheet.getRange(aWriteRow, aCol, 1, aCols).setValues([aRow]);
+    sheet.getRange(2, aCol, 1, aCols).setValues([aRow]); // B2:L2 스냅샷
+  }
+
+  // ════════════════════════════════════════════════
+  // Section B: 일별 추이 (N~S, col 14~19, 6열)
+  // upsert(날짜 기준) + N2:S2 스냅샷
+  // ════════════════════════════════════════════════
+  {
+    const bStart = 5, bCol = 14, bCols = 6;
+    const bLast  = sheet.getLastRow();
+    let bTodayRow = null, bLastFilled = bStart - 1;
+    if (bLast >= bStart) {
+      const colN = sheet.getRange(bStart, bCol, bLast - bStart + 1, 1).getValues();
+      for (let i = 0; i < colN.length; i++) {
+        const d = String(colN[i][0] || '').slice(0, 10);
+        if (d === today) bTodayRow = bStart + i;
+        if (colN[i][0] !== '' && colN[i][0] != null) bLastFilled = bStart + i;
+      }
+    }
+    const bPrevRow = bTodayRow ? bTodayRow - 1 : bLastFilled;
+    let prevSum = 0;
+    if (bPrevRow >= bStart) {
+      prevSum = toNum(sheet.getRange(bPrevRow, bCol + 3, 1, 1).getValue()); // Q: 전체합계
+    }
+    const bDiff = sumNow - prevSum;
+    const bRow  = [
+      dateStr + ' ' + timeStr,
+      fmtNum(opNow), fmtNum(pendNow), fmtNum(sumNow),
+      fmtNum(bDiff), fmtPct(prevSum ? bDiff / prevSum * 100 : 0),
+    ];
+    const bWriteRow = bTodayRow || Math.max(bLastFilled, bStart - 1) + 1;
+    sheet.getRange(bWriteRow, bCol, 1, bCols).setValues([bRow]);
+    sheet.getRange(2, bCol, 1, bCols).setValues([bRow]); // N2:S2 스냅샷
+  }
+
+  // ════════════════════════════════════════════════
+  // Section C: 수익 추이 (writeCol~, 12열)
+  // upsert(row 5~) + row 2 스냅샷 + AH/AI/AJ/AK row 2 기준
+  // ════════════════════════════════════════════════
+  const cStart  = 5;
+  const lastRow = sheet.getLastRow();
+
+  // row 2 기존 스냅샷 읽기 — AJ/AK 백업 판정용 (스냅샷 덮어쓰기 전에 읽어야 함)
+  const prevU2       = lastRow >= 2 ? sheet.getRange(2, writeCol, 1, 12).getValues()[0] : [];
+  const prevU2Date   = String(prevU2[0] || '').slice(0, 10);
+
+  // 오늘 행 찾기 (row 5부터 탐색)
+  let writeRow = Math.max(lastRow, cStart - 1) + 1;
+  if (lastRow >= cStart) {
+    const dates = sheet.getRange(cStart, writeCol, lastRow - cStart + 1, 1).getValues();
+    for (let i = 0; i < dates.length; i++) {
+      const raw = dates[i][0];
+      const d   = raw instanceof Date
+        ? Utilities.formatDate(raw, tz, 'yyyy-MM-dd')
+        : String(raw).slice(0, 10);
+      if (d === today) { writeRow = cStart + i; break; }
+    }
+  }
+
+  // 직전 행 합계수익 (row 5 이상에서만)
+  let prevTotProfit = 0;
+  if (writeRow > cStart) {
+    prevTotProfit = toNum(sheet.getRange(writeRow - 1, writeCol + 9, 1, 1).getValue());
+  }
+  const diffProfit = totProfit - prevTotProfit;
+  const diffRate   = prevTotProfit ? diffProfit / prevTotProfit * 100 : 0;
+
+  const cRow = [
+    dateStr + ' ' + timeStr,
+    fmtNum(cfBuy), fmtNum(cfSell),
+    fmtNum(cfProfit), fmtPct(cfRate),
+    fmtNum(opBuy), fmtNum(opNow),
+    fmtNum(opProfit), fmtPct(opRate),
+    fmtNum(totProfit), fmtNum(diffProfit),
+    fmtPct(diffRate),
+  ];
+
+  const _nowDow       = now.getDay();
+  const _todayTrading = _nowDow !== 0 && _nowDow !== 6 && !_isKoreanHoliday(now);
+
+  // AJ/AK 백업: 날짜 바뀌었고 양쪽 모두 거래일일 때 (스냅샷 쓰기 전에 실행)
+  if (prevU2Date && prevU2Date !== today && _todayTrading) {
+    const prevDateObj = new Date(prevU2Date);
+    const pd = prevDateObj.getDay();
+    if (pd !== 0 && pd !== 6 && !_isKoreanHoliday(prevDateObj)) {
+      sheet.getRange(2, writeCol + 15, 1, 2).setValues([[prevU2[10], prevU2[11]]]);
+    }
+  }
+
+  // Section C 역사 행 기록
+  sheet.getRange(writeRow, writeCol, 1, 12).setValues([cRow]);
+  // U2:AF2 최신 스냅샷 (항상 덮어쓰기)
+  sheet.getRange(2, writeCol, 1, 12).setValues([cRow]);
+
+  // AH/AI 캐시: 거래일에만 row 2 갱신
+  if (_todayTrading) {
+    sheet.getRange(2, writeCol + 13, 1, 2).setValues([[fmtNum(diffProfit), fmtPct(diffRate)]]);
+  }
+
+  Logger.log('_updateNewTrend: ' + today + ' 합계수익=' + totProfit + ' 대기=' + pendNow);
 }
