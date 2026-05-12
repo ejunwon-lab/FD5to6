@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { TabBar } from './components/ui/TabBar'
 import { DashboardPage } from './components/dashboard/DashboardPage'
 import { HoldingsPage } from './components/holdings/HoldingsPage'
 import { AnalysisPage } from './components/analysis/AnalysisPage'
 import { IndicatorsPage } from './components/indicators/IndicatorsPage'
+import { gasApi } from './api/gasApi'
+import type { PortfolioResponse } from './models/types'
 import type { Tab } from './components/ui/TabBar'
 
 function SignInScreen() {
@@ -44,10 +46,55 @@ function SignInScreen() {
 }
 
 function MainApp() {
-  const { isSignedIn, isLoading } = useAuth()
+  const { isSignedIn, isLoading: authLoading, getToken } = useAuth()
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [dashboardTap, setDashboardTap] = useState(0)
   const [visited, setVisited] = useState<Set<Tab>>(new Set(['dashboard']))
+
+  // 공유 portfolio state — 모든 탭이 같은 데이터 참조
+  const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null)
+  const [isLoadingPortfolio, setIsLoadingPortfolio] = useState(true)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [updateMsg, setUpdateMsg] = useState('')
+  const [portfolioError, setPortfolioError] = useState('')
+
+  const fetchPortfolio = useCallback(async () => {
+    try {
+      setIsLoadingPortfolio(true)
+      const token = await getToken()
+      const res = await gasApi.getPortfolio(token)
+      if (res.success) { setPortfolio(res); setPortfolioError('') }
+      else setPortfolioError(res.error ?? '데이터 조회 실패')
+    } catch (e: unknown) {
+      setPortfolioError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setIsLoadingPortfolio(false)
+    }
+  }, [getToken])
+
+  const runUpdate = useCallback(async (
+    fn: (token: string) => Promise<PortfolioResponse>,
+    msg: string
+  ) => {
+    if (isUpdating) return
+    setIsUpdating(true)
+    setUpdateMsg(msg)
+    try {
+      const token = await getToken()
+      const res = await fn(token)
+      if (res.success) { setPortfolio(res); setPortfolioError('') }
+      else setPortfolioError(res.error ?? '업데이트 실패')
+    } catch (e: unknown) {
+      setPortfolioError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setIsUpdating(false)
+      setUpdateMsg('')
+    }
+  }, [getToken, isUpdating])
+
+  useEffect(() => {
+    if (isSignedIn) fetchPortfolio()
+  }, [isSignedIn, fetchPortfolio])
 
   const handleTabChange = (tab: Tab) => {
     if (tab === 'dashboard' && activeTab === 'dashboard') {
@@ -57,7 +104,7 @@ function MainApp() {
     setVisited(prev => prev.has(tab) ? prev : new Set([...prev, tab]))
   }
 
-  if (isLoading) {
+  if (authLoading) {
     return (
       <div className="h-[100dvh] flex items-center justify-center bg-[rgb(var(--page-bg))]">
         <div className="w-8 h-8 border-[3px] border-accent/20 border-t-accent rounded-full animate-spin" />
@@ -70,9 +117,23 @@ function MainApp() {
   return (
     <div className="relative max-w-[430px] mx-auto">
       {visited.has('indicators') && <div className={activeTab === 'indicators' ? '' : 'hidden'}><IndicatorsPage /></div>}
-      {visited.has('dashboard')  && <div className={activeTab === 'dashboard'  ? '' : 'hidden'}><DashboardPage scrollToTopSignal={dashboardTap} /></div>}
-      {visited.has('holdings')   && <div className={activeTab === 'holdings'   ? '' : 'hidden'}><HoldingsPage /></div>}
-      {visited.has('analysis')   && <div className={activeTab === 'analysis'   ? '' : 'hidden'}><AnalysisPage /></div>}
+      {visited.has('dashboard')  && <div className={activeTab === 'dashboard'  ? '' : 'hidden'}>
+        <DashboardPage
+          scrollToTopSignal={dashboardTap}
+          portfolio={portfolio}
+          isLoading={isLoadingPortfolio}
+          isUpdating={isUpdating}
+          updateMsg={updateMsg}
+          error={portfolioError}
+          runUpdate={runUpdate}
+        />
+      </div>}
+      {visited.has('holdings')   && <div className={activeTab === 'holdings'   ? '' : 'hidden'}>
+        <HoldingsPage portfolio={portfolio} isLoading={isLoadingPortfolio} error={portfolioError} />
+      </div>}
+      {visited.has('analysis')   && <div className={activeTab === 'analysis'   ? '' : 'hidden'}>
+        <AnalysisPage portfolio={portfolio} isLoading={isLoadingPortfolio} error={portfolioError} />
+      </div>}
       <TabBar active={activeTab} onChange={handleTabChange} />
     </div>
   )

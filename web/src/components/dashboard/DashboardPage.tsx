@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { gasApi } from '../../api/gasApi'
 import { useAuth } from '../../auth/AuthContext'
 import { Card } from '../ui/Card'
@@ -6,6 +6,16 @@ import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { ProfitHistoryChart } from './ProfitHistoryChart'
 import { krwCompact, krwCompactSigned, krwFull, pctFormatted, normalizeChangePct } from '../../utils/format'
 import type { PortfolioResponse } from '../../models/types'
+
+type DashboardPageProps = {
+  scrollToTopSignal?: number
+  portfolio: PortfolioResponse | null
+  isLoading: boolean
+  isUpdating: boolean
+  updateMsg: string
+  error: string
+  runUpdate: (fn: (token: string) => Promise<PortfolioResponse>, msg: string) => Promise<void>
+}
 
 const BEFORE_MARKET_HOUR = 8
 const BEFORE_MARKET_MIN = 51
@@ -32,13 +42,16 @@ function UpdateButton({ icon, label, onClick, disabled }: {
   )
 }
 
-export function DashboardPage({ scrollToTopSignal = 0 }: { scrollToTopSignal?: number }) {
-  const { signOut, getToken } = useAuth()
-  const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isUpdating, setIsUpdating] = useState(false)
-  const [updateMsg, setUpdateMsg] = useState('')
-  const [error, setError] = useState('')
+export function DashboardPage({
+  scrollToTopSignal = 0,
+  portfolio,
+  isLoading,
+  isUpdating,
+  updateMsg,
+  error,
+  runUpdate,
+}: DashboardPageProps) {
+  const { signOut } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<HTMLDivElement>(null)
 
@@ -47,47 +60,6 @@ export function DashboardPage({ scrollToTopSignal = 0 }: { scrollToTopSignal?: n
       scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }, [scrollToTopSignal])
-
-  const fetchPortfolio = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      const token = await getToken()
-      const res = await gasApi.getPortfolio(token)
-      if (res.success) {
-        setPortfolio(res)
-        setError('')
-      } else {
-        setError(res.error ?? '데이터 조회 실패')
-      }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setIsLoading(false)
-    }
-  }, [getToken])
-
-  useEffect(() => { fetchPortfolio() }, [fetchPortfolio])
-
-  const runUpdate = async (fn: (token: string) => Promise<PortfolioResponse>, msg: string) => {
-    if (isUpdating) return
-    setIsUpdating(true)
-    setUpdateMsg(msg)
-    try {
-      const token = await getToken()
-      const res = await fn(token)
-      if (res.success) {
-        setPortfolio(res)
-        setError('')
-      } else {
-        setError(res.error ?? '업데이트 실패')
-      }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setIsUpdating(false)
-      setUpdateMsg('')
-    }
-  }
 
   const summary = portfolio?.summary
   const usePrev = isBeforeMarket() && (summary?.isMarketDay === true)
