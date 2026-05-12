@@ -63,9 +63,9 @@ function MainApp() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
   const [historyError, setHistoryError] = useState('')
 
-  const fetchPortfolio = useCallback(async () => {
+  const fetchPortfolio = useCallback(async (opts: { silent?: boolean } = {}) => {
     try {
-      setIsLoadingPortfolio(true)
+      if (!opts.silent) setIsLoadingPortfolio(true)
       const token = await getToken()
       const res = await gasApi.getPortfolio(token)
       if (res.success) { setPortfolio(res); setPortfolioError('') }
@@ -73,13 +73,13 @@ function MainApp() {
     } catch (e: unknown) {
       setPortfolioError(e instanceof Error ? e.message : String(e))
     } finally {
-      setIsLoadingPortfolio(false)
+      if (!opts.silent) setIsLoadingPortfolio(false)
     }
   }, [getToken])
 
-  const fetchHistory = useCallback(async () => {
+  const fetchHistory = useCallback(async (opts: { silent?: boolean } = {}) => {
     try {
-      setIsLoadingHistory(true)
+      if (!opts.silent) setIsLoadingHistory(true)
       const token = await getToken()
       const res = await gasApi.getProfitHistory(token)
       if (res.entries) { setHistoryEntries(res.entries); setHistoryError('') }
@@ -87,7 +87,7 @@ function MainApp() {
     } catch (e: unknown) {
       setHistoryError(e instanceof Error ? e.message : String(e))
     } finally {
-      setIsLoadingHistory(false)
+      if (!opts.silent) setIsLoadingHistory(false)
     }
   }, [getToken])
 
@@ -123,13 +123,14 @@ function MainApp() {
     }
   }, [isSignedIn, fetchPortfolio, fetchHistory])
 
-  // 앱이 다시 활성화될 때 (화면 켜기, 탭 복귀) 자동 새로고침
+  // 앱이 다시 활성화될 때 (화면 켜기, 탭 복귀) 백그라운드 새로고침
+  // silent: true — 로딩 spinner 띄우지 않고 데이터만 교체 (화면 깜빡임 방지)
   useEffect(() => {
     if (!isSignedIn) return
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        fetchPortfolio()
-        fetchHistory()
+        fetchPortfolio({ silent: true })
+        fetchHistory({ silent: true })
       }
     }
     document.addEventListener('visibilitychange', onVisible)
