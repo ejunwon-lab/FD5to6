@@ -1266,7 +1266,8 @@ function _updateNewTrend(ss, now) {
 
   const tz     = 'Asia/Seoul';
   const fmtNum = v => isNaN(v) ? 0 : Math.round(Number(v));
-  const fmtPct = n => (isFinite(n) ? n : 0).toFixed(2) + '%';
+  // ⚠️ 숫자(소숫점 2자리)로 반환 — 셀에 setNumberFormat('0.00"%"') 적용해야 % 표시
+  const fmtPct = n => Math.round((isFinite(n) ? n : 0) * 100) / 100;
   const toNum  = v => {
     if (v === '' || v == null) return 0;
     const n = Number(String(v).replace(/,/g, '').replace('%', ''));
@@ -1286,9 +1287,10 @@ function _updateNewTrend(ss, now) {
   const opRate   = opBuy ? opProfit / opBuy * 100 : 0;
 
   // ── 확정 수익 (*실현손익*) ──
+  // ⚠️ 합계행은 r[0]='합계' / r[2]=''(빈 종목명). 필터를 r[0] 기준으로 해야 합계행 제외됨
   const pnlRows = (pnlSheet && pnlSheet.getLastRow() >= 2)
     ? pnlSheet.getRange(2, 1, pnlSheet.getLastRow() - 1, 14).getValues()
-        .filter(r => r[0] && String(r[2]) !== '합계')
+        .filter(r => r[0] && String(r[0]) !== '합계')
     : [];
   const cfSell   = pnlRows.reduce((s, r) => s + (Number(r[8])  || 0), 0);
   const cfBuy    = pnlRows.reduce((s, r) => s + (Number(r[10]) || 0), 0);
@@ -1355,6 +1357,15 @@ function _updateNewTrend(ss, now) {
     const aWriteRow = Math.max(aLastFilled, aStart - 1) + 1;
     sheet.getRange(aWriteRow, aCol, 1, aCols).setValues([aRow]);
     sheet.getRange(2, aCol, 1, aCols).setValues([aRow]); // B2:L2 스냅샷
+    // 포맷 적용 (writeRow + row 2)
+    [aWriteRow, 2].forEach(r => {
+      sheet.getRange(r, aCol + 2, 1, 2).setNumberFormat('#,##0');           // D, E (opNow, opCh)
+      sheet.getRange(r, aCol + 4, 1, 1).setNumberFormat('0.00"%"');         // F (opChRate)
+      sheet.getRange(r, aCol + 5, 1, 2).setNumberFormat('#,##0');           // G, H
+      sheet.getRange(r, aCol + 7, 1, 1).setNumberFormat('0.00"%"');         // I
+      sheet.getRange(r, aCol + 8, 1, 2).setNumberFormat('#,##0');           // J, K
+      sheet.getRange(r, aCol + 10, 1, 1).setNumberFormat('0.00"%"');        // L
+    });
   }
 
   // ════════════════════════════════════════════════
@@ -1387,33 +1398,45 @@ function _updateNewTrend(ss, now) {
     const bWriteRow = bTodayRow || Math.max(bLastFilled, bStart - 1) + 1;
     sheet.getRange(bWriteRow, bCol, 1, bCols).setValues([bRow]);
     sheet.getRange(2, bCol, 1, bCols).setValues([bRow]); // N2:S2 스냅샷
+    // 포맷 적용
+    [bWriteRow, 2].forEach(r => {
+      sheet.getRange(r, bCol + 1, 1, 4).setNumberFormat('#,##0');           // O~R
+      sheet.getRange(r, bCol + 5, 1, 1).setNumberFormat('0.00"%"');         // S
+    });
   }
 
   // ════════════════════════════════════════════════
   // Section C: 수익 추이 (writeCol~, 12열)
   // upsert(row 5~) + row 2 스냅샷 + AH/AI/AJ/AK row 2 기준
+  //
+  // ⚠️ writeRow 계산은 반드시 writeCol(=날짜 열) 기준으로!
+  //    sheet.getLastRow()는 Section A append 로 증가하므로 사용 금지.
   // ════════════════════════════════════════════════
   const cStart  = 5;
-  const lastRow = sheet.getLastRow();
+  const sheetLastRow = sheet.getLastRow();
 
   // row 2 읽기 (AK까지 17열): V~AD 스냅샷(prevTotProfit) + AH/AI(AJ/AK 백업용)
-  const prevU2     = lastRow >= 2
+  const prevU2     = sheetLastRow >= 2
     ? sheet.getRange(2, writeCol, 1, 17).getValues()[0] : [];
   const prevU2Date = String(prevU2[0] || '').slice(0, 10);
   // prevTotProfit: row 2의 AD(index 9) = 마지막 데이터 행의 합계수익
   const prevTotProfit = toNum(prevU2[9]);
 
-  // 오늘 행 찾기 (row 5부터 탐색)
-  let writeRow = Math.max(lastRow, cStart - 1) + 1;
-  if (lastRow >= cStart) {
-    const dates = sheet.getRange(cStart, writeCol, lastRow - cStart + 1, 1).getValues();
+  // writeCol(날짜 열) 기준으로 today 행 탐색 + last filled 계산
+  let writeRow    = cStart;
+  let cLastFilled = cStart - 1;
+  if (sheetLastRow >= cStart) {
+    const dates = sheet.getRange(cStart, writeCol, sheetLastRow - cStart + 1, 1).getValues();
+    let todayRow = null;
     for (let i = 0; i < dates.length; i++) {
       const raw = dates[i][0];
-      const d   = raw instanceof Date
+      if (raw !== '' && raw != null) cLastFilled = cStart + i;
+      const d = raw instanceof Date
         ? Utilities.formatDate(raw, tz, 'yyyy-MM-dd')
         : String(raw).slice(0, 10);
-      if (d === today) { writeRow = cStart + i; break; }
+      if (d === today && todayRow === null) todayRow = cStart + i;
     }
+    writeRow = todayRow !== null ? todayRow : cLastFilled + 1;
   }
 
   const diffProfit = totProfit - prevTotProfit;
@@ -1448,9 +1471,21 @@ function _updateNewTrend(ss, now) {
   sheet.getRange(2, writeCol, 1, 1).setValues([[cRow[0]]]);
   sheet.getRange(2, writeCol + 1, 1, 9).setValues([cRow.slice(1, 10)]);
 
+  // 포맷 적용 (writeRow + row 2)
+  [writeRow, 2].forEach(r => {
+    sheet.getRange(r, writeCol + 1, 1, 3).setNumberFormat('#,##0');           // V, W, X (cfBuy/Sell/Profit)
+    sheet.getRange(r, writeCol + 4, 1, 1).setNumberFormat('0.00"%"');         // Y (cfRate)
+    sheet.getRange(r, writeCol + 5, 1, 3).setNumberFormat('#,##0');           // Z, AA, AB (opBuy/Now/Profit)
+    sheet.getRange(r, writeCol + 8, 1, 1).setNumberFormat('0.00"%"');         // AC (opRate)
+    sheet.getRange(r, writeCol + 9, 1, 2).setNumberFormat('#,##0');           // AD, AE (totProfit/diffProfit)
+    sheet.getRange(r, writeCol + 11, 1, 1).setNumberFormat('0.00"%"');        // AF (diffRate)
+  });
+
   // AH/AI 캐시: 거래일에만 갱신
   if (_todayTrading) {
     sheet.getRange(2, writeCol + 13, 1, 2).setValues([[fmtNum(diffProfit), fmtPct(diffRate)]]);
+    sheet.getRange(2, writeCol + 13, 1, 1).setNumberFormat('#,##0');         // AH
+    sheet.getRange(2, writeCol + 14, 1, 1).setNumberFormat('0.00"%"');       // AI
   }
 
   Logger.log('_updateNewTrend: ' + today + ' 합계수익=' + totProfit + ' 대기=' + pendNow);

@@ -3,6 +3,9 @@
  */
 
 function onOpen() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 메뉴 생성
   SpreadsheetApp.getUi()
     .createMenu('📊 뉴시스템')
     .addItem('🔄 전체 업데이트 (가격 + 보유현황 + 대시보드)', 'updateAllNew')
@@ -14,6 +17,10 @@ function onOpen() {
     .addSeparator()
     .addItem('⚙️ 대기자금 입력란 생성 (1회)', 'setupPendingCashSection')
     .addToUi();
+
+  // 시트 열 때 대시보드 자동 활성화
+  const dash = ss.getSheetByName(DB.SHEET);
+  if (dash) ss.setActiveSheet(dash);
 }
 
 function onEdit(e) {

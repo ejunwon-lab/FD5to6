@@ -60,7 +60,7 @@ function createTransactionSheet() {
   sheet.getRange('B7').setDataValidation(exchangeRule);
   
   const brokerRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['삼성증권', '미래애셋투자증권'], true)
+    .requireValueInList(['삼성증권', '미래에셋투자증권'], true)
     .build();
   sheet.getRange('B8').setDataValidation(brokerRule);
   

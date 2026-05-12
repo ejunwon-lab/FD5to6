@@ -1,6 +1,7 @@
 import type { PortfolioResponse, IndicatorsResponse, TrendHistoryResponse } from '../models/types'
 
-const SCRIPT_ID = '12MAcPpoVE39N_Sz0B79G0rjGvevJ8-S_ibVC1Ot61fyVPZnaSQmrJyiR'
+// 신시스템 GAS Script ID (이전 구시스템: 12MAcPpoVE39N_Sz0B79G0rjGvevJ8-S_ibVC1Ot61fyVPZnaSQmrJyiR)
+const SCRIPT_ID = '1DC8llpWYz2ZvzsqVCaz60qomATwxP_CBzuHBitCf0uQT5NbBF-n7IHdZ'
 const BASE_URL = 'https://script.googleapis.com/v1/scripts'
 
 async function callGAS<T>(functionName: string, token: string): Promise<T> {
@@ -34,11 +35,11 @@ async function callGAS<T>(functionName: string, token: string): Promise<T> {
 }
 
 export const gasApi = {
-  getPortfolio:    (token: string) => callGAS<PortfolioResponse>('mobileGetPortfolio', token),
-  triggerUpdate:   (token: string) => callGAS<PortfolioResponse>('mobileTriggerUpdate', token),
-  updateFull:      (token: string) => callGAS<PortfolioResponse>('mobileUpdateHoldingsFull', token),
-  updateFast:      (token: string) => callGAS<PortfolioResponse>('mobileUpdateHoldingsFast', token),
-  updateAll:       (token: string) => callGAS<PortfolioResponse>('mobileUpdateAll', token),
-  getIndicators:   (token: string) => callGAS<IndicatorsResponse>('mobileGetReferenceIndicators', token),
-  getProfitHistory:(token: string) => callGAS<TrendHistoryResponse>('mobileGetProfitHistory', token),
+  getPortfolio:    (token: string) => callGAS<PortfolioResponse>('newMobileGetPortfolio', token),
+  triggerUpdate:   (token: string) => callGAS<PortfolioResponse>('newMobileUpdateCurrentPrice', token),
+  updateFull:      (token: string) => callGAS<PortfolioResponse>('newMobileUpdateHistory', token),
+  updateFast:      (token: string) => callGAS<PortfolioResponse>('newMobileUpdateCurrentPrice', token),
+  updateAll:       (token: string) => callGAS<PortfolioResponse>('newMobileUpdateAll', token),
+  getIndicators:   (token: string) => callGAS<IndicatorsResponse>('newMobileGetIndicators', token),
+  getProfitHistory:(token: string) => callGAS<TrendHistoryResponse>('newMobileGetProfitHistory', token),
 }
