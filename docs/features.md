@@ -1,6 +1,6 @@
 # 기능 현황
 
-last updated: 2026-05-08
+last updated: 2026-05-12
 
 ## ✅ 완료
 

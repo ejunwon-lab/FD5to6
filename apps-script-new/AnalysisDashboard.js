@@ -528,7 +528,7 @@ function buildAnalysisDashboard() {
   });
 
   an.setFrozenRows(1);
-  ss.setActiveSheet(an);
+  // setActiveSheet 제거 — 업데이트 중 시트 자동 이동 방지
   ss.toast('분석 대시보드 갱신 완료', '🔬', 3);
   Logger.log('buildAnalysisDashboard 완료 — ' + r + '행');
 }
