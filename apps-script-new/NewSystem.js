@@ -664,6 +664,8 @@ function updatePositionFromLedger() {
 
   buildDashboard();
   buildAnalysisDashboard();
+  SpreadsheetApp.flush();
+  _updateNewTrend(ss);
 }
 
 // 보유기간 → "X년 Y개월 Z일" 형식 (0년/0개월은 생략)
@@ -995,7 +997,6 @@ function updateNewCurrentPrice(ss) {
 
   _writeStockStatusRows(ss, statusRows);
   _updatePriceHistory(ss, allCodes, statusMap, now);
-  _updateNewTrend(ss, now);
   Logger.log('updateNewCurrentPrice 완료: ' + statusRows.length + '개 종목');
 }
 
@@ -1272,21 +1273,15 @@ function _updateNewTrend(ss, now) {
     return isNaN(n) ? 0 : n;
   };
 
-  // ── 운용 수익 (opNow: *종목상태* 현재가 × 수량) ──
+  // ── 운용 수익 (*보유현황* 합계행에서 직접 읽기) ──
   const posSheet = ss.getSheetByName(NS.POSITION);
   const pnlSheet = ss.getSheetByName(NS.REALIZED_PNL);
   if (!posSheet || posSheet.getLastRow() < 2) return;
 
-  const statusMap = _getStockStatusMap(ss);
-  const posRows   = posSheet.getRange(2, 1, posSheet.getLastRow() - 1, 11).getValues()
-    .filter(r => String(r[1]) !== '합계' && Number(r[6]) > 0);
-  const opBuy = posRows.reduce((s, r) => s + (Number(r[8]) || 0), 0);
-  const opNow = posRows.reduce((s, r) => {
-    const code  = _normCode(String(r[0]));
-    const qty   = Number(r[6]) || 0;
-    const price = (statusMap[code] && statusMap[code].price) || Number(r[10]) || 0;
-    return s + price * qty;
-  }, 0);
+  const posAllRows = posSheet.getRange(2, 1, posSheet.getLastRow() - 1, 13).getValues();
+  const posSumRow  = posAllRows.find(r => String(r[0]) === '합계');
+  const opBuy    = posSumRow ? (Number(posSumRow[8])  || 0) : 0;
+  const opNow    = posSumRow ? (Number(posSumRow[10]) || 0) : 0;
   const opProfit = opNow - opBuy;
   const opRate   = opBuy ? opProfit / opBuy * 100 : 0;
 
@@ -1401,9 +1396,12 @@ function _updateNewTrend(ss, now) {
   const cStart  = 5;
   const lastRow = sheet.getLastRow();
 
-  // row 2 기존 스냅샷 읽기 — AJ/AK 백업 판정용 (스냅샷 덮어쓰기 전에 읽어야 함)
-  const prevU2       = lastRow >= 2 ? sheet.getRange(2, writeCol, 1, 12).getValues()[0] : [];
-  const prevU2Date   = String(prevU2[0] || '').slice(0, 10);
+  // row 2 읽기 (AK까지 17열): V~AD 스냅샷(prevTotProfit) + AH/AI(AJ/AK 백업용)
+  const prevU2     = lastRow >= 2
+    ? sheet.getRange(2, writeCol, 1, 17).getValues()[0] : [];
+  const prevU2Date = String(prevU2[0] || '').slice(0, 10);
+  // prevTotProfit: row 2의 AD(index 9) = 마지막 데이터 행의 합계수익
+  const prevTotProfit = toNum(prevU2[9]);
 
   // 오늘 행 찾기 (row 5부터 탐색)
   let writeRow = Math.max(lastRow, cStart - 1) + 1;
@@ -1418,11 +1416,6 @@ function _updateNewTrend(ss, now) {
     }
   }
 
-  // 직전 행 합계수익 (row 5 이상에서만)
-  let prevTotProfit = 0;
-  if (writeRow > cStart) {
-    prevTotProfit = toNum(sheet.getRange(writeRow - 1, writeCol + 9, 1, 1).getValue());
-  }
   const diffProfit = totProfit - prevTotProfit;
   const diffRate   = prevTotProfit ? diffProfit / prevTotProfit * 100 : 0;
 
@@ -1439,21 +1432,23 @@ function _updateNewTrend(ss, now) {
   const _nowDow       = now.getDay();
   const _todayTrading = _nowDow !== 0 && _nowDow !== 6 && !_isKoreanHoliday(now);
 
-  // AJ/AK 백업: 날짜 바뀌었고 양쪽 모두 거래일일 때 (스냅샷 쓰기 전에 실행)
+  // AJ/AK 백업: 날짜 바뀌었고 양쪽 모두 거래일 → AH/AI(index 13/14) → AJ/AK
   if (prevU2Date && prevU2Date !== today && _todayTrading) {
     const prevDateObj = new Date(prevU2Date);
     const pd = prevDateObj.getDay();
     if (pd !== 0 && pd !== 6 && !_isKoreanHoliday(prevDateObj)) {
-      sheet.getRange(2, writeCol + 15, 1, 2).setValues([[prevU2[10], prevU2[11]]]);
+      sheet.getRange(2, writeCol + 15, 1, 2).setValues([[prevU2[13], prevU2[14]]]);
     }
   }
 
   // Section C 역사 행 기록
   sheet.getRange(writeRow, writeCol, 1, 12).setValues([cRow]);
-  // U2:AF2 최신 스냅샷 (항상 덮어쓰기)
-  sheet.getRange(2, writeCol, 1, 12).setValues([cRow]);
 
-  // AH/AI 캐시: 거래일에만 row 2 갱신
+  // row 2 스냅샷: U2=현재 타임스탬프, V2:AD2=마지막 데이터 행 V~AD 값
+  sheet.getRange(2, writeCol, 1, 1).setValues([[cRow[0]]]);
+  sheet.getRange(2, writeCol + 1, 1, 9).setValues([cRow.slice(1, 10)]);
+
+  // AH/AI 캐시: 거래일에만 갱신
   if (_todayTrading) {
     sheet.getRange(2, writeCol + 13, 1, 2).setValues([[fmtNum(diffProfit), fmtPct(diffRate)]]);
   }
