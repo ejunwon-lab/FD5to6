@@ -6,7 +6,7 @@ import { HoldingsPage } from './components/holdings/HoldingsPage'
 import { AnalysisPage } from './components/analysis/AnalysisPage'
 import { IndicatorsPage } from './components/indicators/IndicatorsPage'
 import { gasApi } from './api/gasApi'
-import type { PortfolioResponse } from './models/types'
+import type { PortfolioResponse, TrendEntry } from './models/types'
 import type { Tab } from './components/ui/TabBar'
 
 function SignInScreen() {
@@ -58,6 +58,11 @@ function MainApp() {
   const [updateMsg, setUpdateMsg] = useState('')
   const [portfolioError, setPortfolioError] = useState('')
 
+  // 공유 수익 추이 history state
+  const [historyEntries, setHistoryEntries] = useState<TrendEntry[]>([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
+  const [historyError, setHistoryError] = useState('')
+
   const fetchPortfolio = useCallback(async () => {
     try {
       setIsLoadingPortfolio(true)
@@ -72,6 +77,20 @@ function MainApp() {
     }
   }, [getToken])
 
+  const fetchHistory = useCallback(async () => {
+    try {
+      setIsLoadingHistory(true)
+      const token = await getToken()
+      const res = await gasApi.getProfitHistory(token)
+      if (res.entries) { setHistoryEntries(res.entries); setHistoryError('') }
+      else if (!res.success && res.error) setHistoryError(res.error)
+    } catch (e: unknown) {
+      setHistoryError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setIsLoadingHistory(false)
+    }
+  }, [getToken])
+
   const runUpdate = useCallback(async (
     fn: (token: string) => Promise<PortfolioResponse>,
     msg: string
@@ -82,7 +101,12 @@ function MainApp() {
     try {
       const token = await getToken()
       const res = await fn(token)
-      if (res.success) { setPortfolio(res); setPortfolioError('') }
+      if (res.success) {
+        setPortfolio(res)
+        setPortfolioError('')
+        // 업데이트 후 history도 함께 갱신 (총수익 추이가 바뀌었을 가능성)
+        fetchHistory()
+      }
       else setPortfolioError(res.error ?? '업데이트 실패')
     } catch (e: unknown) {
       setPortfolioError(e instanceof Error ? e.message : String(e))
@@ -90,11 +114,27 @@ function MainApp() {
       setIsUpdating(false)
       setUpdateMsg('')
     }
-  }, [getToken, isUpdating])
+  }, [getToken, isUpdating, fetchHistory])
 
   useEffect(() => {
-    if (isSignedIn) fetchPortfolio()
-  }, [isSignedIn, fetchPortfolio])
+    if (isSignedIn) {
+      fetchPortfolio()
+      fetchHistory()
+    }
+  }, [isSignedIn, fetchPortfolio, fetchHistory])
+
+  // 앱이 다시 활성화될 때 (화면 켜기, 탭 복귀) 자동 새로고침
+  useEffect(() => {
+    if (!isSignedIn) return
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchPortfolio()
+        fetchHistory()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [isSignedIn, fetchPortfolio, fetchHistory])
 
   const handleTabChange = (tab: Tab) => {
     if (tab === 'dashboard' && activeTab === 'dashboard') {
@@ -126,6 +166,9 @@ function MainApp() {
           updateMsg={updateMsg}
           error={portfolioError}
           runUpdate={runUpdate}
+          historyEntries={historyEntries}
+          isLoadingHistory={isLoadingHistory}
+          historyError={historyError}
         />
       </div>}
       {visited.has('holdings')   && <div className={activeTab === 'holdings'   ? '' : 'hidden'}>
