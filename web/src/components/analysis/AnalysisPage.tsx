@@ -1,7 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, ReferenceLine } from 'recharts'
-import { gasApi } from '../../api/gasApi'
-import { useAuth } from '../../auth/AuthContext'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import {
@@ -9,6 +7,12 @@ import {
   holdingDays, annualizedReturn, position52w, holdingDurationText,
 } from '../../utils/format'
 import type { Holding, PortfolioResponse, GroupStat } from '../../models/types'
+
+type AnalysisPageProps = {
+  portfolio: PortfolioResponse | null
+  isLoading: boolean
+  error: string
+}
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const ACCOUNT_ORDER = ['종합_랩', '퇴직연금_개인IRP', '종합', 'ISA', '퇴직연금_개인형IRP(범용)']
@@ -65,28 +69,10 @@ function pos52Color(pos: number): string {
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────
-export function AnalysisPage() {
-  const { getToken } = useAuth()
-  const [portfolio, setPortfolio]       = useState<PortfolioResponse | null>(null)
-  const [isLoading, setIsLoading]       = useState(true)
-  const [error, setError]               = useState('')
+export function AnalysisPage({ portfolio, isLoading, error }: AnalysisPageProps) {
   const [expandedSection, setExpanded]  = useState<string | null>('matrix')
   const [accountTab, setAccountTab]     = useState<AccountTab>('현황')
   const [expandedQuad, setExpandedQuad] = useState<Set<string>>(new Set())
-
-  const fetchPortfolio = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      const token = await getToken()
-      const res = await gasApi.getPortfolio(token)
-      if (res.success) { setPortfolio(res); setError('') }
-      else setError(res.error ?? '조회 실패')
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally { setIsLoading(false) }
-  }, [getToken])
-
-  useEffect(() => { fetchPortfolio() }, [fetchPortfolio])
 
   const holdings = portfolio?.holdings ?? []
 

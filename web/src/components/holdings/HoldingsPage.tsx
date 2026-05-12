@@ -1,12 +1,16 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { gasApi } from '../../api/gasApi'
-import { useAuth } from '../../auth/AuthContext'
+import { useState, useMemo } from 'react'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { HoldingCard } from './HoldingCard'
 import { krwFull, normalizeChangePct, profitTextClass, holdingDays } from '../../utils/format'
 import type { Holding, PortfolioResponse } from '../../models/types'
 import type { SortKey } from './HoldingCard'
+
+type HoldingsPageProps = {
+  portfolio: PortfolioResponse | null
+  isLoading: boolean
+  error: string
+}
 
 const ACCOUNT_ORDER = ['종합_랩', '퇴직연금_개인IRP', '종합', 'ISA', '퇴직연금_개인형IRP(범용)']
 const ACCOUNT_DISPLAY: Record<string, string> = {
@@ -49,32 +53,12 @@ function chipStyle(broker: string, selected: boolean, isAll: boolean): string {
     : 'bg-transparent text-gray-500 border-[1.5px] border-gray-300/60'
 }
 
-export function HoldingsPage() {
-  const { getToken } = useAuth()
-  const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
+export function HoldingsPage({ portfolio, isLoading, error }: HoldingsPageProps) {
   const [search, setSearch] = useState('')
   const [selectedAccount, setSelectedAccount] = useState<string>('전체')
   const [sortKey, setSortKey] = useState<SortKey>('allInfo')
   const [sortAsc, setSortAsc] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-
-  const fetchPortfolio = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      const token = await getToken()
-      const res = await gasApi.getPortfolio(token)
-      if (res.success) { setPortfolio(res); setError('') }
-      else setError(res.error ?? '조회 실패')
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setIsLoading(false)
-    }
-  }, [getToken])
-
-  useEffect(() => { fetchPortfolio() }, [fetchPortfolio])
 
   const accountBrokerMap = useMemo(() => {
     const map: Record<string, string> = {}

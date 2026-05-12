@@ -130,6 +130,10 @@ function newMobileGetPortfolio() {
 // ══════════════════════════════════════════════════════
 
 function newMobileUpdateCurrentPrice() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(0)) {
+    return JSON.stringify({ success: false, error: '이미 업데이트 진행 중입니다. 잠시 후 다시 시도해주세요.' });
+  }
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     updateFxRates(ss);
@@ -139,6 +143,8 @@ function newMobileUpdateCurrentPrice() {
   } catch (e) {
     Logger.log('newMobileUpdateCurrentPrice 오류: ' + e);
     return JSON.stringify({ success: false, error: String(e) });
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -147,6 +153,10 @@ function newMobileUpdateCurrentPrice() {
 // ══════════════════════════════════════════════════════
 
 function newMobileUpdateHistory() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(0)) {
+    return JSON.stringify({ success: false, error: '이미 업데이트 진행 중입니다. 잠시 후 다시 시도해주세요.' });
+  }
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     updateFxRates(ss);
@@ -156,6 +166,8 @@ function newMobileUpdateHistory() {
   } catch (e) {
     Logger.log('newMobileUpdateHistory 오류: ' + e);
     return JSON.stringify({ success: false, error: String(e) });
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -164,12 +176,18 @@ function newMobileUpdateHistory() {
 // ══════════════════════════════════════════════════════
 
 function newMobileUpdateAll() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(0)) {
+    return JSON.stringify({ success: false, error: '이미 업데이트 진행 중입니다. 잠시 후 다시 시도해주세요.' });
+  }
   try {
     updateAllNew();
     return newMobileGetPortfolio();
   } catch (e) {
     Logger.log('newMobileUpdateAll 오류: ' + e);
     return JSON.stringify({ success: false, error: String(e) });
+  } finally {
+    lock.releaseLock();
   }
 }
 
