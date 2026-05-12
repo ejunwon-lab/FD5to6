@@ -32,9 +32,10 @@ function buildAnalysisDashboard() {
         .filter(r => String(r[1]) !== '합계' && String(r[0]) !== '합계' && Number(r[6]) > 0)
     : [];
 
+  // ⚠️ 합계행은 r[0]='합계' / r[2]=''(빈 종목명). r[0] 기준으로 필터해야 합계행 제외됨
   const pnlRows = (pnlSheet && pnlSheet.getLastRow() >= 2)
     ? pnlSheet.getRange(2, 1, pnlSheet.getLastRow() - 1, 14).getValues()
-        .filter(r => r[0] && String(r[2]) !== '합계')
+        .filter(r => r[0] && String(r[0]) !== '합계')
     : [];
 
   // ── 시트 준비 ─────────────────────────────────────────

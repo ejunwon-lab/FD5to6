@@ -5,7 +5,7 @@ import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { ProfitHistoryChart } from './ProfitHistoryChart'
 import { krwCompact, krwCompactSigned, krwFull, pctFormatted, normalizeChangePct } from '../../utils/format'
-import type { PortfolioResponse } from '../../models/types'
+import type { PortfolioResponse, TrendEntry } from '../../models/types'
 
 type DashboardPageProps = {
   scrollToTopSignal?: number
@@ -15,6 +15,9 @@ type DashboardPageProps = {
   updateMsg: string
   error: string
   runUpdate: (fn: (token: string) => Promise<PortfolioResponse>, msg: string) => Promise<void>
+  historyEntries: TrendEntry[]
+  isLoadingHistory: boolean
+  historyError: string
 }
 
 const BEFORE_MARKET_HOUR = 8
@@ -50,6 +53,9 @@ export function DashboardPage({
   updateMsg,
   error,
   runUpdate,
+  historyEntries,
+  isLoadingHistory,
+  historyError,
 }: DashboardPageProps) {
   const { signOut } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -188,7 +194,7 @@ export function DashboardPage({
 
         {/* 기간별 수익 차트 */}
         <div ref={chartRef}>
-          <ProfitHistoryChart />
+          <ProfitHistoryChart entries={historyEntries} loading={isLoadingHistory} error={historyError} />
         </div>
       </div>
 

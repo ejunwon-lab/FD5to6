@@ -1,11 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
-import { gasApi } from '../../api/gasApi'
-import { useAuth } from '../../auth/AuthContext'
 import { krwCompact } from '../../utils/format'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import type { TrendEntry } from '../../models/types'
+
+type ProfitHistoryChartProps = {
+  entries: TrendEntry[]
+  loading: boolean
+  error: string
+}
 
 type Range = '1W' | '1M' | '3M' | '6M'
 
@@ -26,29 +30,8 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   )
 }
 
-export function ProfitHistoryChart() {
-  const { getToken } = useAuth()
-  const [entries, setEntries] = useState<TrendEntry[]>([])
+export function ProfitHistoryChart({ entries, loading, error }: ProfitHistoryChartProps) {
   const [range, setRange] = useState<Range>('1M')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    getToken()
-      .then(token => gasApi.getProfitHistory(token))
-      .then(res => {
-        if (!cancelled && res.entries) setEntries(res.entries)
-      })
-      .catch(e => {
-        if (!cancelled) setError(String(e.message))
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => { cancelled = true }
-  }, [getToken])
 
   const filtered = entries.slice(-RANGE_DAYS[range])
   const profits = filtered.map(e => e.totalProfit)

@@ -1415,29 +1415,34 @@ function _updateNewTrend(ss, now) {
   const cStart  = 5;
   const sheetLastRow = sheet.getLastRow();
 
-  // row 2 읽기 (AK까지 17열): V~AD 스냅샷(prevTotProfit) + AH/AI(AJ/AK 백업용)
+  // row 2 읽기 (AH/AI/AJ/AK 캐시 용도. prevTotProfit 은 last data row 에서 직접 계산)
   const prevU2     = sheetLastRow >= 2
     ? sheet.getRange(2, writeCol, 1, 17).getValues()[0] : [];
   const prevU2Date = String(prevU2[0] || '').slice(0, 10);
-  // prevTotProfit: row 2의 AD(index 9) = 마지막 데이터 행의 합계수익
-  const prevTotProfit = toNum(prevU2[9]);
 
-  // writeCol(날짜 열) 기준으로 today 행 탐색 + last filled 계산
-  let writeRow    = cStart;
-  let cLastFilled = cStart - 1;
+  // writeCol(날짜 열) 기준으로 today 행 + last filled (today 제외) 탐색
+  let writeRow      = cStart;
+  let cLastFilled   = cStart - 1;
+  let prevTotRow    = -1;  // last data row (today 제외) — prevTotProfit 출처
   if (sheetLastRow >= cStart) {
     const dates = sheet.getRange(cStart, writeCol, sheetLastRow - cStart + 1, 1).getValues();
     let todayRow = null;
     for (let i = 0; i < dates.length; i++) {
       const raw = dates[i][0];
-      if (raw !== '' && raw != null) cLastFilled = cStart + i;
+      if (raw === '' || raw == null) continue;
+      cLastFilled = cStart + i;
       const d = raw instanceof Date
         ? Utilities.formatDate(raw, tz, 'yyyy-MM-dd')
         : String(raw).slice(0, 10);
       if (d === today && todayRow === null) todayRow = cStart + i;
+      else                                   prevTotRow = cStart + i;  // today 가 아닌 마지막 행
     }
     writeRow = todayRow !== null ? todayRow : cLastFilled + 1;
   }
+  // prevTotProfit: last data row (today 행 제외) 의 AD 컬럼 값
+  const prevTotProfit = prevTotRow >= cStart
+    ? toNum(sheet.getRange(prevTotRow, writeCol + 9, 1, 1).getValue())
+    : 0;
 
   const diffProfit = totProfit - prevTotProfit;
   const diffRate   = prevTotProfit ? diffProfit / prevTotProfit * 100 : 0;
