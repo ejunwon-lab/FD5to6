@@ -397,13 +397,17 @@ function _mFmtPct(val) {
 }
 
 function _mGetBuyDates(ss) {
-  const map    = {};
+  const result = {};
   const ledger = ss.getSheetByName(NS.LEDGER);
-  if (!ledger || ledger.getLastRow() < 2) return map;
+  if (!ledger || ledger.getLastRow() < 2) return result;
 
   const rows = ledger.getRange(2, 1, ledger.getLastRow() - 1, 12).getValues();
-  rows.forEach(row => {
-    if (String(row[1]) !== '매수') return;
+  // updatePositionFromLedger 와 동일 로직: 잔량 0 이하에서 매수 발생 시 firstDate 갱신
+  // → 전량 매도 후 재매수 케이스에서 새 매수일로 리셋
+  const posMap = {};
+  for (const row of rows) {
+    const type = String(row[1]);
+    if (type !== '매수' && type !== '매도') continue;
     const date   = row[0] instanceof Date
       ? Utilities.formatDate(row[0], 'Asia/Seoul', 'yyyy-MM-dd')
       : String(row[0]).slice(0, 10);
@@ -411,10 +415,21 @@ function _mGetBuyDates(ss) {
     const name   = String(row[3] || '');
     const broker = String(row[5] || '');
     const acct   = String(row[6] || '');
+    const qty    = Number(row[7]) || 0;
     const key    = code + '||' + name + '||' + broker + '||' + acct;
-    if (!map[key]) map[key] = date;
+    if (!posMap[key]) posMap[key] = { qty: 0, firstDate: '' };
+    const p = posMap[key];
+    if (type === '매수') {
+      if (p.qty <= 0) p.firstDate = date;  // 전량 매도 후 재매수 시 갱신
+      p.qty += qty;
+    } else {
+      p.qty -= qty;
+    }
+  }
+  Object.entries(posMap).forEach(([k, v]) => {
+    if (v.qty > 0.0001) result[k] = v.firstDate;
   });
-  return map;
+  return result;
 }
 
 function _mGetFxRates(ss) {
