@@ -18,7 +18,30 @@ const DB = {
   BG_CARD_POS: '#fde8e8',
   BG_CARD_NEG: '#e8f0fe',
   BG_CARD_NEU: '#f3f4f6',
-  COLS:        13,
+  COLS:        14,
+  // 보유 종목 정렬 (PropertiesService 키)
+  PROP_SORT_KEY: 'DASH_POS_SORT_KEY',
+  PROP_SORT_DIR: 'DASH_POS_SORT_DIR',
+};
+
+// 보유 종목 정렬 옵션 (드롭다운 표시값 → 정렬 인덱스/타입)
+// SORT_OPTS[label] = { idx: posRow의 인덱스, type: 'num'|'str'|'rate'|'date' }
+const DB_POS_SORT_OPTS = {
+  '기본 (계좌순)': null,
+  '종목명':   { col: 1,  type: 'str'  },
+  '분류':     { col: 2,  type: 'str'  },
+  '계좌':     { col: 4,  type: 'str'  },
+  '수량':     { col: 6,  type: 'num'  },
+  '평균단가': { col: 7,  type: 'num'  },
+  '현재단가': { col: 9,  type: 'num'  },
+  '매입금액': { col: 8,  type: 'num'  },
+  '손익':     { col: 11, type: 'num'  },
+  '수익률':   { col: 12, type: 'num'  },
+  '보유기간': { col: 5,  type: 'date' },
+  '1M':       { col: 17, type: 'rate' },
+  '3M':       { col: 18, type: 'rate' },
+  '6M':       { col: 19, type: 'rate' },
+  '1Y':       { col: 20, type: 'rate' },
 };
 
 function buildDashboard() {
@@ -67,7 +90,7 @@ function buildDashboard() {
   if (!dash) dash = ss.insertSheet(DB.SHEET);
   dash.clearContents();
   dash.clearFormats();
-  [155, 85, 110, 65, 90, 90, 90, 75, 75, 68, 68, 68, 68]
+  [155, 85, 110, 65, 90, 90, 100, 90, 75, 75, 68, 68, 68, 68]
     .forEach((w, i) => dash.setColumnWidth(i + 1, w));
 
   let r = 1;
@@ -240,10 +263,34 @@ function buildDashboard() {
   r += 2;
 
   // ══════════════════════════════════
-  // [5] 보유 종목 현황 (수익률 순) — 13컬럼
+  // [5] 보유 종목 현황 — 14컬럼 + 정렬 컨트롤
   // ══════════════════════════════════
-  r = _dbSectionTitle(dash, r, '보유 종목 현황 (수익률 순)');
-  _dbHeader(dash, r, 1, ['종목명', '분류', '증권사 / 계좌', '수량', '평균단가', '현재단가', '손익', '수익률', '보유기간', '1M', '3M', '6M', '1Y']);
+  const sortKey = PropertiesService.getScriptProperties().getProperty(DB.PROP_SORT_KEY) || '기본 (계좌순)';
+  const sortDir = PropertiesService.getScriptProperties().getProperty(DB.PROP_SORT_DIR) || '↓';
+  r = _dbSectionTitle(dash, r, '보유 종목 현황 (' + sortKey + (sortKey === '기본 (계좌순)' ? '' : ' ' + sortDir) + ')');
+
+  // 정렬 컨트롤 행 (헤더 바로 위)
+  dash.getRange(r, 1, 1, 2).merge().setValue('🔀 정렬').setBackground('#fff3cd')
+    .setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  dash.getRange(r, 3, 1, 3).merge().setValue(sortKey).setBackground('#fff3cd')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  dash.getRange(r, 6, 1, 2).merge().setValue(sortDir).setBackground('#fff3cd')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  dash.getRange(r, 3, 1, 3).setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(Object.keys(DB_POS_SORT_OPTS), true).setAllowInvalid(false).build()
+  );
+  dash.getRange(r, 6, 1, 2).setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['↓', '↑'], true).setAllowInvalid(false).build()
+  );
+  dash.getRange(r, 8, 1, DB.COLS - 7).merge()
+    .setValue('컬럼 또는 방향을 선택하면 보유 종목만 다시 정렬됩니다 (다른 섹션 영향 없음)')
+    .setFontSize(9).setFontColor('#666666').setHorizontalAlignment('left').setVerticalAlignment('middle')
+    .setBackground('#fff3cd');
+  r++;
+
+  _dbHeader(dash, r, 1, ['종목명', '분류', '증권사 / 계좌', '수량', '평균단가', '현재단가', '매입금액', '손익', '수익률', '보유기간', '1M', '3M', '6M', '1Y']);
   r++;
 
   const POS_ORDER = {
@@ -251,33 +298,52 @@ function buildDashboard() {
     '삼성증권|종합': 2, '삼성증권|ISA': 3, '삼성증권|퇴직연금_개인IRP(범용)': 4,
   };
 
-  [...posRows]
-    .sort((a, b) => {
+  const sortOpt = DB_POS_SORT_OPTS[sortKey];
+  const sortMul = sortDir === '↑' ? 1 : -1;
+
+  const sortedPos = [...posRows].sort((a, b) => {
+    if (!sortOpt) {
+      // 기본: 계좌순 → 종목명순
       const ka = POS_ORDER[String(a[3]) + '|' + String(a[4])] ?? 99;
       const kb = POS_ORDER[String(b[3]) + '|' + String(b[4])] ?? 99;
       return ka !== kb ? ka - kb : String(a[1]).localeCompare(String(b[1]));
-    })
-    .forEach((row, i) => {
+    }
+    const va = a[sortOpt.col];
+    const vb = b[sortOpt.col];
+    if (sortOpt.type === 'str') {
+      return sortMul * String(va || '').localeCompare(String(vb || ''));
+    } else if (sortOpt.type === 'rate') {
+      return sortMul * (parseFloat(String(va).replace('%','')) - parseFloat(String(vb).replace('%','')));
+    } else if (sortOpt.type === 'date') {
+      // 보유기간 문자열 "X년 Y개월 Z일" → 일수 환산
+      return sortMul * (_dbParseHoldingDays(va) - _dbParseHoldingDays(vb));
+    } else {
+      return sortMul * ((Number(va) || 0) - (Number(vb) || 0));
+    }
+  });
+
+  sortedPos.forEach((row, i) => {
       const pnl  = Number(row[11]) || 0;
       const rate = Number(row[12]) || 0;
+      const buy  = Number(row[8])  || 0;  // 매입금액
       dash.getRange(r, 1, 1, DB.COLS).setValues([[
         row[1], row[2], _shortBroker(row[3]) + ' / ' + _shortAcct(row[4]),
         _dbNum(row[6]), _dbNum(row[7]), _dbNum(row[9]),
+        _dbNum(buy),
         _dbPnl(pnl), _dbRate(rate), row[5],
         _fmtRateStr(row[17]), _fmtRateStr(row[18]), _fmtRateStr(row[19]), _fmtRateStr(row[20])
       ]]);
       dash.getRange(r, 1, 1, DB.COLS).setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
-      // 텍스트: 중앙 / 숫자: 우측
-      dash.getRange(r, 1, 1, 3).setHorizontalAlignment('center'); // 종목명·분류·증권사
-      dash.getRange(r, 4, 1, 5).setHorizontalAlignment('right');  // 수량~수익률
-      dash.getRange(r, 9, 1, 1).setHorizontalAlignment('center'); // 보유기간
-      dash.getRange(r, 10, 1, 4).setHorizontalAlignment('right'); // 1M~1Y
-      _dbColorCell(dash, r, 7, pnl);
-      _dbColorCell(dash, r, 8, rate);
-      _dbColorRateStr(dash, r, 10, row[17]);
-      _dbColorRateStr(dash, r, 11, row[18]);
-      _dbColorRateStr(dash, r, 12, row[19]);
-      _dbColorRateStr(dash, r, 13, row[20]);
+      dash.getRange(r, 1, 1, 3).setHorizontalAlignment('center');  // 종목명·분류·증권사
+      dash.getRange(r, 4, 1, 6).setHorizontalAlignment('right');   // 수량~수익률 (수량/평단/현재/매입/손익/수익률)
+      dash.getRange(r, 10, 1, 1).setHorizontalAlignment('center'); // 보유기간
+      dash.getRange(r, 11, 1, 4).setHorizontalAlignment('right');  // 1M~1Y
+      _dbColorCell(dash, r, 8, pnl);
+      _dbColorCell(dash, r, 9, rate);
+      _dbColorRateStr(dash, r, 11, row[17]);
+      _dbColorRateStr(dash, r, 12, row[18]);
+      _dbColorRateStr(dash, r, 13, row[19]);
+      _dbColorRateStr(dash, r, 14, row[20]);
       r++;
     });
   r++;
@@ -398,6 +464,35 @@ function _fmtRateStr(val) {
   const v = parseFloat(String(val));
   if (isNaN(v)) return String(val);
   return (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+}
+
+// "1년 2개월 3일" / "2개월 5일" / "12일" 문자열을 일수로 환산
+function _dbParseHoldingDays(s) {
+  if (!s) return 0;
+  const str = String(s);
+  const y = parseInt((str.match(/(\d+)년/) || [0, 0])[1], 10);
+  const m = parseInt((str.match(/(\d+)개월/) || [0, 0])[1], 10);
+  const d = parseInt((str.match(/(\d+)일/) || [0, 0])[1], 10);
+  return y * 365 + m * 30 + d;
+}
+
+// onEdit 트리거: 대시보드 정렬 드롭다운 변경 감지 → PropertiesService 저장 + 재정렬
+function _handleDashSortChange(e) {
+  const sheet = e.range.getSheet();
+  if (sheet.getName() !== DB.SHEET) return;
+  const val = e.value;
+  if (val === undefined || val === null) return;
+  let changed = false;
+  if (Object.prototype.hasOwnProperty.call(DB_POS_SORT_OPTS, val)) {
+    PropertiesService.getScriptProperties().setProperty(DB.PROP_SORT_KEY, val);
+    changed = true;
+  } else if (val === '↑' || val === '↓') {
+    PropertiesService.getScriptProperties().setProperty(DB.PROP_SORT_DIR, val);
+    changed = true;
+  }
+  if (changed) {
+    try { buildDashboard(); } catch (err) { Logger.log('정렬 후 buildDashboard 실패: ' + err); }
+  }
 }
 
 // ── 오늘의 수익 ──────────────────────────────────
