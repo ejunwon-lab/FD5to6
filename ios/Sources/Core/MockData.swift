@@ -86,7 +86,8 @@ enum MockData {
         dayChangePct: "+0.31%",
         prevDayChangAmount: -120_000,
         prevDayChangePct: "-0.43%",
-        isMarketDay: true
+        isMarketDay: true,
+        isTradingDay: true
     )
 
     // MARK: - GroupStats
