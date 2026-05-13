@@ -1112,11 +1112,19 @@ function updateNewStockHistory(ss) {
     histItems.forEach(item => {
       const weeklyH = (rawHist.weekly || {})[item.code] || [];
       const dailyH  = (rawHist.daily  || {})[item.code] || [];
-      if (weeklyH.length === 0) return;
-      const info = domInfoMap[item._norm] || ovsInfoMap[item._norm];
+      const info    = domInfoMap[item._norm] || ovsInfoMap[item._norm];
       if (!info) return;
-      const stats = KIS_API.calculateStats(weeklyH, info.price, dailyH);
-      if (stats) histMap[item._norm] = stats;
+      // 1차: KIS 주봉/일봉 기반 통계 (52주 최고/최저 포함)
+      const kisStats = (weeklyH.length > 0)
+        ? KIS_API.calculateStats(weeklyH, info.price, dailyH) : {};
+      // 2차: *현재가_이력* 기반 1M/3M/6M/1Y — 신규 상장 종목·주봉 오차 보정
+      const histStats = _calcReturnFromHistory(ss, item._norm, info.price);
+      if (histStats) {
+        ['return1M', 'return3M', 'return6M', 'return1Y'].forEach(k => {
+          if (histStats[k]) kisStats[k] = histStats[k];
+        });
+      }
+      histMap[item._norm] = kisStats;
     });
   } catch (e) { Logger.log('히스토리 조회 실패: ' + e); }
 
@@ -1203,6 +1211,58 @@ function _updatePriceHistory(ss, allCodes, statusMap, now) {
 // Main.js 호환 wrapper
 function updateNewPriceHistory(ss) {
   updateNewCurrentPrice(ss || SpreadsheetApp.getActiveSpreadsheet());
+}
+
+/**
+ * *현재가_이력* 시트 기반 1M/3M/6M/1Y 수익률 직접 계산.
+ * KIS API 주봉 데이터의 ±7일 오차 + 신규 상장 종목 과거 데이터 부족 문제를 해결.
+ *
+ * @return { return1M, return3M, return6M, return1Y } 또는 null (이력 부재)
+ *         각 항목은 '12.34%' 문자열 또는 null (해당 기간 데이터 없음)
+ */
+function _calcReturnFromHistory(ss, normCode, currentPrice) {
+  const sheet = ss.getSheetByName(NS.PRICE_HISTORY);
+  if (!sheet || sheet.getLastRow() < 2 || sheet.getLastColumn() < 2) return null;
+
+  const lastCol = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 2, 1, lastCol - 1).getValues()[0].map(_normCode);
+  const colIdx  = headers.indexOf(normCode);
+  if (colIdx < 0) return null;
+  const dataCol = colIdx + 2;
+
+  const lastRow    = sheet.getLastRow();
+  const dateVals   = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  const priceVals  = sheet.getRange(2, dataCol, lastRow - 1, 1).getValues();
+
+  const points = [];
+  for (let i = 0; i < dateVals.length; i++) {
+    const raw = dateVals[i][0];
+    if (!raw) continue;
+    const d = raw instanceof Date ? raw : new Date(String(raw).slice(0, 10));
+    if (isNaN(d.getTime())) continue;
+    const p = Number(priceVals[i][0]);
+    if (!isFinite(p) || p <= 0) continue;
+    points.push({ date: d, price: p });
+  }
+  if (points.length === 0) return null;
+
+  points.sort((a, b) => b.date - a.date);  // 내림차순 (최신 먼저)
+
+  const now = new Date();
+  const findPriceAgo = (months) => {
+    const target = new Date(now);
+    target.setMonth(target.getMonth() - months);
+    const cand = points.filter(p => p.date <= target);
+    return cand.length > 0 ? cand[0].price : null;
+  };
+
+  const calcRate = (past) => past ? ((currentPrice - past) / past * 100).toFixed(2) + '%' : null;
+  return {
+    return1M: calcRate(findPriceAgo(1)),
+    return3M: calcRate(findPriceAgo(3)),
+    return6M: calcRate(findPriceAgo(6)),
+    return1Y: calcRate(findPriceAgo(12)),
+  };
 }
 
 /**
