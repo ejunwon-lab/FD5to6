@@ -90,6 +90,8 @@ function buildDashboard() {
   if (!dash) dash = ss.insertSheet(DB.SHEET);
   dash.clearContents();
   dash.clearFormats();
+  // 이전 빌드의 데이터 유효성 검사(드롭다운) 잔존 제거 — 새로 그릴 자리에 옛 검증이 남으면 위반 에러
+  dash.getRange(1, 1, dash.getMaxRows(), dash.getMaxColumns()).clearDataValidations();
   [155, 85, 110, 65, 90, 90, 100, 90, 75, 75, 68, 68, 68, 68]
     .forEach((w, i) => dash.setColumnWidth(i + 1, w));
 

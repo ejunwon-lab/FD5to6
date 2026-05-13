@@ -1213,6 +1213,78 @@ function updateNewPriceHistory(ss) {
   updateNewCurrentPrice(ss || SpreadsheetApp.getActiveSpreadsheet());
 }
 
+// ═══════════════════════════════════════════════════
+//  [진단] 특정 종목의 *현재가_이력* 시계열 + 1M/3M/6M/1Y 계산 결과 출력
+//  사용: 신시스템 GAS 에디터에서 함수 실행 → Logger.log 확인
+// ═══════════════════════════════════════════════════
+function debugPriceHistory487240() {
+  debugPriceHistoryFor('487240', 58885);
+}
+
+function debugPriceHistoryFor(code, currentPrice) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(NS.PRICE_HISTORY);
+  if (!sheet) { Logger.log('*현재가_이력* 없음'); return; }
+
+  const lastCol  = sheet.getLastColumn();
+  const headRow  = sheet.getRange(1, 2, 1, lastCol - 1).getValues()[0];
+  const headers  = headRow.map(_normCode);
+  const targetNc = _normCode(code);
+  const colIdx   = headers.indexOf(targetNc);
+  Logger.log('=== ' + code + ' (정규화 ' + targetNc + ') ===');
+  Logger.log('시트 헤더 (코드 ' + headers.length + '개): ' + headRow.slice(0, 5).join(', ') + '...');
+  if (colIdx < 0) {
+    Logger.log('!! ' + code + ' 컬럼 없음 — *현재가_이력* 미누적');
+    return;
+  }
+  const dataCol = colIdx + 2;
+  Logger.log('컬럼 위치: ' + dataCol);
+
+  const lastRow = sheet.getLastRow();
+  const dates   = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  const prices  = sheet.getRange(2, dataCol, lastRow - 1, 1).getValues();
+
+  const points = [];
+  for (let i = 0; i < dates.length; i++) {
+    const raw = dates[i][0];
+    if (!raw) continue;
+    const d = raw instanceof Date ? raw : new Date(String(raw).slice(0, 10));
+    if (isNaN(d.getTime())) continue;
+    const p = Number(prices[i][0]);
+    points.push({
+      date: d,
+      dateStr: Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd'),
+      price: p
+    });
+  }
+  Logger.log('데이터 행 수: ' + points.length + ' (시작 ' + (points[0] ? points[0].dateStr : '-') + ' ~ 끝 ' + (points[points.length-1] ? points[points.length-1].dateStr : '-') + ')');
+
+  // 모든 시계열 출력
+  points.forEach(p => Logger.log('  ' + p.dateStr + ' → ' + p.price));
+
+  // 정렬 후 N개월 전 가격 추정
+  const validPts = points.filter(p => isFinite(p.price) && p.price > 0).sort((a, b) => b.date - a.date);
+  Logger.log('--- 유효 데이터(>0): ' + validPts.length + '개 ---');
+
+  const now = new Date();
+  const cp  = Number(currentPrice) || (validPts[0] ? validPts[0].price : 0);
+  Logger.log('현재가 (계산 기준): ' + cp);
+
+  [1, 3, 6, 12].forEach(months => {
+    const target = new Date(now);
+    target.setMonth(target.getMonth() - months);
+    const targetStr = Utilities.formatDate(target, 'Asia/Seoul', 'yyyy-MM-dd');
+    const cand = validPts.filter(p => p.date <= target);
+    if (cand.length === 0) {
+      Logger.log(months + 'M (target ' + targetStr + '): 데이터 없음 → null');
+    } else {
+      const past = cand[0];
+      const rate = ((cp - past.price) / past.price * 100).toFixed(2);
+      Logger.log(months + 'M (target ' + targetStr + '): ' + past.dateStr + ' @' + past.price + ' → ' + rate + '%');
+    }
+  });
+}
+
 /**
  * *현재가_이력* 시트 기반 1M/3M/6M/1Y 수익률 직접 계산.
  * KIS API 주봉 데이터의 ±7일 오차 + 신규 상장 종목 과거 데이터 부족 문제를 해결.
