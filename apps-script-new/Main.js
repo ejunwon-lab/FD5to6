@@ -48,6 +48,7 @@ function _withUpdateLock(label, fn) {
 
 function onEdit(e) {
   _handleFormOnEdit(e);
+  _handleDashSortChange(e);
 }
 
 // ══════════════════════════════════════════
