@@ -71,7 +71,16 @@ def main():
     # 1. GET remote — Secret.js lives here, never touches disk
     remote_files = {f["name"]: f for f in api("GET", f"{base}/content", token).get("files", [])}
 
-    # 2. Overwrite with local files (skip PROTECTED)
+    # 2. Build new file set from local (PROTECTED files kept from remote)
+    local_names = {js.stem for js in script_dir.glob("*.js")}
+    new_remote_files = {}
+
+    # Keep PROTECTED files from remote (e.g., Secret)
+    for name in PROTECTED:
+        if name in remote_files:
+            new_remote_files[name] = remote_files[name]
+
+    # Add/overwrite from local
     pushed = []
     for js in sorted(script_dir.glob("*.js")):
         name = js.stem
@@ -79,15 +88,23 @@ def main():
             continue
         entry = remote_files.get(name, {"name": name, "type": "SERVER_JS"})
         entry["source"] = js.read_text()
-        remote_files[name] = entry
+        new_remote_files[name] = entry
         pushed.append(name)
 
     manifest = script_dir / "appsscript.json"
     if manifest.exists():
-        remote_files["appsscript"] = {"name": "appsscript", "type": "JSON", "source": manifest.read_text()}
+        new_remote_files["appsscript"] = {"name": "appsscript", "type": "JSON", "source": manifest.read_text()}
 
-    # 3. PUT back — Secret.js is still in remote_files, unchanged
-    api("PUT", f"{base}/content", token, {"files": list(remote_files.values())})
+    # Files in remote but not local (and not PROTECTED) are auto-removed by omission
+    removed = sorted(set(remote_files.keys()) - set(new_remote_files.keys()))
+
+    # 3. PUT back — files not in new_remote_files are removed from remote
+    api("PUT", f"{base}/content", token, {"files": list(new_remote_files.values())})
+
+    if removed:
+        print(f"Removed {len(removed)} remote files:")
+        for name in removed:
+            print(f"  ✗ {name}")
 
     protected_present = PROTECTED & set(remote_files.keys())
     print(f"Pushed {len(pushed)} files. Protected on remote: {protected_present or 'none'}")
