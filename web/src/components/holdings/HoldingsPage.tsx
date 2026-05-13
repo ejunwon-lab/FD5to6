@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { HoldingCard } from './HoldingCard'
+import { StockDetailModal } from './StockDetailModal'
 import { krwFull, normalizeChangePct, profitTextClass, holdingDays } from '../../utils/format'
 import type { Holding, PortfolioResponse } from '../../models/types'
 import type { SortKey } from './HoldingCard'
@@ -59,6 +60,7 @@ export function HoldingsPage({ portfolio, isLoading, error }: HoldingsPageProps)
   const [sortKey, setSortKey] = useState<SortKey>('allInfo')
   const [sortAsc, setSortAsc] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [detailStock, setDetailStock] = useState<{ code: string; name: string } | null>(null)
 
   const accountBrokerMap = useMemo(() => {
     const map: Record<string, string> = {}
@@ -185,19 +187,35 @@ export function HoldingsPage({ portfolio, isLoading, error }: HoldingsPageProps)
           {filtered.map(h => {
             const id = `${h.code}-${h.accountType}`
             return (
-              <HoldingCard
-                key={id}
-                holding={h}
-                sortKey={sortKey}
-                isExpanded={expandedId === id}
-                onExpand={() => handleExpand(id)}
-              />
+              <div key={id} className="relative">
+                <HoldingCard
+                  holding={h}
+                  sortKey={sortKey}
+                  isExpanded={expandedId === id}
+                  onExpand={() => handleExpand(id)}
+                />
+                <button
+                  onClick={() => setDetailStock({ code: h.code, name: h.name })}
+                  className="absolute top-2 right-2 text-[10px] bg-accent/15 text-accent rounded-full px-2 py-0.5 font-medium hover:bg-accent/25 transition-colors"
+                  title="종목 상세"
+                >
+                  📊 상세
+                </button>
+              </div>
             )
           })}
           {filtered.length === 0 && (
             <p className="text-center text-gray-400 text-sm py-8">종목이 없습니다</p>
           )}
         </div>
+      )}
+
+      {detailStock && (
+        <StockDetailModal
+          code={detailStock.code}
+          initialName={detailStock.name}
+          onClose={() => setDetailStock(null)}
+        />
       )}
 
       {/* 검색바 (하단 고정) */}

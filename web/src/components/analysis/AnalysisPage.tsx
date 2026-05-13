@@ -1,17 +1,20 @@
-import { useState, useMemo } from 'react'
-import { PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { useState, useEffect, useMemo } from 'react'
+import { PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, ReferenceLine, LineChart, Line } from 'recharts'
+import { gasApi } from '../../api/gasApi'
+import { useAuth } from '../../auth/AuthContext'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import {
-  krwFull, pctFormatted, profitTextClass,
+  krwFull, krwCompact, pctFormatted, profitTextClass,
   holdingDays, annualizedReturn, position52w, holdingDurationText,
 } from '../../utils/format'
-import type { Holding, PortfolioResponse, GroupStat } from '../../models/types'
+import type { Holding, PortfolioResponse, GroupStat, TrendEntry, MonthlyRealizedEntry } from '../../models/types'
 
 type AnalysisPageProps = {
   portfolio: PortfolioResponse | null
   isLoading: boolean
   error: string
+  historyEntries: TrendEntry[]
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -69,10 +72,21 @@ function pos52Color(pos: number): string {
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────
-export function AnalysisPage({ portfolio, isLoading, error }: AnalysisPageProps) {
+export function AnalysisPage({ portfolio, isLoading, error, historyEntries }: AnalysisPageProps) {
+  const { getToken } = useAuth()
   const [expandedSection, setExpanded]  = useState<string | null>('matrix')
   const [accountTab, setAccountTab]     = useState<AccountTab>('현황')
   const [expandedQuad, setExpandedQuad] = useState<Set<string>>(new Set())
+  const [monthly, setMonthly] = useState<MonthlyRealizedEntry[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    getToken()
+      .then(token => gasApi.getMonthlyRealized(token))
+      .then(res => { if (!cancelled && res.monthly) setMonthly(res.monthly) })
+      .catch(() => { /* 무시 */ })
+    return () => { cancelled = true }
+  }, [getToken])
 
   const holdings = portfolio?.holdings ?? []
 
@@ -256,6 +270,60 @@ export function AnalysisPage({ portfolio, isLoading, error }: AnalysisPageProps)
             </div>
           </div>
         </SectionCard>
+
+        {/* ── 포트폴리오 가치 추이 ── */}
+        {historyEntries.length >= 2 && (
+          <SectionCard title="포트폴리오 가치 추이"
+            expanded={expandedSection === 'portfolioTrend'} onToggle={() => toggleSection('portfolioTrend')}>
+            <div className="pt-3">
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={historyEntries.slice(-180)} margin={{ top: 4, right: 4, bottom: 4, left: 0 }}>
+                  <XAxis dataKey="date" tickFormatter={d => d.slice(5)} tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                  <YAxis tickFormatter={v => krwCompact(v)} tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} axisLine={false} width={56} />
+                  <Tooltip formatter={(v: number) => krwFull(v)} contentStyle={{ fontSize: 11, padding: '4px 8px' }} labelStyle={{ fontSize: 10 }} />
+                  <ReferenceLine y={0} stroke="#E5E7EB" strokeDasharray="4 2" />
+                  <Line type="monotone" dataKey="totalProfit" stroke="#405AE6" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+              <p className="text-[10px] text-gray-400 mt-2 text-center">최근 180일 합계수익 추이</p>
+            </div>
+          </SectionCard>
+        )}
+
+        {/* ── 월별 실현손익 ── */}
+        {monthly.length > 0 && (
+          <SectionCard title="월별 실현손익"
+            expanded={expandedSection === 'monthly'} onToggle={() => toggleSection('monthly')}>
+            <div className="pt-3">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={monthly} margin={{ top: 4, right: 4, bottom: 4, left: 0 }}>
+                  <XAxis dataKey="month" tickFormatter={m => m.slice(2)} tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
+                  <YAxis tickFormatter={v => krwCompact(v)} tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} axisLine={false} width={56} />
+                  <Tooltip formatter={(v: number) => krwFull(v)} contentStyle={{ fontSize: 11, padding: '4px 8px' }} labelStyle={{ fontSize: 10 }} />
+                  <ReferenceLine y={0} stroke="#E5E7EB" strokeDasharray="4 2" />
+                  <Bar dataKey="profit">
+                    {monthly.map((m, i) => (
+                      <Cell key={i} fill={m.profit >= 0 ? '#D91919' : '#0D5AD9'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="mt-3 space-y-1">
+                {monthly.slice().reverse().slice(0, 6).map(m => (
+                  <div key={m.month} className="flex items-center justify-between text-xs py-1 border-b last:border-b-0 border-gray-100 dark:border-gray-800">
+                    <div>
+                      <span className="font-medium">{m.month}</span>
+                      <span className="text-gray-400 ml-2">{m.count}건 · 승률 {m.winRate.toFixed(0)}%</span>
+                    </div>
+                    <span className={`font-bold ${profitTextClass(m.profit)}`}>
+                      {m.profit >= 0 ? '+' : ''}{krwFull(m.profit)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </SectionCard>
+        )}
 
       </div>
     </div>
