@@ -28,6 +28,7 @@ struct Summary: Codable {
     let prevDayChangAmount: Double?
     let prevDayChangePct: String?
     let isMarketDay: Bool?
+    let isTradingDay: Bool?
 }
 
 struct GroupStat: Codable {

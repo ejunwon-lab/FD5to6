@@ -235,7 +235,8 @@ function _buildPortfolioJSON(ss) {
       dayChangePct,
       prevDayChangAmount,
       prevDayChangePct,
-      isMarketDay: !isNonTradingDay
+      isMarketDay:  !isNonTradingDay,
+      isTradingDay: !isNonTradingDay,
     },
     byCategory,
     byAccount,

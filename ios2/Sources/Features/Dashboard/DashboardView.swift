@@ -101,11 +101,10 @@ struct DashboardView: View {
                 )
 
                 let summary = vm.portfolio?.summary
-                let usePrevDayData = isBeforeMarketWindow && (summary?.isMarketDay == true)
-                let dayAmt = usePrevDayData ? (summary?.prevDayChangAmount ?? 0) : (summary?.dayChangAmount ?? 0)
-                let dayPct = usePrevDayData ? (summary?.prevDayChangePct ?? "0%") : (summary?.dayChangePct ?? "0%")
+                let dayAmt = profitAmount(summary)
+                let dayPct = profitPct(summary)
                 VStack(spacing: 6) {
-                    Text(showPrevDayProfit ? "전일 수익" : "오늘의 수익")
+                    Text(profitLabel(summary))
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.8))
                     Text(dayAmt.krwFormatted)
@@ -199,14 +198,39 @@ struct DashboardView: View {
     private var isBeforeMarketWindow: Bool {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "Asia/Seoul")!
-        let now = Date()
-        let hour = cal.component(.hour, from: now)
-        let minute = cal.component(.minute, from: now)
-        return hour < 8 || (hour == 8 && minute <= 50)
+        let hour = cal.component(.hour, from: Date())
+        return hour < 9   // 한국시간 09:00 이전 (장 개시 전)
     }
 
     private var showPrevDayProfit: Bool {
-        isBeforeMarketWindow || (vm.portfolio?.summary?.isMarketDay == false)
+        // 거래일 + 장 개시 전(09:00 이전) = 전일 수익
+        let isTradingDay = vm.portfolio?.summary?.isTradingDay ?? true
+        return isTradingDay && isBeforeMarketWindow
+    }
+
+    private var showRecentProfit: Bool {
+        // 비거래일(주말/공휴일) = 최근 수익
+        vm.portfolio?.summary?.isTradingDay == false
+    }
+
+    private func profitLabel(_ summary: Summary?) -> String {
+        if summary?.isTradingDay == false { return "최근 수익" }
+        return isBeforeMarketWindow ? "전일 수익" : "오늘의 수익"
+    }
+
+    private func profitAmount(_ summary: Summary?) -> Double {
+        // 비거래일: dayChangAmount (이미 마지막 거래일 캐시 포함)
+        // 거래일 09:00 이전: prevDayChangAmount (어제 거래일 백업)
+        // 거래일 09:00 이후: dayChangAmount (실시간)
+        if summary?.isTradingDay == false { return summary?.dayChangAmount ?? 0 }
+        if isBeforeMarketWindow { return summary?.prevDayChangAmount ?? 0 }
+        return summary?.dayChangAmount ?? 0
+    }
+
+    private func profitPct(_ summary: Summary?) -> String {
+        if summary?.isTradingDay == false { return summary?.dayChangePct ?? "0%" }
+        if isBeforeMarketWindow { return summary?.prevDayChangePct ?? "0%" }
+        return summary?.dayChangePct ?? "0%"
     }
 
     private var effectiveTradingDateString: String {

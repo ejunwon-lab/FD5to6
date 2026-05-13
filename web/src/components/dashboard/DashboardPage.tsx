@@ -20,14 +20,12 @@ type DashboardPageProps = {
   historyError: string
 }
 
-const BEFORE_MARKET_HOUR = 8
-const BEFORE_MARKET_MIN = 51
-
 function isBeforeMarket(): boolean {
-  const now = new Date()
-  const h = now.getHours()
-  const m = now.getMinutes()
-  return h < BEFORE_MARKET_HOUR || (h === BEFORE_MARKET_HOUR && m < BEFORE_MARKET_MIN)
+  // 한국시간 09:00 이전 (장 개시 전)
+  // 브라우저 시간대가 한국이 아닐 수도 있어 Asia/Seoul 기준으로 계산
+  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', hour: '2-digit', hour12: false })
+  const hour = parseInt(fmt.format(new Date()), 10)
+  return hour < 9
 }
 
 function UpdateButton({ icon, label, onClick, disabled }: {
@@ -68,10 +66,16 @@ export function DashboardPage({
   }, [scrollToTopSignal])
 
   const summary = portfolio?.summary
-  const usePrev = isBeforeMarket() && (summary?.isMarketDay === true)
-  const dayAmt = usePrev ? (summary?.prevDayChangAmount ?? 0) : (summary?.dayChangAmount ?? 0)
-  const dayPct = usePrev ? (summary?.prevDayChangePct ?? '0%') : (summary?.dayChangePct ?? '0%')
-  const dayLabel = usePrev ? '전일 수익' : '오늘의 수익'
+  // 분기:
+  //   비거래일 (주말/공휴일)         → "최근 수익" + dayChangAmount (마지막 거래일 캐시 포함)
+  //   거래일 09:00 이전              → "전일 수익" + prevDayChangAmount (어제 거래일 백업)
+  //   거래일 09:00 이후              → "오늘의 수익" + dayChangAmount (실시간/장후)
+  const isTrading  = summary?.isTradingDay !== false
+  const beforeMkt  = isBeforeMarket()
+  const usePrev    = isTrading && beforeMkt
+  const dayLabel   = !isTrading ? '최근 수익' : (beforeMkt ? '전일 수익' : '오늘의 수익')
+  const dayAmt     = usePrev ? (summary?.prevDayChangAmount ?? 0) : (summary?.dayChangAmount ?? 0)
+  const dayPct     = usePrev ? (summary?.prevDayChangePct ?? '0%') : (summary?.dayChangePct ?? '0%')
   const dayIsProfit = dayAmt >= 0
 
   return (
