@@ -30,6 +30,8 @@ struct AnalysisView: View {
     @State private var expandedQuadrants: Set<String> = []
     @State private var selectedAccountTab: AccountTab = .summary
     @State private var expandedCollapsible: String? = nil
+    @State private var historyEntries: [TrendEntry] = []
+    @State private var monthly: [MonthlyRealizedEntry] = []
 
     private enum AccountTab: String, CaseIterable {
         case summary   = "현황"
@@ -84,9 +86,106 @@ struct AnalysisView: View {
                             accountAnalysisSection
                             annualizedSection
                             position52Section
+                            portfolioTrendSection
+                            monthlyRealizedSection
                         }
                     }
                     .padding()
+                }
+            }
+        }
+        .task { await loadExtraData() }
+    }
+
+    private func loadExtraData() async {
+        // 포트폴리오 가치 추이
+        if let hist = try? await ScriptAPIService.shared.getProfitHistory(), let entries = hist.entries {
+            historyEntries = entries
+        }
+        // 월별 실현손익
+        if let m = try? await ScriptAPIService.shared.getMonthlyRealized(), let arr = m.monthly {
+            monthly = arr
+        }
+    }
+
+    // MARK: - 포트폴리오 가치 추이
+    private var portfolioTrendSection: some View {
+        let recent = Array(historyEntries.suffix(180))
+        return collapsibleCard(id: "portfolioTrend", title: "포트폴리오 가치 추이", expandedId: $expandedCollapsible) {
+            if recent.count >= 2 {
+                VStack(alignment: .leading, spacing: 8) {
+                    Chart {
+                        ForEach(recent, id: \.date) { e in
+                            LineMark(x: .value("Date", e.date), y: .value("Profit", e.totalProfit))
+                                .foregroundStyle(.accent)
+                                .interpolationMethod(.monotone)
+                        }
+                        RuleMark(y: .value("Zero", 0))
+                            .foregroundStyle(Color.gray.opacity(0.3))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 2]))
+                    }
+                    .chartXAxis {
+                        AxisMarks(values: .automatic(desiredCount: 4)) {
+                            AxisValueLabel().font(.caption2).foregroundStyle(.gray)
+                        }
+                    }
+                    .chartYAxis {
+                        AxisMarks(position: .leading) {
+                            AxisGridLine().foregroundStyle(Color.gray.opacity(0.2))
+                            AxisValueLabel().font(.caption2).foregroundStyle(.gray)
+                        }
+                    }
+                    .frame(height: 200)
+                    Text("최근 \(recent.count)일 합계수익 추이").font(.caption2).foregroundColor(.gray)
+                }
+            } else {
+                Text("데이터 부족").font(.caption).foregroundColor(.gray).padding()
+            }
+        }
+    }
+
+    // MARK: - 월별 실현손익
+    private var monthlyRealizedSection: some View {
+        collapsibleCard(id: "monthly", title: "월별 실현손익", expandedId: $expandedCollapsible) {
+            if monthly.isEmpty {
+                Text("실현손익 기록 없음").font(.caption).foregroundColor(.gray).padding()
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Chart {
+                        ForEach(monthly) { m in
+                            BarMark(x: .value("Month", m.month), y: .value("Profit", m.profit))
+                                .foregroundStyle(m.profit >= 0 ? Color.profit : Color.loss)
+                        }
+                        RuleMark(y: .value("Zero", 0))
+                            .foregroundStyle(Color.gray.opacity(0.3))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 2]))
+                    }
+                    .chartXAxis {
+                        AxisMarks(values: .automatic(desiredCount: 6)) {
+                            AxisValueLabel().font(.caption2).foregroundStyle(.gray)
+                        }
+                    }
+                    .chartYAxis {
+                        AxisMarks(position: .leading) {
+                            AxisGridLine().foregroundStyle(Color.gray.opacity(0.2))
+                            AxisValueLabel().font(.caption2).foregroundStyle(.gray)
+                        }
+                    }
+                    .frame(height: 200)
+                    ForEach(monthly.reversed().prefix(6)) { m in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(m.month).font(.caption).fontWeight(.medium)
+                                Text("\(m.count)건 · 승률 \(Int(m.winRate))%").font(.caption2).foregroundColor(.gray)
+                            }
+                            Spacer()
+                            Text((m.profit >= 0 ? "+" : "") + m.profit.krwFormatted)
+                                .font(.caption).fontWeight(.bold)
+                                .foregroundColor(m.profit >= 0 ? .profit : .loss)
+                        }
+                        .padding(.vertical, 4)
+                        Divider().opacity(m.id == monthly.reversed().prefix(6).last?.id ? 0 : 1)
+                    }
                 }
             }
         }

@@ -32,6 +32,65 @@ actor ScriptAPIService {
         return try await callIndicatorsFunction("newMobileGetIndicators", useBackground: false)
     }
 
+    func getStockDetail(code: String) async throws -> StockDetailResponse {
+        let data = try await rawCallWithParams("newMobileGetStockDetail", parameters: [code], useBackground: false)
+        return try decodeResult(data: data, type: StockDetailResponse.self)
+    }
+
+    func getMonthlyRealized() async throws -> MonthlyRealizedResponse {
+        let data = try await rawCall("newMobileGetMonthlyRealized", useBackground: false)
+        return try decodeResult(data: data, type: MonthlyRealizedResponse.self)
+    }
+
+    private func decodeResult<T: Decodable>(data: Data, type: T.Type) throws -> T {
+        let rawStr = String(data: data, encoding: .utf8) ?? "(empty)"
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw APIError.gasError(String(rawStr.prefix(500)))
+        }
+        if let error = raw["error"] as? [String: Any] {
+            throw APIError.gasError(error["message"] as? String ?? "GAS 오류")
+        }
+        guard let responseDict = raw["response"] as? [String: Any] else {
+            throw APIError.gasError("응답 없음")
+        }
+        if let resultStr = responseDict["result"] as? String,
+           let resultData = resultStr.data(using: .utf8) {
+            return try JSONDecoder().decode(T.self, from: resultData)
+        }
+        if let resultObj = responseDict["result"] {
+            let resultData = try JSONSerialization.data(withJSONObject: resultObj)
+            return try JSONDecoder().decode(T.self, from: resultData)
+        }
+        throw APIError.gasError("result 없음")
+    }
+
+    private func rawCallWithParams(_ name: String, parameters: [Any], useBackground: Bool) async throws -> Data {
+        let token = try await AuthManager.shared.accessToken()
+        let url = URL(string: "\(baseURL)/\(scriptID):run")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body = try JSONSerialization.data(withJSONObject: [
+            "function": name,
+            "devMode": true,
+            "parameters": parameters,
+        ])
+        if useBackground {
+            request.httpBody = nil
+            return try await BackgroundNetworkSession.shared.post(request: request, body: body)
+        }
+        request.httpBody = body
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30
+        let session = URLSession(configuration: config)
+        let (d, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.httpError((response as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+        return d
+    }
+
     func getProfitHistory() async throws -> TrendHistoryResponse {
         let data = try await rawCall("newMobileGetProfitHistory", useBackground: false)
         let rawStr = String(data: data, encoding: .utf8) ?? "(empty)"
