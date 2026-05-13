@@ -61,6 +61,9 @@ function buildDashboard() {
         .filter(r => String(r[0]) !== '합계' && Number(r[6]) > 0)
     : [];
 
+  // *종목상태* 에서 1M/3M/6M/1Y 직접 가져옴 — *보유현황* 갱신 안 해도 항상 최신값 표시
+  const statusMap = _getStockStatusMap(ss);
+
   const pnlRows = (pnlSheet && pnlSheet.getLastRow() >= 2)
     ? pnlSheet.getRange(2, 1, pnlSheet.getLastRow() - 1, 14).getValues()
         .filter(r => r[0] && String(r[0]) !== '합계')
@@ -328,12 +331,18 @@ function buildDashboard() {
       const pnl  = Number(row[11]) || 0;
       const rate = Number(row[12]) || 0;
       const buy  = Number(row[8])  || 0;  // 매입금액
+      // 1M/3M/6M/1Y 는 *종목상태* 에서 직접 — *보유현황* 갱신 안 됐어도 즉시 반영
+      const s    = statusMap[_normCode(row[0])] || {};
+      const m1   = s.m1  || row[17] || '-';
+      const m3   = s.m3  || row[18] || '-';
+      const m6   = s.m6  || row[19] || '-';
+      const m1y  = s.m1y || row[20] || '-';
       dash.getRange(r, 1, 1, DB.COLS).setValues([[
         row[1], row[2], _shortBroker(row[3]) + ' / ' + _shortAcct(row[4]),
         _dbNum(row[6]), _dbNum(row[7]), _dbNum(row[9]),
         _dbNum(buy),
         _dbPnl(pnl), _dbRate(rate), row[5],
-        _fmtRateStr(row[17]), _fmtRateStr(row[18]), _fmtRateStr(row[19]), _fmtRateStr(row[20])
+        _fmtRateStr(m1), _fmtRateStr(m3), _fmtRateStr(m6), _fmtRateStr(m1y)
       ]]);
       dash.getRange(r, 1, 1, DB.COLS).setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
       dash.getRange(r, 1, 1, 3).setHorizontalAlignment('center');  // 종목명·분류·증권사
@@ -342,10 +351,10 @@ function buildDashboard() {
       dash.getRange(r, 11, 1, 4).setHorizontalAlignment('right');  // 1M~1Y
       _dbColorCell(dash, r, 8, pnl);
       _dbColorCell(dash, r, 9, rate);
-      _dbColorRateStr(dash, r, 11, row[17]);
-      _dbColorRateStr(dash, r, 12, row[18]);
-      _dbColorRateStr(dash, r, 13, row[19]);
-      _dbColorRateStr(dash, r, 14, row[20]);
+      _dbColorRateStr(dash, r, 11, m1);
+      _dbColorRateStr(dash, r, 12, m3);
+      _dbColorRateStr(dash, r, 13, m6);
+      _dbColorRateStr(dash, r, 14, m1y);
       r++;
     });
   r++;
