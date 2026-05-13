@@ -997,7 +997,75 @@ function updateNewCurrentPrice(ss) {
 
   _writeStockStatusRows(ss, statusRows);
   _updatePriceHistory(ss, allCodes, statusMap, now);
+  _appendStockStatusHistory(ss);
   Logger.log('updateNewCurrentPrice 완료: ' + statusRows.length + '개 종목');
+}
+
+// ═══════════════════════════════════════════════════
+//  [자동] *종목상태_이력* 시트에 일자별 종목 상태 upsert
+//  - 같은 날짜+종목코드 행이 있으면 덮어쓰기, 없으면 append
+//  - 매번 가격 갱신 시 호출되므로 하루에 한 행 (마지막 값)만 유지
+// ═══════════════════════════════════════════════════
+function _appendStockStatusHistory(ss) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  const stat = ss.getSheetByName(NS.STOCK_STATUS);
+  if (!stat || stat.getLastRow() < 2) return;
+
+  const HIST_NAME = '*종목상태_이력*';
+  let hist = ss.getSheetByName(HIST_NAME);
+  if (!hist) {
+    hist = ss.insertSheet(HIST_NAME);
+    const header = ['날짜','종목코드','종목명','현재단가','등락','등락률(%)','52주최고','52주최저','1M','3M','6M','1Y'];
+    hist.getRange(1, 1, 1, header.length).setValues([header])
+      .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+    [110,80,220,100,90,90,100,100,80,80,80,80].forEach((w, i) => hist.setColumnWidth(i + 1, w));
+    hist.setFrozenRows(1);
+  }
+
+  const today = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
+
+  // *종목상태* 전체 행 (10열)
+  const statRows = stat.getRange(2, 1, stat.getLastRow() - 1, 10).getValues();
+
+  // 종목명 매핑 (*보유현황*에서 코드 → 종목명)
+  const nameMap = {};
+  const pos = ss.getSheetByName(NS.POSITION);
+  if (pos && pos.getLastRow() >= 2) {
+    pos.getRange(2, 1, pos.getLastRow() - 1, 2).getValues().forEach(r => {
+      const code = _normCode(r[0]);
+      if (code && !nameMap[code]) nameMap[code] = String(r[1] || '');
+    });
+  }
+
+  // *종목상태_이력* 의 today 행 매핑 (date+code → 행번호)
+  const todayMap = {};
+  if (hist.getLastRow() >= 2) {
+    const idx = hist.getRange(2, 1, hist.getLastRow() - 1, 2).getValues();
+    idx.forEach((r, i) => {
+      const date = r[0] instanceof Date
+        ? Utilities.formatDate(r[0], 'Asia/Seoul', 'yyyy-MM-dd')
+        : String(r[0]).slice(0, 10);
+      const code = _normCode(r[1]);
+      if (date === today && code) todayMap[code] = i + 2;
+    });
+  }
+
+  // 종목별 upsert / append
+  const appendBuf = [];
+  statRows.forEach(s => {
+    const code = _normCode(s[0]);
+    if (!code) return;
+    const name = nameMap[code] || '';
+    const row = [today, s[0], name, s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9]];
+    if (todayMap[code]) {
+      hist.getRange(todayMap[code], 1, 1, 12).setValues([row]);
+    } else {
+      appendBuf.push(row);
+    }
+  });
+  if (appendBuf.length > 0) {
+    hist.getRange(hist.getLastRow() + 1, 1, appendBuf.length, 12).setValues(appendBuf);
+  }
 }
 
 /**
