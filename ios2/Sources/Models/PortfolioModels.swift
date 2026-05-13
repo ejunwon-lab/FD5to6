@@ -123,3 +123,84 @@ struct Holding: Codable, Identifiable {
         return change / currentPrice * 100
     }
 }
+
+// ── 종목 상세 ──────────────────────────────────────────────
+struct StockTransaction: Codable, Identifiable {
+    var id: String { "\(date)-\(type)-\(broker)-\(accountType)-\(quantity)-\(price)" }
+    let date: String
+    let type: String       // '매수' | '매도'
+    let broker: String
+    let accountType: String
+    let quantity: Double
+    let price: Double
+    let amount: Double
+    let fee: Double
+    var isBuy: Bool { type == "매수" }
+}
+
+struct StockPosition: Codable, Identifiable {
+    var id: String { "\(broker)-\(accountType)" }
+    let broker: String
+    let accountType: String
+    let quantity: Double
+    let avgPrice: Double
+    let buyAmount: Double
+    let currentPrice: Double
+    let opCurrent: Double
+    let opProfit: Double
+    let profitRate: Double
+    let high52: Double
+    let low52: Double
+}
+
+struct StockPricePoint: Codable, Identifiable {
+    var id: String { date }
+    let date: String
+    let price: Double
+}
+
+struct StockDetailSummary: Codable {
+    let totalQuantity: Double
+    let totalBuyAmount: Double
+    let totalCurrentValue: Double
+    let totalProfit: Double
+    let profitRate: Double
+}
+
+struct StockDetailStats: Codable {
+    let transactionCount: Int
+    let buyCount: Int
+    let sellCount: Int
+    let firstBuyDate: String?
+    let lastTransactionDate: String?
+}
+
+struct StockDetailResponse: Codable {
+    let success: Bool
+    let error: String?
+    let code: String?
+    let name: String?
+    let category: String?
+    let positions: [StockPosition]?
+    let summary: StockDetailSummary?
+    let transactions: [StockTransaction]?
+    let priceHistory: [StockPricePoint]?
+    let stats: StockDetailStats?
+}
+
+// ── 월별 실현손익 ──────────────────────────────────────────
+struct MonthlyRealizedEntry: Codable, Identifiable {
+    var id: String { month }
+    let month: String
+    let count: Int
+    let winCount: Int
+    let profit: Double
+    let profitRate: Double
+    let winRate: Double
+}
+
+struct MonthlyRealizedResponse: Codable {
+    let success: Bool
+    let error: String?
+    let monthly: [MonthlyRealizedEntry]?
+}

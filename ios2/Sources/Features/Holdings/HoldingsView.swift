@@ -7,6 +7,13 @@ struct HoldingsView: View {
     @State private var sortAscending = false
     @State private var searchText = ""
     @State private var expandedHoldingId: String? = nil
+    @State private var detailStock: DetailStockSelection? = nil
+
+    struct DetailStockSelection: Identifiable {
+        let id = UUID()
+        let code: String
+        let name: String
+    }
 
     enum SortKey: String, CaseIterable {
         case allInfo    = "종목 정보"
@@ -79,12 +86,31 @@ struct HoldingsView: View {
                     Spacer()
                 } else {
                     List(filtered) { holding in
-                        HoldingCard(holding: holding, sortKey: sortKey, expandedId: $expandedHoldingId)
-                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
+                        ZStack(alignment: .topTrailing) {
+                            HoldingCard(holding: holding, sortKey: sortKey, expandedId: $expandedHoldingId)
+                            Button {
+                                detailStock = DetailStockSelection(code: holding.code, name: holding.name)
+                            } label: {
+                                Text("📊 상세")
+                                    .font(.caption2).fontWeight(.medium)
+                                    .padding(.horizontal, 8).padding(.vertical, 3)
+                                    .background(Color.accentColor.opacity(0.18))
+                                    .foregroundColor(.accentColor)
+                                    .cornerRadius(10)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.top, 10).padding(.trailing, 10)
+                        }
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                     }
                     .listStyle(.plain)
+                    .sheet(item: $detailStock) { sel in
+                        NavigationStack {
+                            StockDetailView(code: sel.code, initialName: sel.name)
+                        }
+                    }
                 }
             }
         }
