@@ -436,6 +436,13 @@ function addTransactionFromForm() {
   // 보유현황 자동 갱신
   updatePositionFromLedger();
 
+  // 신규 종목이면 *장기_가격_이력* 에 1Y 데이터 자동 백필
+  try {
+    _autoBackfillMissingCodes(ss);
+  } catch (e) {
+    Logger.log('addTransactionFromForm: 자동 백필 실패 (' + e + ')');
+  }
+
   ss.toast(`${dateStr} ${type} ${name} ${qty.toLocaleString()}주 @${price.toLocaleString()}`, '✅ 원장에 추가됨', 5);
 }
 
@@ -1076,6 +1083,9 @@ function updateNewStockHistory(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   _ensureStockStatusSheet(ss);
 
+  // *장기_가격_이력* 에 누락된 종목 자동 백필 (신규 매수 종목의 1Y 데이터 확보)
+  _autoBackfillMissingCodes(ss);
+
   const allCodes = _getActiveCodes(ss);
   if (allCodes.length === 0) return;
 
@@ -1385,6 +1395,170 @@ function _kisDateToISO(d) {
   if (/^\d{8}$/.test(s)) return s.substring(0, 4) + '-' + s.substring(4, 6) + '-' + s.substring(6, 8);
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
   return '';
+}
+
+// ═══════════════════════════════════════════════════
+//  [부분 갱신] 특정 종목들만 *장기_가격_이력* 백필
+//  - 기존 시트 데이터 보존하면서 지정 종목 컬럼만 추가/갱신
+// ═══════════════════════════════════════════════════
+function backfillLongTermHistoryForCodes(targetCodes) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!targetCodes || targetCodes.length === 0) return;
+  const codes = targetCodes.map(c => _normCode(c)).filter(Boolean);
+  if (codes.length === 0) return;
+
+  KIS_API.ensureToken();
+  const usdKrw = _getSettingsFxRate(ss, 'USD/KRW');
+
+  const histItems = codes.map(c => {
+    const isOverseas = /^[A-Za-z]{1,5}$/.test(c);
+    return {
+      code: isOverseas ? c : (/^\d+$/.test(c) ? c.padStart(6, '0') : c),
+      isOverseas, _norm: c,
+    };
+  });
+
+  const ovsCodes = codes.filter(c => /^[A-Za-z]{1,5}$/.test(c));
+  if (ovsCodes.length > 0) {
+    try {
+      const raw = KIS_API.getOverseasStockInfoBatch(ovsCodes);
+      histItems.forEach(item => {
+        if (item.isOverseas) item.exchange = (raw[item.code] && raw[item.code].exchange) || 'NAS';
+      });
+    } catch (e) {
+      histItems.forEach(item => { if (item.isOverseas) item.exchange = 'NAS'; });
+    }
+  }
+
+  const rawHist = KIS_API.fetchAllStockHistory(histItems);
+
+  // 주봉 먼저, 일봉 덮어씀 (정확도)
+  const dateMap = {};
+  histItems.forEach(item => {
+    const weeklyH = (rawHist.weekly || {})[item.code] || [];
+    weeklyH.forEach(row => {
+      const dateStr = _kisDateToISO(row.date);
+      if (!dateStr || !row.close || row.close <= 0) return;
+      if (!dateMap[dateStr]) dateMap[dateStr] = {};
+      dateMap[dateStr][item._norm] = item.isOverseas
+        ? Math.round(row.close * usdKrw) : Math.round(row.close);
+    });
+    const dailyH = (rawHist.daily || {})[item.code] || [];
+    dailyH.forEach(row => {
+      const dateStr = _kisDateToISO(row.date);
+      if (!dateStr || !row.close || row.close <= 0) return;
+      if (!dateMap[dateStr]) dateMap[dateStr] = {};
+      dateMap[dateStr][item._norm] = item.isOverseas
+        ? Math.round(row.close * usdKrw) : Math.round(row.close);
+    });
+  });
+
+  if (Object.keys(dateMap).length === 0) {
+    Logger.log('백필 [' + codes.join(',') + ']: KIS 데이터 없음');
+    return;
+  }
+
+  // 시트 보장
+  let sheet = ss.getSheetByName(NS_LONG_HISTORY);
+  if (!sheet) {
+    sheet = ss.insertSheet(NS_LONG_HISTORY);
+    sheet.getRange(1, 1).setValue('날짜')
+      .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+    sheet.setColumnWidth(1, 110);
+    sheet.setFrozenRows(1);
+    sheet.setFrozenColumns(1);
+  }
+
+  // 헤더 + 신규 컬럼
+  const curLastCol = sheet.getLastColumn();
+  let headerCodes = curLastCol >= 2
+    ? sheet.getRange(1, 2, 1, curLastCol - 1).getValues()[0].map(c => _normCode(String(c)))
+    : [];
+  codes.forEach(code => {
+    if (!headerCodes.includes(code)) {
+      const newCol = headerCodes.length + 2;
+      sheet.getRange(1, newCol).setValue(code)
+        .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+      sheet.setColumnWidth(newCol, 100);
+      headerCodes.push(code);
+    }
+  });
+
+  // 종목별 컬럼 위치
+  const codeColMap = {};
+  codes.forEach(code => {
+    const ci = headerCodes.indexOf(code);
+    if (ci >= 0) codeColMap[code] = ci + 2;
+  });
+
+  // 기존 날짜 → 행 매핑
+  const lastRow = sheet.getLastRow();
+  const dateRowMap = {};
+  if (lastRow >= 2) {
+    sheet.getRange(2, 1, lastRow - 1, 1).getValues().forEach((r, i) => {
+      const d = _toDateStr(r[0]);
+      if (d) dateRowMap[d] = i + 2;
+    });
+  }
+
+  const sortedDates = Object.keys(dateMap).sort();
+  const newDates    = sortedDates.filter(d => !(d in dateRowMap));
+
+  // 기존 날짜 행에 신규 종목 셀 채움
+  sortedDates.forEach(date => {
+    const row = dateRowMap[date];
+    if (!row) return;
+    Object.keys(dateMap[date]).forEach(code => {
+      const col = codeColMap[code];
+      if (col) sheet.getRange(row, col).setValue(dateMap[date][code]).setNumberFormat('#,##0');
+    });
+  });
+
+  // 신규 날짜 행 추가 후 정렬
+  if (newDates.length > 0) {
+    const cols = sheet.getLastColumn();
+    const writeStart = sheet.getLastRow() + 1;
+    const rows = newDates.map(d => {
+      const row = new Array(cols).fill('');
+      row[0] = d;
+      Object.keys(dateMap[d]).forEach(code => {
+        const col = codeColMap[code];
+        if (col) row[col - 1] = dateMap[d][code];
+      });
+      return row;
+    });
+    sheet.getRange(writeStart, 1, rows.length, cols).setValues(rows);
+    sheet.getRange(writeStart, 2, rows.length, cols - 1).setNumberFormat('#,##0');
+    sheet.getRange(2, 1, sheet.getLastRow() - 1, cols).sort({ column: 1, ascending: true });
+  }
+
+  Logger.log('백필 [' + codes.join(',') + '] 완료: ' + sortedDates.length + '개 날짜 (신규 ' + newDates.length + ')');
+}
+
+// ═══════════════════════════════════════════════════
+//  [자동] *장기_가격_이력* 에 누락된 활성 보유 종목 자동 백필
+//  - updateNewStockHistory 시작 시 호출
+//  - addTransactionFromForm 시 새 매수 종목 백필
+// ═══════════════════════════════════════════════════
+function _autoBackfillMissingCodes(ss) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(NS_LONG_HISTORY);
+  if (!sheet) return;  // 시트 자체가 없으면 사용자가 backfillLongTermHistory 1회 호출 필요
+
+  const lastCol = sheet.getLastColumn();
+  const headerCodes = lastCol >= 2
+    ? sheet.getRange(1, 2, 1, lastCol - 1).getValues()[0].map(c => _normCode(String(c)))
+    : [];
+  const activeCodes = _getActiveCodes(ss).map(c => _normCode(c));
+  const missing = activeCodes.filter(c => c && !headerCodes.includes(c));
+  if (missing.length === 0) return;
+
+  Logger.log('신규 종목 자동 백필 대상: ' + missing.join(', '));
+  try {
+    backfillLongTermHistoryForCodes(missing);
+  } catch (e) {
+    Logger.log('자동 백필 실패: ' + e);
+  }
 }
 
 // Main.js 호환 wrapper
