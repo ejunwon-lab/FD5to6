@@ -41,10 +41,14 @@ export function ProfitHistoryChart({ entries, loading, error }: ProfitHistoryCha
     ? filtered[filtered.length - 1].totalProfit - filtered[0].totalProfit
     : 0
 
+  // 일별 변동량 (diff): 각 날 합계수익 - 전날 합계수익
+  const diffs = filtered.length >= 2
+    ? filtered.slice(1).map((e, i) => e.totalProfit - filtered[i].totalProfit)
+    : []
   const stats = {
-    avg: profits.length ? profits.reduce((a, b) => a + b, 0) / profits.length : 0,
-    max: maxProfit,
-    min: minProfit,
+    avg: diffs.length ? diffs.reduce((a, b) => a + b, 0) / diffs.length : 0,
+    max: diffs.length ? Math.max(...diffs) : 0,
+    min: diffs.length ? Math.min(...diffs) : 0,
   }
 
   const lineColor = rangeProfit >= 0 ? '#D91919' : '#0D5AD9'
