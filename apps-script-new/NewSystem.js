@@ -1166,6 +1166,16 @@ function updateNewStockStatus(ss) {
   updateNewStockHistory(ss);
 }
 
+// raw 값(Date 객체/문자열/datetime) → 'yyyy-MM-dd' 안전 변환
+function _toDateStr(raw) {
+  if (raw == null) return '';
+  if (raw instanceof Date) return Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd');
+  const s = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const dt = new Date(s);
+  return isNaN(dt.getTime()) ? '' : Utilities.formatDate(dt, 'Asia/Seoul', 'yyyy-MM-dd');
+}
+
 function _updatePriceHistory(ss, allCodes, statusMap, now) {
   const sheet = ss.getSheetByName(NS.PRICE_HISTORY);
   if (!sheet) return;
@@ -1185,27 +1195,196 @@ function _updatePriceHistory(ss, allCodes, statusMap, now) {
     }
   });
 
-  // 오늘 날짜 행 upsert
+  // 오늘 날짜 행 upsert + 중복 정리
   const today   = Utilities.formatDate(now, 'Asia/Seoul', 'yyyy-MM-dd');
-  const todayDT = Utilities.formatDate(now, 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
   const lastDataRow = sheet.getLastRow();
   let writeRow = lastDataRow + 1;
+  const todayRows = [];
   if (lastDataRow >= 2) {
     const dates = sheet.getRange(2, 1, lastDataRow - 1, 1).getValues();
     for (let i = 0; i < dates.length; i++) {
-      const raw = dates[i][0];
-      const d   = raw instanceof Date
-        ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
-        : String(raw).slice(0, 10);
-      if (d === today) { writeRow = i + 2; break; }
+      if (_toDateStr(dates[i][0]) === today) todayRows.push(i + 2);
+    }
+  }
+  if (todayRows.length === 0) {
+    writeRow = lastDataRow + 1;
+  } else {
+    writeRow = todayRows[0];
+    // 같은 날짜 중복 행 정리 (첫 행에 upsert, 나머지 삭제 — 뒤에서부터)
+    for (let i = todayRows.length - 1; i >= 1; i--) {
+      sheet.deleteRow(todayRows[i]);
     }
   }
 
   const priceRow = existingCodes.map(code => (statusMap[code] && statusMap[code].price) || '');
-  sheet.getRange(writeRow, 1).setValue(todayDT);
+  sheet.getRange(writeRow, 1).setValue(today);  // 'yyyy-MM-dd' 만 (시각 제거 — 일관성)
   if (priceRow.length > 0) {
     sheet.getRange(writeRow, 2, 1, priceRow.length).setValues([priceRow]).setNumberFormat('#,##0');
   }
+}
+
+// ═══════════════════════════════════════════════════
+//  [수동 실행 1회] *현재가_이력* 중복 날짜 행 일괄 정리
+//  같은 날짜 여러 행 → 마지막 행(가장 최신 입력) 의 값만 유지
+// ═══════════════════════════════════════════════════
+function dedupPriceHistory() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(NS.PRICE_HISTORY);
+  if (!sheet || sheet.getLastRow() < 3) { Logger.log('정리: 데이터 부족'); return; }
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  const data    = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  // dateStr → 마지막 행의 데이터 (덮어쓰기 — 시트 순서가 시간 순이라 마지막이 가장 최신)
+  const dateMap = {};
+  data.forEach(row => {
+    const d = _toDateStr(row[0]);
+    if (!d) return;
+    // 빈 가격 셀은 기존 값 유지
+    if (!dateMap[d]) dateMap[d] = row.slice();
+    else {
+      for (let j = 1; j < row.length; j++) {
+        const v = row[j];
+        if (v !== '' && v != null) dateMap[d][j] = v;
+      }
+      dateMap[d][0] = d;
+    }
+  });
+
+  const sortedDates = Object.keys(dateMap).sort();
+  // 기존 데이터 영역 지우기
+  sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
+
+  // 정리된 데이터 다시 기록
+  const out = sortedDates.map(d => {
+    const r = dateMap[d];
+    r[0] = d;
+    return r;
+  });
+  if (out.length > 0) {
+    sheet.getRange(2, 1, out.length, lastCol).setValues(out);
+    sheet.getRange(2, 2, out.length, lastCol - 1).setNumberFormat('#,##0');
+  }
+  Logger.log('정리 완료: ' + data.length + '행 → ' + out.length + '행');
+}
+
+// ═══════════════════════════════════════════════════
+//  [수동 실행 1회] *장기_가격_이력* 시트 백필
+//  - KIS API 일봉 4개월 + 주봉 1년 2개월 → wide 포맷 시트
+//  - 일봉이 같은 날짜에 있으면 일봉 우선 (정확도 ↑)
+//  - _calcReturnFromHistory 가 이 시트도 참조하여 1Y 정확도 개선
+// ═══════════════════════════════════════════════════
+const NS_LONG_HISTORY = '*장기_가격_이력*';
+
+function backfillLongTermHistory() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const allCodes = _getActiveCodes(ss);
+  if (allCodes.length === 0) { Logger.log('장기 백필: 활성 종목 없음'); return; }
+
+  KIS_API.ensureToken();
+  const usdKrw = _getSettingsFxRate(ss, 'USD/KRW');
+
+  const domCodes = allCodes.filter(c => !/^[A-Za-z]{1,5}$/.test(c));
+  const ovsCodes = allCodes.filter(c => /^[A-Za-z]{1,5}$/.test(c));
+
+  const ovsExchangeMap = {};
+  if (ovsCodes.length > 0) {
+    try {
+      const raw = KIS_API.getOverseasStockInfoBatch(ovsCodes);
+      ovsCodes.forEach(c => { ovsExchangeMap[c] = (raw[c] && raw[c].exchange) || 'NAS'; });
+    } catch (e) {
+      ovsCodes.forEach(c => { ovsExchangeMap[c] = 'NAS'; });
+    }
+  }
+
+  const histItems = [
+    ...domCodes.map(c => ({
+      code: /^\d+$/.test(c) ? c.padStart(6, '0') : c,
+      isOverseas: false, _norm: c
+    })),
+    ...ovsCodes.map(c => ({
+      code: c, isOverseas: true,
+      exchange: ovsExchangeMap[c] || 'NAS', _norm: c
+    })),
+  ];
+
+  Logger.log('장기 백필: ' + histItems.length + '개 종목 일봉(4M) + 주봉(1Y2M) 조회 중...');
+  const rawHist = KIS_API.fetchAllStockHistory(histItems);
+
+  const dateMap = {};
+  // 주봉 먼저 (덜 정확, 멀리)
+  histItems.forEach(item => {
+    const weeklyH = (rawHist.weekly || {})[item.code] || [];
+    weeklyH.forEach(row => {
+      const dateStr = _kisDateToISO(row.date);
+      if (!dateStr || !row.close || row.close <= 0) return;
+      if (!dateMap[dateStr]) dateMap[dateStr] = {};
+      dateMap[dateStr][item._norm] = item.isOverseas
+        ? Math.round(row.close * usdKrw)
+        : Math.round(row.close);
+    });
+  });
+  // 일봉 (4개월) 덮어쓰기 — 같은 날짜면 일봉이 더 정확
+  histItems.forEach(item => {
+    const dailyH = (rawHist.daily || {})[item.code] || [];
+    dailyH.forEach(row => {
+      const dateStr = _kisDateToISO(row.date);
+      if (!dateStr || !row.close || row.close <= 0) return;
+      if (!dateMap[dateStr]) dateMap[dateStr] = {};
+      dateMap[dateStr][item._norm] = item.isOverseas
+        ? Math.round(row.close * usdKrw)
+        : Math.round(row.close);
+    });
+  });
+
+  const sortedDates = Object.keys(dateMap).sort();
+  if (sortedDates.length === 0) { Logger.log('장기 백필: 조회된 이력 없음'); return; }
+
+  // 시트 보장
+  let sheet = ss.getSheetByName(NS_LONG_HISTORY);
+  if (!sheet) {
+    sheet = ss.insertSheet(NS_LONG_HISTORY);
+    sheet.getRange(1, 1).setValue('날짜')
+      .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+    sheet.setColumnWidth(1, 110);
+    sheet.setFrozenRows(1);
+    sheet.setFrozenColumns(1);
+  }
+
+  // 헤더 코드 정리
+  const curLastCol = sheet.getLastColumn();
+  const headerCodes = curLastCol >= 2
+    ? sheet.getRange(1, 2, 1, curLastCol - 1).getValues()[0].map(c => _normCode(String(c)))
+    : [];
+  allCodes.forEach(code => {
+    if (!headerCodes.includes(code)) {
+      const newCol = headerCodes.length + 2;
+      sheet.getRange(1, newCol).setValue(code)
+        .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+      sheet.setColumnWidth(newCol, 100);
+      headerCodes.push(code);
+    }
+  });
+
+  // 기존 데이터 영역 지우고 새로 기록 (백필이라 idempotent)
+  const lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).clearContent();
+  }
+  const rows = sortedDates.map(d => [d].concat(headerCodes.map(code => dateMap[d][code] || '')));
+  sheet.getRange(2, 1, rows.length, headerCodes.length + 1).setValues(rows);
+  sheet.getRange(2, 2, rows.length, headerCodes.length).setNumberFormat('#,##0');
+
+  Logger.log('장기 백필 완료: ' + sortedDates.length + '개 날짜 × ' + headerCodes.length + '개 종목 (' + sortedDates[0] + ' ~ ' + sortedDates[sortedDates.length - 1] + ')');
+}
+
+function _kisDateToISO(d) {
+  if (!d) return '';
+  const s = String(d);
+  if (/^\d{8}$/.test(s)) return s.substring(0, 4) + '-' + s.substring(4, 6) + '-' + s.substring(6, 8);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return '';
 }
 
 // Main.js 호환 wrapper
@@ -1286,39 +1465,34 @@ function debugPriceHistoryFor(code, currentPrice) {
 }
 
 /**
- * *현재가_이력* 시트 기반 1M/3M/6M/1Y 수익률 직접 계산.
+ * *현재가_이력* + *장기_가격_이력* 시트 기반 1M/3M/6M/1Y 수익률 직접 계산.
  * KIS API 주봉 데이터의 ±7일 오차 + 신규 상장 종목 과거 데이터 부족 문제를 해결.
  *
- * @return { return1M, return3M, return6M, return1Y } 또는 null (이력 부재)
- *         각 항목은 '12.34%' 문자열 또는 null (해당 기간 데이터 없음)
+ * 두 시트 합쳐서 같은 날짜 중복 시 *현재가_이력* (일별 정확) 우선.
+ *
+ * @return { return1M, return3M, return6M, return1Y } 또는 null
  */
 function _calcReturnFromHistory(ss, normCode, currentPrice) {
-  const sheet = ss.getSheetByName(NS.PRICE_HISTORY);
-  if (!sheet || sheet.getLastRow() < 2 || sheet.getLastColumn() < 2) return null;
+  // dateStr → price (같은 날짜 중복 시 일별 데이터 우선)
+  const priceByDate = {};
 
-  const lastCol = sheet.getLastColumn();
-  const headers = sheet.getRange(1, 2, 1, lastCol - 1).getValues()[0].map(_normCode);
-  const colIdx  = headers.indexOf(normCode);
-  if (colIdx < 0) return null;
-  const dataCol = colIdx + 2;
-
-  const lastRow    = sheet.getLastRow();
-  const dateVals   = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  const priceVals  = sheet.getRange(2, dataCol, lastRow - 1, 1).getValues();
-
-  const points = [];
-  for (let i = 0; i < dateVals.length; i++) {
-    const raw = dateVals[i][0];
-    if (!raw) continue;
-    const d = raw instanceof Date ? raw : new Date(String(raw).slice(0, 10));
-    if (isNaN(d.getTime())) continue;
-    const p = Number(priceVals[i][0]);
-    if (!isFinite(p) || p <= 0) continue;
-    points.push({ date: d, price: p });
+  // 1) *장기_가격_이력* 먼저 (멀리, 주봉 포함)
+  const longSheet = ss.getSheetByName(NS_LONG_HISTORY);
+  if (longSheet && longSheet.getLastRow() >= 2 && longSheet.getLastColumn() >= 2) {
+    _collectPricesFromSheet(longSheet, normCode, priceByDate);
   }
+  // 2) *현재가_이력* (최근, 일별, 더 정확) — 같은 날짜면 덮어씀
+  const currentSheet = ss.getSheetByName(NS.PRICE_HISTORY);
+  if (currentSheet && currentSheet.getLastRow() >= 2 && currentSheet.getLastColumn() >= 2) {
+    _collectPricesFromSheet(currentSheet, normCode, priceByDate);
+  }
+
+  const points = Object.keys(priceByDate)
+    .map(d => ({ date: new Date(d), price: priceByDate[d] }))
+    .filter(p => !isNaN(p.date.getTime()) && isFinite(p.price) && p.price > 0);
   if (points.length === 0) return null;
 
-  points.sort((a, b) => b.date - a.date);  // 내림차순 (최신 먼저)
+  points.sort((a, b) => b.date - a.date);
 
   const now = new Date();
   const findPriceAgo = (months) => {
@@ -1335,6 +1509,25 @@ function _calcReturnFromHistory(ss, normCode, currentPrice) {
     return6M: calcRate(findPriceAgo(6)),
     return1Y: calcRate(findPriceAgo(12)),
   };
+}
+
+// 시트에서 종목 코드에 해당하는 (날짜 → 가격) 매핑을 priceByDate 에 누적
+function _collectPricesFromSheet(sheet, normCode, priceByDate) {
+  const lastCol = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 2, 1, lastCol - 1).getValues()[0].map(_normCode);
+  const colIdx  = headers.indexOf(normCode);
+  if (colIdx < 0) return;
+  const dataCol = colIdx + 2;
+  const lastRow = sheet.getLastRow();
+  const dateVals  = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  const priceVals = sheet.getRange(2, dataCol, lastRow - 1, 1).getValues();
+  for (let i = 0; i < dateVals.length; i++) {
+    const dStr = _toDateStr(dateVals[i][0]);
+    if (!dStr) continue;
+    const p = Number(priceVals[i][0]);
+    if (!isFinite(p) || p <= 0) continue;
+    priceByDate[dStr] = p;
+  }
 }
 
 /**
