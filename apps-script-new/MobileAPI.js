@@ -57,7 +57,8 @@ function newMobileGetPortfolio() {
     const prevCur   = totalCur - dayChange;
     const dayPct    = prevCur > 0 ? dayChange / prevCur * 100 : 0;
 
-    const isMarketDay = _mIsMarketDay();
+    const isMarketDay  = _mIsMarketDay();
+    const isTradingDay = _mIsTradingDay();
 
     // *추이 기록* 최신 행에서 AH/AI(거래일 캐시) + AJ/AK(전일 백업) 읽기
     let dayChangAmountOut  = dayChange;
@@ -110,6 +111,7 @@ function newMobileGetPortfolio() {
       prevDayChangAmount,
       prevDayChangePct,
       isMarketDay,
+      isTradingDay,
     };
 
     const byCategory = _mGroupBy(posRows, 2, totalCur);
@@ -478,6 +480,16 @@ function _mIsMarketDay() {
   if (_isKoreanHoliday(now)) return false;
   const hhmm = parseInt(Utilities.formatDate(now, tz, 'HHmm'), 10);
   return hhmm >= 900 && hhmm <= 1530;
+}
+
+// 거래일 판단 (시간 무관): 평일이고 공휴일 아님
+function _mIsTradingDay() {
+  const now     = new Date();
+  const tz      = 'Asia/Seoul';
+  const weekday = parseInt(Utilities.formatDate(now, tz, 'u'));
+  if (weekday >= 6) return false;
+  if (_isKoreanHoliday(now)) return false;
+  return true;
 }
 
 function _mGroupBy(posRows, colIdx, totalCur) {
