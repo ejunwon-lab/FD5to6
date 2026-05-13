@@ -176,7 +176,7 @@ function MainApp() {
         <HoldingsPage portfolio={portfolio} isLoading={isLoadingPortfolio} error={portfolioError} />
       </div>}
       {visited.has('analysis')   && <div className={activeTab === 'analysis'   ? '' : 'hidden'}>
-        <AnalysisPage portfolio={portfolio} isLoading={isLoadingPortfolio} error={portfolioError} />
+        <AnalysisPage portfolio={portfolio} isLoading={isLoadingPortfolio} error={portfolioError} historyEntries={historyEntries} />
       </div>}
       <TabBar active={activeTab} onChange={handleTabChange} />
     </div>

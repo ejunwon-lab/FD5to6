@@ -1,17 +1,20 @@
-import type { PortfolioResponse, IndicatorsResponse, TrendHistoryResponse } from '../models/types'
+import type {
+  PortfolioResponse, IndicatorsResponse, TrendHistoryResponse,
+  StockDetailResponse, MonthlyRealizedResponse,
+} from '../models/types'
 
 // 신시스템 GAS Script ID (이전 구시스템: 12MAcPpoVE39N_Sz0B79G0rjGvevJ8-S_ibVC1Ot61fyVPZnaSQmrJyiR)
 const SCRIPT_ID = '1DC8llpWYz2ZvzsqVCaz60qomATwxP_CBzuHBitCf0uQT5NbBF-n7IHdZ'
 const BASE_URL = 'https://script.googleapis.com/v1/scripts'
 
-async function callGAS<T>(functionName: string, token: string): Promise<T> {
+async function callGAS<T>(functionName: string, token: string, parameters?: unknown[]): Promise<T> {
   const res = await fetch(`${BASE_URL}/${SCRIPT_ID}:run`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ function: functionName, devMode: true }),
+    body: JSON.stringify({ function: functionName, devMode: true, parameters: parameters || [] }),
   })
 
   if (!res.ok) {
@@ -42,4 +45,8 @@ export const gasApi = {
   updateAll:       (token: string) => callGAS<PortfolioResponse>('newMobileUpdateAll', token),
   getIndicators:   (token: string) => callGAS<IndicatorsResponse>('newMobileGetIndicators', token),
   getProfitHistory:(token: string) => callGAS<TrendHistoryResponse>('newMobileGetProfitHistory', token),
+  getStockDetail:  (token: string, code: string) =>
+    callGAS<StockDetailResponse>('newMobileGetStockDetail', token, [code]),
+  getMonthlyRealized: (token: string) =>
+    callGAS<MonthlyRealizedResponse>('newMobileGetMonthlyRealized', token),
 }

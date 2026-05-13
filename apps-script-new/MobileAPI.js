@@ -302,6 +302,179 @@ function newMobileGetIndicators() {
 }
 
 // ══════════════════════════════════════════════════════
+//  종목 상세 — 종목명·거래 이력·가격 시계열·통계
+// ══════════════════════════════════════════════════════
+
+function newMobileGetStockDetail(code) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const normCode = _mNormCode(code);
+
+    // 1) 보유 정보 (브로커·계좌별 합산)
+    const posSheet = ss.getSheetByName(NS.POSITION);
+    const positions = [];
+    let stockName = '', stockCategory = '';
+    if (posSheet && posSheet.getLastRow() >= 2) {
+      const rows = posSheet.getRange(2, 1, posSheet.getLastRow() - 1, 23).getValues();
+      rows.forEach(r => {
+        if (_mNormCode(r[0]) !== normCode) return;
+        if (Number(r[6]) <= 0) return;
+        stockName = String(r[1]); stockCategory = String(r[2]);
+        positions.push({
+          broker: String(r[3]), accountType: String(r[4]),
+          quantity: Number(r[6])  || 0,
+          avgPrice: Number(r[7])  || 0,
+          buyAmount: Number(r[8]) || 0,
+          currentPrice: Number(r[9]) || 0,
+          opCurrent: Number(r[10]) || 0,
+          opProfit:  Number(r[11]) || 0,
+          profitRate: Number(r[12]) || 0,
+          high52: Number(r[21]) || 0,
+          low52:  Number(r[22]) || 0,
+        });
+      });
+    }
+
+    // 2) 거래 이력
+    const ledger = ss.getSheetByName(NS.LEDGER);
+    const transactions = [];
+    if (ledger && ledger.getLastRow() >= 2) {
+      const rows = ledger.getRange(2, 1, ledger.getLastRow() - 1, 12).getValues();
+      rows.forEach(r => {
+        if (_mNormCode(r[2]) !== normCode) return;
+        const date = r[0] instanceof Date
+          ? Utilities.formatDate(r[0], 'Asia/Seoul', 'yyyy-MM-dd')
+          : String(r[0]).slice(0, 10);
+        if (!stockName) stockName = String(r[3] || '');
+        if (!stockCategory) stockCategory = String(r[4] || '');
+        transactions.push({
+          date,
+          type: String(r[1]),
+          broker: String(r[5]),
+          accountType: String(r[6]),
+          quantity: Number(r[7]) || 0,
+          price: Number(r[8]) || 0,
+          amount: Number(r[9]) || 0,
+          fee: Number(r[10]) || 0,
+        });
+      });
+      transactions.sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    // 3) 가격 시계열 (*현재가_이력* + *장기_가격_이력* 통합)
+    const priceByDate = {};
+    [NS.PRICE_HISTORY, '*장기_가격_이력*'].forEach(sheetName => {
+      const sheet = ss.getSheetByName(sheetName);
+      if (!sheet || sheet.getLastRow() < 2 || sheet.getLastColumn() < 2) return;
+      const lastCol = sheet.getLastColumn();
+      const headers = sheet.getRange(1, 2, 1, lastCol - 1).getValues()[0].map(_mNormCode);
+      const colIdx  = headers.indexOf(normCode);
+      if (colIdx < 0) return;
+      const dataCol = colIdx + 2;
+      const lastRow = sheet.getLastRow();
+      const dates   = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      const prices  = sheet.getRange(2, dataCol, lastRow - 1, 1).getValues();
+      for (let i = 0; i < dates.length; i++) {
+        const raw = dates[i][0];
+        if (!raw) continue;
+        const d = raw instanceof Date
+          ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
+          : String(raw).slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+        const p = Number(prices[i][0]);
+        if (!isFinite(p) || p <= 0) continue;
+        priceByDate[d] = p;  // *현재가_이력* 가 *장기* 보다 나중 처리 — 같은 날 일별 우선
+      }
+    });
+    const priceHistory = Object.keys(priceByDate).sort()
+      .map(d => ({ date: d, price: priceByDate[d] }));
+
+    // 4) 통계
+    const buyTx  = transactions.filter(t => t.type === '매수');
+    const sellTx = transactions.filter(t => t.type === '매도');
+    const totalQty   = positions.reduce((s, p) => s + p.quantity, 0);
+    const totalBuy   = positions.reduce((s, p) => s + p.buyAmount, 0);
+    const totalCur   = positions.reduce((s, p) => s + p.opCurrent, 0);
+    const totalProfit= positions.reduce((s, p) => s + p.opProfit, 0);
+    const overallRate = totalBuy > 0 ? totalProfit / totalBuy * 100 : 0;
+
+    return JSON.stringify({
+      success: true,
+      code: String(code),
+      name: stockName,
+      category: stockCategory,
+      positions: positions,
+      summary: {
+        totalQuantity: totalQty,
+        totalBuyAmount: totalBuy,
+        totalCurrentValue: totalCur,
+        totalProfit: totalProfit,
+        profitRate: overallRate,
+      },
+      transactions: transactions,
+      priceHistory: priceHistory,
+      stats: {
+        transactionCount: transactions.length,
+        buyCount: buyTx.length,
+        sellCount: sellTx.length,
+        firstBuyDate: buyTx[0] ? buyTx[0].date : null,
+        lastTransactionDate: transactions.length > 0 ? transactions[transactions.length - 1].date : null,
+      },
+    });
+  } catch (e) {
+    Logger.log('newMobileGetStockDetail 오류: ' + e);
+    return JSON.stringify({ success: false, error: String(e) });
+  }
+}
+
+function _mNormCode(c) {
+  const s = String(c || '').trim().toUpperCase();
+  if (!s) return '';
+  const stripped = s.replace(/^A(?=\d)/, '');
+  return /^\d+$/.test(stripped) ? String(parseInt(stripped, 10)) : stripped;
+}
+
+// ══════════════════════════════════════════════════════
+//  월별 실현손익 (*실현손익* 시트)
+// ══════════════════════════════════════════════════════
+
+function newMobileGetMonthlyRealized() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const pnlSheet = ss.getSheetByName(NS.REALIZED_PNL);
+    if (!pnlSheet || pnlSheet.getLastRow() < 2) {
+      return JSON.stringify({ success: true, monthly: [] });
+    }
+    const rows = pnlSheet.getRange(2, 1, pnlSheet.getLastRow() - 1, 14).getValues()
+      .filter(r => r[0] && String(r[0]) !== '합계');
+
+    const map = {};
+    rows.forEach(r => {
+      const m = String(r[0]).slice(0, 7);  // 'yyyy-MM'
+      if (!map[m]) map[m] = { month: m, count: 0, winCount: 0, profit: 0, buyAmount: 0 };
+      const p = Number(r[12]) || 0;
+      const buy = Number(r[10]) || 0;
+      map[m].count++;
+      map[m].profit += p;
+      map[m].buyAmount += buy;
+      if (p > 0) map[m].winCount++;
+    });
+    const monthly = Object.keys(map).sort().map(m => ({
+      month: m,
+      count: map[m].count,
+      winCount: map[m].winCount,
+      profit: map[m].profit,
+      profitRate: map[m].buyAmount > 0 ? map[m].profit / map[m].buyAmount * 100 : 0,
+      winRate: map[m].count > 0 ? map[m].winCount / map[m].count * 100 : 0,
+    }));
+    return JSON.stringify({ success: true, monthly });
+  } catch (e) {
+    Logger.log('newMobileGetMonthlyRealized 오류: ' + e);
+    return JSON.stringify({ success: false, error: String(e) });
+  }
+}
+
+// ══════════════════════════════════════════════════════
 //  수익 히스토리 (*현재가_이력* 기반 근사 계산)
 //  현재 보유수량 × 과거 가격으로 포트폴리오 가치 추산
 // ══════════════════════════════════════════════════════

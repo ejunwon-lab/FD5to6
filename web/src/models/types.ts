@@ -88,3 +88,75 @@ export interface TrendHistoryResponse {
   error?: string
   entries?: TrendEntry[]
 }
+
+// 종목 상세
+export interface StockTransaction {
+  date: string
+  type: '매수' | '매도'
+  broker: string
+  accountType: string
+  quantity: number
+  price: number
+  amount: number
+  fee: number
+}
+
+export interface StockPosition {
+  broker: string
+  accountType: string
+  quantity: number
+  avgPrice: number
+  buyAmount: number
+  currentPrice: number
+  opCurrent: number
+  opProfit: number
+  profitRate: number
+  high52: number
+  low52: number
+}
+
+export interface StockPricePoint {
+  date: string
+  price: number
+}
+
+export interface StockDetailResponse {
+  success: boolean
+  error?: string
+  code?: string
+  name?: string
+  category?: string
+  positions?: StockPosition[]
+  summary?: {
+    totalQuantity: number
+    totalBuyAmount: number
+    totalCurrentValue: number
+    totalProfit: number
+    profitRate: number
+  }
+  transactions?: StockTransaction[]
+  priceHistory?: StockPricePoint[]
+  stats?: {
+    transactionCount: number
+    buyCount: number
+    sellCount: number
+    firstBuyDate: string | null
+    lastTransactionDate: string | null
+  }
+}
+
+// 월별 실현손익
+export interface MonthlyRealizedEntry {
+  month: string         // 'yyyy-MM'
+  count: number
+  winCount: number
+  profit: number
+  profitRate: number
+  winRate: number
+}
+
+export interface MonthlyRealizedResponse {
+  success: boolean
+  error?: string
+  monthly?: MonthlyRealizedEntry[]
+}
