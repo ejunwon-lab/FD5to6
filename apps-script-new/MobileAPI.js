@@ -19,9 +19,14 @@ function newMobileGetPortfolio() {
       return JSON.stringify({ success: false, error: '*보유현황* 없음. updatePositionFromLedger 먼저 실행하세요.' });
     }
 
+    // 펀드·예금·보험·기타는 종목 리스트에서 제외 (KIS API 미지원·시세 무관)
     const posRows = posSheet.getLastRow() >= 2
       ? posSheet.getRange(2, 1, posSheet.getLastRow() - 1, 23).getValues()
-          .filter(r => String(r[1]) !== '합계' && String(r[0]) !== '합계' && Number(r[6]) > 0)
+          .filter(r =>
+            String(r[1]) !== '합계' &&
+            String(r[0]) !== '합계' &&
+            Number(r[6]) > 0 &&
+            !NS.KIS_SKIP.includes(String(r[2]).trim()))
       : [];
 
     // ⚠️ 합계행은 r[0]='합계' / r[2]=''(빈 종목명). r[0] 기준으로 필터해야 합계행 제외됨
