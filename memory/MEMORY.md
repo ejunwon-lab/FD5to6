@@ -10,6 +10,7 @@
 - [XcodeGen 재생성 시 서명 설정](feedback_xcodegen_signing.md) — xcodegen 전 project.yml에 CODE_SIGN_STYLE 등 서명 설정 명시 확인
 - [옵션 먼저 설명](feedback_options_first.md) — 설정/방법 제안 시 선택지와 trade-off 먼저 설명, 결정은 사용자에게
 - [작업 전 승인 필수](feedback_confirm_before_action.md) — 방향 설명 → 상의 → 승인 후 진행. 제약 감안해서 먼저 물어볼 것
+- [가정은 코드 짜기 전에 명시](feedback_state_assumptions.md) — 데이터 정의·컬럼 의미·매핑 등 가정은 코드 작성 전에 1줄로 명시하고 확인받기
 - [할 수 있는 건 바로 실행](feedback_just_do_it.md) — 배포·커밋 등 직접 실행 가능한 작업은 사용자에게 넘기지 않고 바로 한다
 - [GAS 에디터 직접 실행 시 getUi() 금지](feedback_gas_editor_ui.md) — setup/trigger 등록 함수에서 getUi().alert() 쓰면 에디터에서 멈춤, Logger.log() 사용
 - [존댓말 사용 필수](feedback_speech_level.md) — 모든 한국어 대화에서 예외 없이 존댓말 사용
