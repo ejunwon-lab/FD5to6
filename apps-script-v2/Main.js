@@ -9,11 +9,24 @@ function onOpen() {
     .addItem('💹 현재가만 업데이트', 'menuUpdatePricesOnly')
     .addItem('📋 보유현황 재계산', 'updatePositionFromLedger')
     .addItem('📊 대시보드 갱신', 'buildDashboard')
+    .addSeparator()
+    .addItem('⏰ 매일 17:30 자동 트리거 등록', 'setupDailyTrigger')
+    .addItem('🗑️ 자동 트리거 해제', 'deleteDailyTrigger')
     .addToUi();
+
+  // 시트 열 때 *대시보드* 자동 활성화
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const dash = ss.getSheetByName(DB.SHEET);
+    if (dash) ss.setActiveSheet(dash);
+  } catch (e) {
+    Logger.log('대시보드 활성화 실패: ' + e);
+  }
 }
 
 function onEdit(e) {
   _handleFormOnEdit(e);
+  _handleDashSortChange(e);
 }
 
 // ══════════════════════════════════════════
@@ -30,12 +43,17 @@ function updateAllNew() {
     updateFxRates(ss);
     updateNewPriceHistory(ss);
     updatePositionFromLedger();
+    logToTrendSheet(ss);
+    buildDashboard();
     ss.toast('전체 업데이트 완료', '✅', 4);
   } catch (e) {
     ss.toast('오류: ' + e.message, '❌', 5);
     Logger.log('updateAllNew 오류: ' + e);
   }
 }
+
+// 시트 버튼/메뉴에 옛 함수명이 할당돼 있을 수 있어 alias 유지
+function menuUpdateAll() { updateAllNew(); }
 
 function menuUpdatePricesOnly() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -62,8 +80,8 @@ function setupDailyTrigger() {
   deleteDailyTrigger();
   ScriptApp.newTrigger('scheduledDailyUpdate')
     .timeBased()
-    .atHour(18)
-    .nearMinute(0)
+    .atHour(17)
+    .nearMinute(30)
     .everyDays(1)
     .create();
   Logger.log('트리거 설정 완료: 매일 17:30 scheduledDailyUpdate');

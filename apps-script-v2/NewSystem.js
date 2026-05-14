@@ -18,6 +18,7 @@ const NS = {
   POSITION:      '*보유현황*',
   REALIZED_PNL:  '*실현손익*',
   SETTINGS:      '*설정*',
+  TREND:         '*추이 기록*',
 
   BROKERS:    ['미래에셋투자증권', '삼성증권'],
   ACCOUNTS: {
@@ -504,21 +505,26 @@ function updatePositionFromLedger() {
     .filter(p => p.qty > 0.0001)
     .sort((a, b) => a.broker.localeCompare(b.broker) || a.acct.localeCompare(b.acct));
 
-  // KIS_SKIP 행 백업 (펀드·예금·보험 수동입력 보존)
-  const skipRowMap = {};
+  // KIS_SKIP 행 백업 (펀드·예금·보험 수동입력 + 수식 보존)
+  const skipRowMap     = {};   // 값 백업
+  const skipFormulaMap = {};   // 수식 백업 (사용자가 K/L/M 등에 건 수식)
   if (posSheet.getLastRow() > 1) {
     const sheetCols   = posSheet.getLastColumn();
     const isOldLayout = sheetCols < 15;
-    posSheet.getRange(2, 1, posSheet.getLastRow() - 1, sheetCols).getValues()
-      .forEach(r => {
-        if (String(r[1]).trim() === '합계' || String(r[0]).trim() === '합계') return;
-        const cat = String(r[2]).trim();
-        if (!NS.KIS_SKIP.includes(cat)) return;
-        const k   = `${String(r[1]).trim()}|${String(r[3]).trim()}|${String(r[4]).trim()}`;
-        let row   = r.slice(0, sheetCols);
-        if (isOldLayout) row.splice(5, 0, '');
-        skipRowMap[k] = row.slice(0, 15);
-      });
+    const rng         = posSheet.getRange(2, 1, posSheet.getLastRow() - 1, sheetCols);
+    const allValues   = rng.getValues();
+    const allFormulas = rng.getFormulas();
+    allValues.forEach((r, i) => {
+      if (String(r[1]).trim() === '합계' || String(r[0]).trim() === '합계') return;
+      const cat = String(r[2]).trim();
+      if (!NS.KIS_SKIP.includes(cat)) return;
+      const k = `${String(r[1]).trim()}|${String(r[3]).trim()}|${String(r[4]).trim()}`;
+      let row = r.slice(0, sheetCols);
+      let fml = allFormulas[i].slice(0, sheetCols);
+      if (isOldLayout) { row.splice(5, 0, ''); fml.splice(5, 0, ''); }
+      skipRowMap[k]     = row.slice(0, 15);
+      skipFormulaMap[k] = fml.slice(0, 15);
+    });
   }
 
   if (posSheet.getLastRow() > 1) {
@@ -563,6 +569,18 @@ function updatePositionFromLedger() {
   posSheet.getRange(2, 8, posRows.length, 5).setNumberFormat('#,##0');
   posSheet.getRange(2, 13, posRows.length, 1).setNumberFormat('0.00"%"');
   posSheet.getRange(2, 14, posRows.length, 1).setNumberFormat('#,##0');
+
+  // KIS_SKIP 행 (펀드/예금/보험): 사용자가 걸어둔 수식 복원
+  posRows.forEach((row, i) => {
+    const cat = String(row[2]).trim();
+    if (!NS.KIS_SKIP.includes(cat)) return;
+    const key = `${String(row[1]).trim()}|${String(row[3]).trim()}|${String(row[4]).trim()}`;
+    const fml = skipFormulaMap[key];
+    if (!fml) return;
+    fml.forEach((f, c) => {
+      if (f) posSheet.getRange(i + 2, c + 1).setFormula(f);
+    });
+  });
 
   const sumRow = posRows.length + 2;
   const totalBuy    = posRows.reduce((s, r) => s + (r[8]  || 0), 0);
@@ -625,7 +643,12 @@ function _holdingPeriod(dateStr) {
 
 function _normCode(c) {
   const s = String(c || '').trim();
-  return /^\d+$/.test(s) ? String(parseInt(s, 10)) : s;
+  if (!s) return '';
+  // 해외 영문 코드 (AAPL, TSLA 등)
+  if (/^[A-Z]+$/i.test(s)) return s.toUpperCase();
+  // 한국 종목코드: 숫자 또는 영숫자 6자리. 6자리 미만은 앞에 0 패딩
+  if (/^[\dA-Z]+$/i.test(s) && s.length <= 6) return s.toUpperCase().padStart(6, '0');
+  return s;
 }
 
 function _getLatestPrices(ss) {
@@ -668,6 +691,11 @@ function updateNewPriceHistory(ss) {
   const existingCodes = lastCol >= 2
     ? sheet.getRange(1, 2, 1, lastCol - 1).getValues()[0].map(_normCode).filter(Boolean)
     : [];
+  // 옛 잘못 저장된 코드 (예: '5930') 헤더값을 정규화된 코드 ('005930')로 강제 갱신
+  if (existingCodes.length > 0) {
+    sheet.getRange(1, 2, 1, existingCodes.length).setValues([existingCodes])
+      .setFontWeight('bold').setBackground(NS.HDR_BG).setFontColor(NS.HDR_FG);
+  }
   codes.forEach(code => {
     if (!existingCodes.includes(code)) {
       const newCol = existingCodes.length + 2;
@@ -706,25 +734,179 @@ function updateNewPriceHistory(ss) {
   Logger.log('updateNewPriceHistory 완료: ' + Object.keys(trackerPriceMap).length + '개 종목 업데이트');
 }
 
+// ═══════════════════════════════════════════════════
+//  [일회성] 해외 종목 *현재가_이력* USD → KRW 환산
+//  GAS 에디터에서 migrateOverseasUsdToKrw() 한 번 실행
+//  완료 후 본 함수 + _fetchHistoricalFx + _findFxForDate 제거 예정
+// ═══════════════════════════════════════════════════
+function migrateOverseasUsdToKrw() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(NS.PRICE_HISTORY);
+  if (!sheet || sheet.getLastRow() < 2 || sheet.getLastColumn() < 2) {
+    SpreadsheetApp.getUi().alert('*현재가_이력* 데이터 부족');
+    return;
+  }
+
+  const lastCol = sheet.getLastColumn();
+  const lastRow = sheet.getLastRow();
+  const headers = sheet.getRange(1, 2, 1, lastCol - 1).getValues()[0];
+
+  // 해외 종목 컬럼 식별 (헤더가 영문)
+  const overseasCols = [];
+  headers.forEach((h, i) => {
+    const code = String(h || '').trim();
+    if (/^[A-Z]+$/.test(code)) overseasCols.push({ colIdx: i + 2, code });
+  });
+  if (overseasCols.length === 0) {
+    SpreadsheetApp.getUi().alert('해외 종목 컬럼 없음');
+    return;
+  }
+
+  // 날짜 수집
+  const dateRaw = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  const dates = dateRaw.map(r => {
+    const raw = r[0];
+    return raw instanceof Date
+      ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
+      : String(raw).slice(0, 10);
+  });
+  const validDates = dates.filter(d => d.length === 10);
+  if (validDates.length === 0) {
+    SpreadsheetApp.getUi().alert('유효 날짜 없음');
+    return;
+  }
+  const sorted = validDates.slice().sort();
+  const minDate = sorted[0];
+  const maxDate = sorted[sorted.length - 1];
+
+  // GOOGLEFINANCE 일별 환율 (USD, GBP 둘 다)
+  const fxUsd = _fetchHistoricalFx(ss, 'USDKRW', minDate, maxDate);
+  const fxGbp = _fetchHistoricalFx(ss, 'GBPKRW', minDate, maxDate);
+  Logger.log('USD 환율 일수: ' + Object.keys(fxUsd).length);
+  Logger.log('GBP 환율 일수: ' + Object.keys(fxGbp).length);
+
+  if (Object.keys(fxUsd).length === 0) {
+    SpreadsheetApp.getUi().alert('GOOGLEFINANCE 환율 조회 실패');
+    return;
+  }
+
+  // 각 해외 컬럼 환산. 값이 50,000 미만이면 USD(또는 GBP)로 보고 환산
+  // (해외주식 외화 단가는 보통 1,000 미만; 환산된 KRW는 보통 50,000 이상)
+  let modified = 0;
+  overseasCols.forEach(({ colIdx, code }) => {
+    const rng  = sheet.getRange(2, colIdx, lastRow - 1, 1);
+    const vals = rng.getValues();
+    let changed = false;
+    for (let i = 0; i < vals.length; i++) {
+      const v = Number(vals[i][0]);
+      if (!v || v <= 0 || v >= 50000) continue;
+      const dateKey = dates[i];
+      if (dateKey.length !== 10) continue;
+      // 통화 결정: 환율 매핑은 USD를 기본으로, LSE 분류는 별도 추적 불가 → USD 사용
+      const rate = _findFxForDate(fxUsd, dateKey);
+      if (!rate) continue;
+      vals[i][0] = Math.round(v * rate);
+      changed = true;
+      modified++;
+    }
+    if (changed) rng.setValues(vals).setNumberFormat('#,##0');
+  });
+
+  SpreadsheetApp.getUi().alert('환산 완료: ' + modified + '개 셀 (해외 종목 ' + overseasCols.length + '개)');
+  Logger.log('migrateOverseasUsdToKrw 완료: ' + modified + '개 셀');
+}
+
+// 임시 시트에 GOOGLEFINANCE 입력하여 일별 환율 맵 반환
+function _fetchHistoricalFx(ss, pair, startDate, endDate) {
+  const TEMP = '_temp_fx_' + pair;
+  let tmp = ss.getSheetByName(TEMP);
+  if (tmp) ss.deleteSheet(tmp);
+  tmp = ss.insertSheet(TEMP);
+
+  const [sy, sm, sd] = startDate.split('-').map(Number);
+  const [ey, em, ed] = endDate.split('-').map(Number);
+  tmp.getRange(1, 1).setFormula(
+    `=GOOGLEFINANCE("CURRENCY:${pair}", "price", DATE(${sy},${sm},${sd}), DATE(${ey},${em},${ed}), "DAILY")`
+  );
+  SpreadsheetApp.flush();
+
+  // GOOGLEFINANCE는 비동기로 데이터 채움 — 행 수가 안정될 때까지 polling
+  let prevRows = -1;
+  for (let attempt = 0; attempt < 12; attempt++) {
+    Utilities.sleep(2500);
+    SpreadsheetApp.flush();
+    const r = tmp.getLastRow();
+    if (r === prevRows && r > 1) break;
+    prevRows = r;
+  }
+
+  const last = tmp.getLastRow();
+  Logger.log(pair + ' GOOGLEFINANCE 행수: ' + last);
+  const fxMap = {};
+  if (last >= 2) {
+    const data = tmp.getRange(2, 1, last - 1, 2).getValues();
+    data.forEach(([dt, rate]) => {
+      if (dt instanceof Date && typeof rate === 'number' && rate > 0) {
+        const key = Utilities.formatDate(dt, 'Asia/Seoul', 'yyyy-MM-dd');
+        fxMap[key] = rate;
+      }
+    });
+  }
+  ss.deleteSheet(tmp);
+  return fxMap;
+}
+
+// 정확한 날짜의 환율 → 가장 가까운 이전 → 가장 가까운 이후 (양방향 fallback)
+function _findFxForDate(fxMap, dateKey) {
+  if (fxMap[dateKey]) return fxMap[dateKey];
+  const keys = Object.keys(fxMap).sort();
+  if (keys.length === 0) return null;
+  let before = null, after = null;
+  for (const d of keys) {
+    if (d <= dateKey) before = d;
+    else { after = d; break; }
+  }
+  if (before) return fxMap[before];
+  if (after)  return fxMap[after];
+  return null;
+}
+
 // KIS API로 종목코드 배열의 현재가를 일괄 조회
+// 국내 코드는 batch API (5개씩 병렬), 해외 영문 코드는 종목별 단일 호출 + KRW 환산
 function _fetchPricesFromKIS(codes) {
   KIS_API.ensureToken();
   const priceMap = {};
-  codes.forEach(code => {
+  const domesticCodes = codes.filter(c => !/^[A-Z]+$/.test(c));
+  const overseasCodes = codes.filter(c =>  /^[A-Z]+$/.test(c));
+
+  if (domesticCodes.length > 0) {
+    const batch = KIS_API.getKisPricesBatch(domesticCodes);
+    Object.keys(batch).forEach(c => {
+      const p = Number(batch[c]) || 0;
+      if (p > 0) priceMap[c] = p;
+    });
+  }
+
+  // 해외 종목은 KRW 환산: NAS/NYS/AMS → USD, LSE → GBP
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const fx = _getFxRates(ss);   // { usd, gbp } (Dashboard.js)
+  overseasCodes.forEach(code => {
     try {
-      const isOverseas = /^[A-Z]{1,5}$/.test(code);
-      let price = 0;
-      if (isOverseas) {
-        const info = KIS_API.getOverseasStockInfoAuto(code);
-        price = (info && info.price) ? Number(info.price) : 0;
-      } else {
-        price = Number(KIS_API.getKisPrice(code)) || 0;
+      const info = KIS_API.getOverseasStockInfoAuto(code);
+      const foreign = (info && info.price) ? Number(info.price) : 0;
+      if (foreign > 0) {
+        const rate = (info.exchange === 'LSE') ? fx.gbp : fx.usd;
+        if (rate > 0) {
+          priceMap[code] = Math.round(foreign * rate);
+        } else {
+          Logger.log('해외 환율 0 — 환산 불가(' + code + ', exchange=' + info.exchange + ')');
+        }
       }
-      if (price > 0) priceMap[code] = price;
-      Utilities.sleep(150); // API rate limit
+      Utilities.sleep(150);
     } catch (e) {
-      Logger.log('가격 조회 실패(' + code + '): ' + e);
+      Logger.log('해외 가격 조회 실패(' + code + '): ' + e);
     }
   });
+
   return priceMap;
 }
