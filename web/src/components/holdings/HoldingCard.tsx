@@ -10,6 +10,7 @@ interface HoldingCardProps {
   isExpanded: boolean
   onExpand: () => void
   onDetail?: () => void
+  changeLabel?: string  // '오늘' | '전일' | '최근' (priceAsOfDate 기준)
 }
 
 function DetailBtn({ onDetail }: { onDetail?: () => void }) {
@@ -25,7 +26,7 @@ function DetailBtn({ onDetail }: { onDetail?: () => void }) {
   )
 }
 
-export function HoldingCard({ holding: h, sortKey, isExpanded, onExpand, onDetail }: HoldingCardProps) {
+export function HoldingCard({ holding: h, sortKey, isExpanded, onExpand, onDetail, changeLabel = '오늘' }: HoldingCardProps) {
   const isProfit = h.opProfit >= 0
   const isUp = h.change >= 0
   const duration = holdingDurationText(h.buyDate)
@@ -96,7 +97,7 @@ export function HoldingCard({ holding: h, sortKey, isExpanded, onExpand, onDetai
           {/* 하단: 오늘등락 + 수익률 */}
           <div className="grid grid-cols-2 gap-1 text-center">
             <div className={`rounded-lg py-1.5 ${isUp ? 'bg-profit/10' : 'bg-loss/10'}`}>
-              <p className="text-[9px] text-gray-400">오늘 등락</p>
+              <p className="text-[9px] text-gray-400">{changeLabel} 등락</p>
               <p className={`text-xs font-bold ${profitTextClass(h.change)}`}>{h.changePct}</p>
             </div>
             <div className={`rounded-lg py-1.5 ${isProfit ? 'bg-profit/10' : 'bg-loss/10'}`}>

@@ -16,6 +16,7 @@
 		4B307300FC7388EED73F8F7D /* BackgroundNetworkSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1530F9FD1FDC978D049744AE /* BackgroundNetworkSession.swift */; };
 		64884FDF1A5A2D5A2B4025E8 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B49F245855A57C7BF09F845 /* MainTabView.swift */; };
 		65E234384290D9F234E314F9 /* HoldingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8416BFC2592E71EC6D95358 /* HoldingCard.swift */; };
+		666A4F677C501D22F080480A /* ChangeLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F13EAD3F90F1636F0C97DBB /* ChangeLabel.swift */; };
 		68F3DC30C927DDE2AFFB775D /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A5A46B1B99B83E3ABD2FF636 /* GoogleSignIn */; };
 		890FD303ACAACC69D91051B1 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62AA215DBA6F7B9DE2ED2856 /* DashboardView.swift */; };
 		8CA52FFE5BD8FF2C71F3452A /* AnalysisView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B672C522640919DF6B788539 /* AnalysisView.swift */; };
@@ -45,11 +46,12 @@
 		62AA215DBA6F7B9DE2ED2856 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		69D152E9AE8B04F6941BCBB2 /* HoldingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldingsView.swift; sourceTree = "<group>"; };
 		8588C2DE602289864693DE4A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8F13EAD3F90F1636F0C97DBB /* ChangeLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeLabel.swift; sourceTree = "<group>"; };
 		A495D6431E1BD23D974B251B /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		A8416BFC2592E71EC6D95358 /* HoldingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldingCard.swift; sourceTree = "<group>"; };
 		B672C522640919DF6B788539 /* AnalysisView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisView.swift; sourceTree = "<group>"; };
 		C3F4E747F7FECD6AF4AA9E74 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
-		D02FCD5E8329212135A1F445 /* NewFD7.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NewFD7.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D02FCD5E8329212135A1F445 /* NewFD7.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = NewFD7.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D7D56C41685B01929DE6E4BD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -111,6 +113,7 @@
 		729E9EF0A9F730EA0AEE77EE /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				8F13EAD3F90F1636F0C97DBB /* ChangeLabel.swift */,
 				2D28EFE128C64B51377A83FC /* Extensions.swift */,
 			);
 			path = Shared;
@@ -213,6 +216,7 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					469824F4ED6B984616E412E9 = {
+						DevelopmentTeam = 3N9UDPW4BP;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -259,6 +263,7 @@
 				CA3082682144C838A2BE4F2A /* AuthManager.swift in Sources */,
 				4B307300FC7388EED73F8F7D /* BackgroundNetworkSession.swift in Sources */,
 				1B2F5475A572D64D49692541 /* CacheService.swift in Sources */,
+				666A4F677C501D22F080480A /* ChangeLabel.swift in Sources */,
 				890FD303ACAACC69D91051B1 /* DashboardView.swift in Sources */,
 				485B0EDE6F21093AF85C833E /* Extensions.swift in Sources */,
 				65E234384290D9F234E314F9 /* HoldingCard.swift in Sources */,
@@ -285,7 +290,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 44DWWF283N;
+				DEVELOPMENT_TEAM = 3N9UDPW4BP;
 				INFOPLIST_FILE = Sources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -424,7 +429,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 44DWWF283N;
+				DEVELOPMENT_TEAM = 3N9UDPW4BP;
 				INFOPLIST_FILE = Sources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

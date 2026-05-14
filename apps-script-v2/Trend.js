@@ -162,21 +162,7 @@ function logToTrendSheet(ss) {
       _trFmtNum(totalProfit), _trFmtNum(diffProfit), _trFmtPct(diffRate),
     ];
 
-    // 날짜 바뀔 때 U2의 diff(AE2/AF2)를 AJ2/AK2로 백업 (양쪽 모두 거래일일 때만)
-    const _nowDow = now.getDay();
-    if (!todayRow && _nowDow !== 0 && _nowDow !== 6 && !_trIsKoreanHoliday(now)) {
-      const u2Row = trend.getRange(2, pStartCol, 1, 12).getValues()[0];
-      if (u2Row[0]) {
-        const _u2DateStr = String(u2Row[0]).slice(0, 10);
-        const _u2DateObj = /^\d{4}-\d{2}-\d{2}$/.test(_u2DateStr) ? new Date(_u2DateStr) : null;
-        if (_u2DateObj) {
-          const _u2Dow = _u2DateObj.getDay();
-          if (_u2Dow !== 0 && _u2Dow !== 6 && !_trIsKoreanHoliday(_u2DateObj)) {
-            trend.getRange(2, pStartCol + 15, 1, 2).setValues([[u2Row[10], u2Row[11]]]);  // AJ/AK
-          }
-        }
-      }
-    }
+    // (AJ/AK 백업 로직 제거 — MobileAPI에서 *추이 기록* U열에서 어제 거래일 직접 검색)
 
     trend.getRange(writeRow, pStartCol, 1, pCols).setValues([profitRow]);
     trend.getRange('U2:AF2').setValues([profitRow]);

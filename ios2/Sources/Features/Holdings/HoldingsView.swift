@@ -90,7 +90,8 @@ struct HoldingsView: View {
                             holding: holding,
                             sortKey: sortKey,
                             expandedId: $expandedHoldingId,
-                            onDetail: { detailStock = DetailStockSelection(code: holding.code, name: holding.name) }
+                            onDetail: { detailStock = DetailStockSelection(code: holding.code, name: holding.name) },
+                            changeLabel: decideChangeLabel(vm.portfolio?.summary?.priceAsOfDate)
                         )
                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                         .listRowSeparator(.hidden)

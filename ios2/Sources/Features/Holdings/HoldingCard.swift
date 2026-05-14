@@ -5,6 +5,7 @@ struct HoldingCard: View {
     let sortKey: HoldingsView.SortKey
     @Binding var expandedId: String?
     var onDetail: (() -> Void)? = nil
+    var changeLabel: String = "오늘"  // priceAsOfDate 기준 (오늘/전일/최근)
 
     @ViewBuilder
     private var detailButton: some View {
@@ -202,13 +203,13 @@ struct HoldingCard: View {
             let changeSign = holding.change >= 0 ? "+" : ""
             let totalSign  = dailyTotal >= 0 ? "+" : ""
             HStack {
-                Text("오늘 등락").font(.caption2).foregroundColor(.white.opacity(0.75))
+                Text("\(changeLabel) 등락").font(.caption2).foregroundColor(.white.opacity(0.75))
                 Text("\(changeSign)\(Int(holding.change).formatted())")
                     .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
                 Text("(\(holding.dailyChangePct.pctFormatted))")
                     .font(.caption2).foregroundColor(.white.opacity(0.85))
                 Spacer()
-                Text("오늘 수익").font(.caption2).foregroundColor(.white.opacity(0.75))
+                Text("\(changeLabel) 수익").font(.caption2).foregroundColor(.white.opacity(0.75))
                 Text("\(totalSign)\(Int(dailyTotal).formatted())")
                     .font(.subheadline).fontWeight(.semibold).foregroundColor(.white)
             }

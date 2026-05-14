@@ -26,15 +26,16 @@ function newMobileGetPortfolio() {
       return JSON.stringify({ success: false, error: '*보유현황* 없음. updatePositionFromLedger 먼저 실행하세요.' });
     }
 
-    // 펀드·예금·보험·기타 제외
-    const posRows = posSheet.getLastRow() >= 2
+    // 전체 보유 (summary 계산용 — KIS_SKIP 포함)
+    const allPosRows = posSheet.getLastRow() >= 2
       ? posSheet.getRange(2, 1, posSheet.getLastRow() - 1, 15).getValues()
           .filter(r =>
             String(r[1]) !== '합계' &&
             String(r[0]) !== '합계' &&
-            Number(r[6]) > 0 &&
-            !NS.KIS_SKIP.includes(String(r[2]).trim()))
+            Number(r[6]) > 0)
       : [];
+    // KIS 종목만 (holdings/byCategory/byAccount용 — 펀드·예금·보험·기타 제외)
+    const posRows = allPosRows.filter(r => !NS.KIS_SKIP.includes(String(r[2]).trim()));
 
     const pnlRows = (pnlSheet && pnlSheet.getLastRow() >= 2)
       ? pnlSheet.getRange(2, 1, pnlSheet.getLastRow() - 1, 14).getValues()
@@ -47,9 +48,9 @@ function newMobileGetPortfolio() {
 
     const holdings = posRows.map(r => _mMapHolding(r, buyDateMap, extras));
 
-    // ── 요약 계산 ──
-    const totalBuy = posRows.reduce((s, r) => s + (Number(r[8])  || 0), 0);
-    const totalCur = posRows.reduce((s, r) => s + (Number(r[10]) || 0), 0);
+    // ── 요약 계산 (전체 보유 기준 — KIS_SKIP 포함, *추이 기록* 운용중과 동일 정의) ──
+    const totalBuy = allPosRows.reduce((s, r) => s + (Number(r[8])  || 0), 0);
+    const totalCur = allPosRows.reduce((s, r) => s + (Number(r[10]) || 0), 0);
     const opProfit = totalCur - totalBuy;
     const opRate   = totalBuy > 0 ? opProfit / totalBuy * 100 : 0;
 
@@ -57,8 +58,9 @@ function newMobileGetPortfolio() {
     const cfBuy    = pnlRows.reduce((s, r) => s + (Number(r[10]) || 0), 0);
     const cfRate   = cfBuy > 0 ? cfProfit / cfBuy * 100 : 0;
 
-    // trendTotalProfit은 *추이 기록*의 최신값을 우선 사용 (history 마지막 entry와 동일)
-    // prevDayChang* 은 *추이 기록* AJ2/AK2 (어제 합계 변동 백업) 사용
+    // trendTotalProfit은 *추이 기록*의 최신값(AD2)을 우선 사용
+    // prevDayChang* 은 *추이 기록* U열에서 "어제 거래일" 행을 직접 찾아 AE/AF 사용
+    //   → AJ2/AK2 백업 의존 제거 (백업 갱신 시점 한계로 잘못된 값 표시되던 버그 수정)
     let totProfit = opProfit + cfProfit;
     let prevDayChangAmount = null;
     let prevDayChangePct   = null;
@@ -68,16 +70,9 @@ function newMobileGetPortfolio() {
       const adN = Number(String(ad2 || '').replace(/,/g, ''));
       if (!isNaN(adN) && adN !== 0) totProfit = adN;
 
-      const aj2 = trendSht.getRange(2, 36).getValue();  // AJ2 = 어제 합계 변동 (백업)
-      const ak2 = trendSht.getRange(2, 37).getValue();  // AK2 = 어제 합계 변동률 (백업)
-      if (aj2 !== '' && aj2 !== null && aj2 !== undefined) {
-        const ajN = Number(String(aj2).replace(/,/g, ''));
-        if (!isNaN(ajN)) prevDayChangAmount = ajN;
-      }
-      if (ak2 !== '' && ak2 !== null && ak2 !== undefined) {
-        const akS = String(ak2).trim();
-        prevDayChangePct = (akS.startsWith('+') || akS.startsWith('-')) ? akS : ('+' + akS);
-      }
+      const prev = _mFindPrevDayProfitChange(trendSht);
+      prevDayChangAmount = prev.amount;
+      prevDayChangePct   = prev.pct;
     }
     const totRate   = totalBuy > 0 ? totProfit / totalBuy * 100 : 0;
 
@@ -96,6 +91,16 @@ function newMobileGetPortfolio() {
     const isMarketDay  = _mIsMarketDay();
     const isTradingDay = _mIsTradingDay();
 
+    // priceAsOfDate = *현재가_이력* 마지막 행 날짜 (클라이언트 라벨 결정용)
+    let priceAsOfDate = null;
+    if (priceHistSheet && priceHistSheet.getLastRow() >= 2) {
+      const raw = priceHistSheet.getRange(priceHistSheet.getLastRow(), 1).getValue();
+      const d = raw instanceof Date
+        ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
+        : String(raw).slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) priceAsOfDate = d;
+    }
+
     const summary = {
       totalBuy,
       totalCurrent:          totalCur,
@@ -113,6 +118,7 @@ function newMobileGetPortfolio() {
       prevDayChangePct,
       isMarketDay,
       isTradingDay,
+      priceAsOfDate,
     };
 
     const byCategory = _mGroupBy(posRows, 2, totalCur);
@@ -514,7 +520,15 @@ function _mCalcExtras(priceHistSheet, posRows, ledgerSheet) {
     if (dates[i] === today) todayIdx = i;
     else if (dates[i] < today && dates[i].length === 10) prevIdx = i;
   }
-  if (todayIdx === -1) todayIdx = dates.length - 1;  // 오늘 행 없으면 마지막 행 사용
+  // 오늘 행이 없으면: 마지막 행을 today로, 그 직전 거래일을 prev로 재설정
+  // (자정 ~ 거래일 09시 사이엔 "어제 거래일 변동"이 반환됨)
+  if (todayIdx === -1) {
+    todayIdx = dates.length - 1;
+    prevIdx = -1;
+    for (let i = 0; i < todayIdx; i++) {
+      if (dates[i].length === 10) prevIdx = i;
+    }
+  }
 
   const findNDaysAgo = (n) => {
     if (todayIdx < 0) return -1;
@@ -690,6 +704,42 @@ function _mGetFxRates(ss) {
       gbp: Number(sheet.getRange(3, 2).getValue()) || 1700,
     };
   } catch (e) { return { usd: 1400, gbp: 1700 }; }
+}
+
+// *추이 기록* U열에서 "어제 거래일" 행을 찾아 AE(합계 변동)/AF(합계 변동률) 반환
+// 어제 거래일 = (오늘 - 1일)에서 주말/공휴일을 건너뛴 가장 가까운 평일
+// 매칭 행 없으면 null (클라이언트는 0원으로 fallback)
+function _mFindPrevDayProfitChange(trendSht) {
+  if (!trendSht || trendSht.getLastRow() < 5) return { amount: null, pct: null };
+
+  const pFirstRow = 5, pStartCol = 21;  // U
+  const lastRow = trendSht.getLastRow();
+  const height = lastRow - pFirstRow + 1;
+  if (height <= 0) return { amount: null, pct: null };
+
+  const today = new Date();
+  let target = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  for (let safety = 0; safety < 14; safety++) {
+    if (target.getDay() !== 0 && target.getDay() !== 6 && !_isKoreanHoliday(target)) break;
+    target.setDate(target.getDate() - 1);
+  }
+  const targetStr = Utilities.formatDate(target, 'Asia/Seoul', 'yyyy-MM-dd');
+
+  const data = trendSht.getRange(pFirstRow, pStartCol, height, 12).getValues();
+  for (let i = data.length - 1; i >= 0; i--) {
+    const dStr = String(data[i][0] || '').slice(0, 10);
+    if (dStr === targetStr) {
+      const ae = data[i][10];  // AE = idx 10 (합계 변동)
+      const af = data[i][11];  // AF = idx 11 (합계 변동률)
+      const aeN = Number(String(ae || '').replace(/,/g, ''));
+      const afS = String(af || '').trim();
+      return {
+        amount: isNaN(aeN) ? null : aeN,
+        pct: afS ? ((afS.startsWith('+') || afS.startsWith('-')) ? afS : '+' + afS) : null
+      };
+    }
+  }
+  return { amount: null, pct: null };
 }
 
 function _isKoreanHoliday(date) {
