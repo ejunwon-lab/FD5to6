@@ -187,21 +187,14 @@ export function HoldingsPage({ portfolio, isLoading, error }: HoldingsPageProps)
           {filtered.map(h => {
             const id = `${h.code}-${h.accountType}`
             return (
-              <div key={id} className="relative">
-                <HoldingCard
-                  holding={h}
-                  sortKey={sortKey}
-                  isExpanded={expandedId === id}
-                  onExpand={() => handleExpand(id)}
-                />
-                <button
-                  onClick={() => setDetailStock({ code: h.code, name: h.name })}
-                  className="absolute top-[26px] left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] bg-accent/15 text-accent rounded-full px-2 py-0.5 font-medium hover:bg-accent/25 transition-colors"
-                  title="종목 상세"
-                >
-                  📊 상세
-                </button>
-              </div>
+              <HoldingCard
+                key={id}
+                holding={h}
+                sortKey={sortKey}
+                isExpanded={expandedId === id}
+                onExpand={() => handleExpand(id)}
+                onDetail={() => setDetailStock({ code: h.code, name: h.name })}
+              />
             )
           })}
           {filtered.length === 0 && (

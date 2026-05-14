@@ -110,6 +110,9 @@ struct StockDetailView: View {
                 let buyDates  = Set(transactions.filter { $0.isBuy }.map { $0.date })
                 let sellDates = Set(transactions.filter { !$0.isBuy }.map { $0.date })
 
+                let buyPoints  = priceHistory.filter { buyDates.contains($0.date) }
+                let sellPoints = priceHistory.filter { sellDates.contains($0.date) }
+
                 Chart {
                     ForEach(priceHistory) { pt in
                         LineMark(
@@ -119,17 +122,15 @@ struct StockDetailView: View {
                         .foregroundStyle(Color.accent)
                         .interpolationMethod(.monotone)
                     }
-                    ForEach(priceHistory) { pt in
-                        if buyDates.contains(pt.date) {
-                            PointMark(x: .value("Date", pt.date), y: .value("Price", pt.price))
-                                .foregroundStyle(.loss)
-                                .symbolSize(60)
-                        }
-                        if sellDates.contains(pt.date) {
-                            PointMark(x: .value("Date", pt.date), y: .value("Price", pt.price))
-                                .foregroundStyle(.profit)
-                                .symbolSize(60)
-                        }
+                    ForEach(buyPoints) { pt in
+                        PointMark(x: .value("Date", pt.date), y: .value("Price", pt.price))
+                            .foregroundStyle(Color.loss)
+                            .symbolSize(60)
+                    }
+                    ForEach(sellPoints) { pt in
+                        PointMark(x: .value("Date", pt.date), y: .value("Price", pt.price))
+                            .foregroundStyle(Color.profit)
+                            .symbolSize(60)
                     }
                 }
                 .chartXAxis {

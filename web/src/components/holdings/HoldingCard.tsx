@@ -9,9 +9,23 @@ interface HoldingCardProps {
   sortKey: SortKey
   isExpanded: boolean
   onExpand: () => void
+  onDetail?: () => void
 }
 
-export function HoldingCard({ holding: h, sortKey, isExpanded, onExpand }: HoldingCardProps) {
+function DetailBtn({ onDetail }: { onDetail?: () => void }) {
+  if (!onDetail) return null
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); onDetail() }}
+      className="text-[10px] bg-accent/15 text-accent rounded-full px-1.5 py-0.5 font-medium hover:bg-accent/25 transition-colors leading-none"
+      title="종목 상세"
+    >
+      📊 상세
+    </button>
+  )
+}
+
+export function HoldingCard({ holding: h, sortKey, isExpanded, onExpand, onDetail }: HoldingCardProps) {
   const isProfit = h.opProfit >= 0
   const isUp = h.change >= 0
   const duration = holdingDurationText(h.buyDate)
@@ -53,7 +67,10 @@ export function HoldingCard({ holding: h, sortKey, isExpanded, onExpand }: Holdi
           <div className="flex items-start justify-between mb-3">
             <div>
               <p className="font-semibold text-sm">{h.name}</p>
-              <p className="text-[10px] text-gray-400">{h.code} {duration ? `· ${duration}` : ''}</p>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-gray-400">{h.code} {duration ? `· ${duration}` : ''}</span>
+                <DetailBtn onDetail={onDetail} />
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <div className="text-right">
@@ -107,6 +124,7 @@ export function HoldingCard({ holding: h, sortKey, isExpanded, onExpand }: Holdi
                   <span className="text-[10px] text-gray-400">{duration}</span>
                 </>
               )}
+              <span className="ml-1.5"><DetailBtn onDetail={onDetail} /></span>
             </div>
           </div>
 
