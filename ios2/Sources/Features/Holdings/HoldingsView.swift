@@ -86,21 +86,12 @@ struct HoldingsView: View {
                     Spacer()
                 } else {
                     List(filtered) { holding in
-                        ZStack(alignment: .topTrailing) {
-                            HoldingCard(holding: holding, sortKey: sortKey, expandedId: $expandedHoldingId)
-                            Button {
-                                detailStock = DetailStockSelection(code: holding.code, name: holding.name)
-                            } label: {
-                                Text("📊 상세")
-                                    .font(.caption2).fontWeight(.medium)
-                                    .padding(.horizontal, 8).padding(.vertical, 3)
-                                    .background(Color.accentColor.opacity(0.18))
-                                    .foregroundColor(.accentColor)
-                                    .cornerRadius(10)
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.top, 10).padding(.trailing, 10)
-                        }
+                        HoldingCard(
+                            holding: holding,
+                            sortKey: sortKey,
+                            expandedId: $expandedHoldingId,
+                            onDetail: { detailStock = DetailStockSelection(code: holding.code, name: holding.name) }
+                        )
                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)

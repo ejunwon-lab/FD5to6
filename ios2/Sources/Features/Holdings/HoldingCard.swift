@@ -4,6 +4,24 @@ struct HoldingCard: View {
     let holding: Holding
     let sortKey: HoldingsView.SortKey
     @Binding var expandedId: String?
+    var onDetail: (() -> Void)? = nil
+
+    @ViewBuilder
+    private var detailButton: some View {
+        if let onDetail {
+            Button {
+                onDetail()
+            } label: {
+                Text("📊 상세")
+                    .font(.caption2).fontWeight(.medium)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Color.accentColor.opacity(0.18))
+                    .foregroundColor(.accentColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+        }
+    }
 
     private var expanded: Bool { expandedId == holding.id }
 
@@ -36,6 +54,7 @@ struct HoldingCard: View {
                             Text("|").font(.caption2).foregroundColor(.secondary.opacity(0.5))
                             Text(duration).font(.caption2).foregroundColor(.secondary)
                         }
+                        detailButton
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -130,6 +149,7 @@ struct HoldingCard: View {
                             Text("|").font(.caption2).foregroundColor(.secondary.opacity(0.5))
                             Text(duration).font(.caption2).foregroundColor(.secondary)
                         }
+                        detailButton
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
