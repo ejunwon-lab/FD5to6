@@ -196,7 +196,7 @@ export function HoldingsPage({ portfolio, isLoading, error }: HoldingsPageProps)
                 />
                 <button
                   onClick={() => setDetailStock({ code: h.code, name: h.name })}
-                  className="absolute top-2 right-2 text-[10px] bg-accent/15 text-accent rounded-full px-2 py-0.5 font-medium hover:bg-accent/25 transition-colors"
+                  className="absolute top-[26px] left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] bg-accent/15 text-accent rounded-full px-2 py-0.5 font-medium hover:bg-accent/25 transition-colors"
                   title="종목 상세"
                 >
                   📊 상세
