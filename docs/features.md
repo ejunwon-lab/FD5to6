@@ -1,6 +1,6 @@
 # 기능 현황
 
-last updated: 2026-05-12
+last updated: 2026-05-14
 
 ## ✅ 완료
 
@@ -21,6 +21,12 @@ last updated: 2026-05-12
 - 통합 업데이트 (`mobileUpdateAll`)
 - 참고지표 조회·저장 (`mobileGetReferenceIndicators`)
 - 추이 기록 (Section A/B/C)
+- 카톡 자동입력 (신시스템 전용, 구시스템 Web App 경유 openById)
+- 종목상태 이력 (*종목상태_이력* 시트 자동 누적)
+- 장기 가격 이력 (*장기_가격_이력* 시트, KIS 주봉/일봉 백필) + 신규 종목 자동 1Y 백필
+- 1M/3M/6M/1Y *현재가_이력* + *장기_가격_이력* 통합 직접 계산
+- 종목 상세 API (newMobileGetStockDetail) + 월별 실현손익 API (newMobileGetMonthlyRealized)
+- 대시보드 보유종목 정렬 드롭다운 + 매입금액 컬럼
 - KIS API — 국내주식, 해외주식, 국내지수, 해외지수, 국내선물
 - Yahoo Finance 연동 (선물 데이터)
 - GOOGLEFINANCE fallback (VIX, TNX, DXY, 금, WTI)
