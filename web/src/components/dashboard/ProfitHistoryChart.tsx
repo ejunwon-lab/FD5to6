@@ -33,7 +33,12 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 export function ProfitHistoryChart({ entries, loading, error }: ProfitHistoryChartProps) {
   const [range, setRange] = useState<Range>('1M')
 
-  const filtered = entries.slice(-RANGE_DAYS[range])
+  // iOS와 동일: 캘린더 기준 (오늘 − N일) 이상의 entry만 필터
+  const target = new Date()
+  target.setDate(target.getDate() - RANGE_DAYS[range])
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const targetStr = `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}`
+  const filtered = entries.filter(e => e.date >= targetStr)
   const profits = filtered.map(e => e.totalProfit)
   const minProfit = Math.min(...profits, 0)
   const maxProfit = Math.max(...profits, 0)

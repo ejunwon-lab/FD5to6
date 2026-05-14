@@ -19,6 +19,7 @@
 		68F3DC30C927DDE2AFFB775D /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A5A46B1B99B83E3ABD2FF636 /* GoogleSignIn */; };
 		890FD303ACAACC69D91051B1 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62AA215DBA6F7B9DE2ED2856 /* DashboardView.swift */; };
 		8CA52FFE5BD8FF2C71F3452A /* AnalysisView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B672C522640919DF6B788539 /* AnalysisView.swift */; };
+		8F9343BE586B8DDADFE7AE08 /* StockDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 309A0EB0997832B9300940C5 /* StockDetailView.swift */; };
 		92BC15F27DF43ADAEB748F1D /* PortfolioViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A093DBEDC29F37577F1CB45 /* PortfolioViewModel.swift */; };
 		BF01AA8E7C965BF830D3D4D5 /* IndicatorsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37ED7A98D0DF4C97A853D383 /* IndicatorsView.swift */; };
 		C3A4DBBA9C80F97FBC09A2F4 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495D6431E1BD23D974B251B /* SignInView.swift */; };
@@ -35,6 +36,7 @@
 		1530F9FD1FDC978D049744AE /* BackgroundNetworkSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundNetworkSession.swift; sourceTree = "<group>"; };
 		1A093DBEDC29F37577F1CB45 /* PortfolioViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioViewModel.swift; sourceTree = "<group>"; };
 		2D28EFE128C64B51377A83FC /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
+		309A0EB0997832B9300940C5 /* StockDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StockDetailView.swift; sourceTree = "<group>"; };
 		33F2A7CC3EEF269585C5AA93 /* NewFD7App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewFD7App.swift; sourceTree = "<group>"; };
 		3618D6132DF75FDEBCE6C67D /* ProfitHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfitHistoryView.swift; sourceTree = "<group>"; };
 		37ED7A98D0DF4C97A853D383 /* IndicatorsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndicatorsView.swift; sourceTree = "<group>"; };
@@ -138,6 +140,7 @@
 			children = (
 				A8416BFC2592E71EC6D95358 /* HoldingCard.swift */,
 				69D152E9AE8B04F6941BCBB2 /* HoldingsView.swift */,
+				309A0EB0997832B9300940C5 /* StockDetailView.swift */,
 			);
 			path = Holdings;
 			sourceTree = "<group>";
@@ -269,6 +272,7 @@
 				2863B3C12204AAFBA3212313 /* ProfitHistoryView.swift in Sources */,
 				E1D7D0B1AB166EA33C80E91E /* ScriptAPIService.swift in Sources */,
 				C3A4DBBA9C80F97FBC09A2F4 /* SignInView.swift in Sources */,
+				8F9343BE586B8DDADFE7AE08 /* StockDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

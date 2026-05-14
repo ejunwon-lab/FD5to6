@@ -117,7 +117,7 @@ struct AnalysisView: View {
                     Chart {
                         ForEach(recent, id: \.date) { e in
                             LineMark(x: .value("Date", e.date), y: .value("Profit", e.totalProfit))
-                                .foregroundStyle(.accent)
+                                .foregroundStyle(Color.accent)
                                 .interpolationMethod(.monotone)
                         }
                         RuleMark(y: .value("Zero", 0))

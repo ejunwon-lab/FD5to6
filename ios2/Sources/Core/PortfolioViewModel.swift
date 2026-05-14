@@ -105,13 +105,15 @@ class PortfolioViewModel: ObservableObject {
     }
 
     func profitChange(forDays days: Int) -> (amount: Double, startDate: String)? {
-        guard let current = portfolio?.summary?.trendTotalProfit,
-              !trendHistory.isEmpty else { return nil }
+        // 웹앱과 동일: history 배열 안에서 양 끝 차이 계산
+        // (현재값을 summary와 혼합하지 않음 → 단일 소스로 일관)
+        guard !trendHistory.isEmpty else { return nil }
         let target = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
         let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
         let targetStr = fmt.string(from: target)
-        let past = trendHistory.last(where: { $0.date <= targetStr }) ?? trendHistory.first!
-        return (amount: current - past.totalProfit, startDate: past.date)
+        let filtered = trendHistory.filter { $0.date >= targetStr }
+        guard let first = filtered.first, let last = filtered.last else { return nil }
+        return (amount: last.totalProfit - first.totalProfit, startDate: first.date)
     }
 
     private func applyResult(_ result: PortfolioResponse) {

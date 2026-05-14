@@ -14,32 +14,33 @@ struct ProfitHistoryView: View {
     }
 
     private var periodEntries: [(date: Date, value: Double)] {
+        // 웹앱과 동일: 기간 내 history 그대로. 주말 제외 안 함 (GAS가 거래일만 기록)
         let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
         let target = Calendar.current.date(byAdding: .day, value: -selectedDays, to: Date()) ?? Date()
         let targetStr = fmt.string(from: target)
         return vm.trendHistory
-            .filter { $0.date >= targetStr && !isWeekend($0.date) }
+            .filter { $0.date >= targetStr }
             .compactMap { e in
                 guard let d = fmt.date(from: e.date) else { return nil }
                 return (date: d, value: e.totalProfit)
             }
     }
 
+    // 웹앱과 동일: 일별 변동(diff) 평균 (실제 변동일수 기준)
     private var dailyAverage: Double? {
-        guard let r = result, selectedDays > 0 else { return nil }
-        return r.amount / Double(selectedDays)
+        let entries = periodEntries
+        guard entries.count >= 2 else { return nil }
+        let diffs = zip(entries.dropFirst(), entries).map { $0.0.value - $0.1.value }
+        guard !diffs.isEmpty else { return nil }
+        return diffs.reduce(0, +) / Double(diffs.count)
     }
 
     private var bestWorst: (best: (date: String, change: Double), worst: (date: String, change: Double))? {
-        let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
-        let target = Calendar.current.date(byAdding: .day, value: -selectedDays, to: Date()) ?? Date()
-        let targetStr = fmt.string(from: target)
-        let all = vm.trendHistory.filter { !isWeekend($0.date) }
-        guard let firstIdx = all.firstIndex(where: { $0.date >= targetStr }) else { return nil }
-        let entries = Array(all[max(0, firstIdx - 1)...])
-        guard entries.count > 1 else { return nil }
+        let entries = periodEntries
+        guard entries.count >= 2 else { return nil }
+        let fmtOut = DateFormatter(); fmtOut.dateFormat = "yyyy-MM-dd"
         let deltas = zip(entries.dropFirst(), entries).map { (c, p) in
-            (date: c.date, change: c.totalProfit - p.totalProfit)
+            (date: fmtOut.string(from: c.date), change: c.value - p.value)
         }
         guard let best  = deltas.max(by: { $0.change < $1.change }),
               let worst = deltas.min(by: { $0.change < $1.change }) else { return nil }

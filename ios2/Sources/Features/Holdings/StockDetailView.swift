@@ -116,7 +116,7 @@ struct StockDetailView: View {
                             x: .value("Date", pt.date),
                             y: .value("Price", pt.price)
                         )
-                        .foregroundStyle(.accent)
+                        .foregroundStyle(Color.accent)
                         .interpolationMethod(.monotone)
                     }
                     ForEach(priceHistory) { pt in
