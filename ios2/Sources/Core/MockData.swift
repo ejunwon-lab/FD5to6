@@ -81,7 +81,8 @@ enum MockData {
         prevDayChangAmount: -120_000,
         prevDayChangePct: "-0.43%",
         isMarketDay: true,
-        isTradingDay: true
+        isTradingDay: true,
+        priceAsOfDate: nil
     )
 
     static let byCategory: [String: GroupStat] = [
