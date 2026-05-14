@@ -8,6 +8,7 @@ import {
   krwFull, krwCompact, pctFormatted, profitTextClass,
   holdingDays, annualizedReturn, position52w, holdingDurationText,
 } from '../../utils/format'
+import { decideChangeLabel } from '../../utils/changeLabel'
 import type { Holding, PortfolioResponse, GroupStat, TrendEntry, MonthlyRealizedEntry } from '../../models/types'
 
 type AnalysisPageProps = {
@@ -76,6 +77,7 @@ export function AnalysisPage({ portfolio, isLoading, error, historyEntries }: An
   const { getToken } = useAuth()
   const [expandedSection, setExpanded]  = useState<string | null>('matrix')
   const [accountTab, setAccountTab]     = useState<AccountTab>('현황')
+  const changeLabel = decideChangeLabel(portfolio?.summary?.priceAsOfDate)
   const [expandedQuad, setExpandedQuad] = useState<Set<string>>(new Set())
   const [monthly, setMonthly] = useState<MonthlyRealizedEntry[]>([])
 
@@ -198,7 +200,7 @@ export function AnalysisPage({ portfolio, isLoading, error, historyEntries }: An
                       ? 'bg-accent text-white font-bold'
                       : 'bg-[rgb(var(--page-bg))] text-gray-500 font-normal'
                   }`}>
-                  {t}
+                  {t === '오늘' ? changeLabel : t}
                 </button>
               ))}
             </div>

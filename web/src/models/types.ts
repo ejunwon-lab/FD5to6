@@ -15,6 +15,7 @@ export interface Summary {
   prevDayChangePct: string
   isMarketDay?: boolean
   isTradingDay?: boolean
+  priceAsOfDate?: string | null
 }
 
 export interface GroupStat {

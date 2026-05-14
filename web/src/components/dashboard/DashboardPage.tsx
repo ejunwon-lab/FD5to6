@@ -4,6 +4,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { ProfitHistoryChart } from './ProfitHistoryChart'
+import { decideChangeLabel } from '../../utils/changeLabel'
 import { krwCompact, krwCompactSigned, krwFull, pctFormatted, normalizeChangePct } from '../../utils/format'
 import type { PortfolioResponse, TrendEntry } from '../../models/types'
 
@@ -18,14 +19,6 @@ type DashboardPageProps = {
   historyEntries: TrendEntry[]
   isLoadingHistory: boolean
   historyError: string
-}
-
-function isBeforeMarket(): boolean {
-  // 한국시간 09:00 이전 (장 개시 전)
-  // 브라우저 시간대가 한국이 아닐 수도 있어 Asia/Seoul 기준으로 계산
-  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', hour: '2-digit', hour12: false })
-  const hour = parseInt(fmt.format(new Date()), 10)
-  return hour < 9
 }
 
 function UpdateButton({ icon, label, onClick, disabled }: {
@@ -66,16 +59,15 @@ export function DashboardPage({
   }, [scrollToTopSignal])
 
   const summary = portfolio?.summary
-  // 분기:
-  //   비거래일 (주말/공휴일)         → "최근 수익" + dayChangAmount (마지막 거래일 캐시 포함)
-  //   거래일 09:00 이전              → "전일 수익" + prevDayChangAmount (어제 거래일 백업)
-  //   거래일 09:00 이후              → "오늘의 수익" + dayChangAmount (실시간/장후)
-  const isTrading  = summary?.isTradingDay !== false
-  const beforeMkt  = isBeforeMarket()
-  const usePrev    = isTrading && beforeMkt
-  const dayLabel   = !isTrading ? '최근 수익' : (beforeMkt ? '전일 수익' : '오늘의 수익')
-  const dayAmt     = usePrev ? (summary?.prevDayChangAmount ?? 0) : (summary?.dayChangAmount ?? 0)
-  const dayPct     = usePrev ? (summary?.prevDayChangePct ?? '0%') : (summary?.dayChangePct ?? '0%')
+  // 라벨 결정: priceAsOfDate(*현재가_이력* 마지막 행 날짜) 기준
+  //   priceAsOfDate === today → "오늘 수익"
+  //   today가 비거래일        → "최근 수익"
+  //   priceAsOfDate === today-1 → "전일 수익"
+  //   그 외                    → "최근 수익"
+  const changeLabel = decideChangeLabel(summary?.priceAsOfDate)
+  const dayLabel    = `${changeLabel} 수익`
+  const dayAmt      = summary?.dayChangAmount ?? 0
+  const dayPct      = summary?.dayChangePct ?? '0%'
   const dayIsProfit = dayAmt >= 0
 
   return (

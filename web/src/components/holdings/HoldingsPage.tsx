@@ -4,6 +4,7 @@ import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { HoldingCard } from './HoldingCard'
 import { StockDetailModal } from './StockDetailModal'
 import { krwFull, normalizeChangePct, profitTextClass, holdingDays } from '../../utils/format'
+import { decideChangeLabel } from '../../utils/changeLabel'
 import type { Holding, PortfolioResponse } from '../../models/types'
 import type { SortKey } from './HoldingCard'
 
@@ -194,6 +195,7 @@ export function HoldingsPage({ portfolio, isLoading, error }: HoldingsPageProps)
                 isExpanded={expandedId === id}
                 onExpand={() => handleExpand(id)}
                 onDetail={() => setDetailStock({ code: h.code, name: h.name })}
+                changeLabel={decideChangeLabel(portfolio?.summary?.priceAsOfDate)}
               />
             )
           })}

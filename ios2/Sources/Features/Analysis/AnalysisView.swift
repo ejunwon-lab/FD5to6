@@ -488,7 +488,8 @@ struct AnalysisView: View {
             VStack(spacing: 16) {
                 HStack(spacing: 6) {
                     ForEach(AccountTab.allCases, id: \.self) { tab in
-                        Button(tab.rawValue) { withAnimation(.easeInOut(duration: 0.18)) { selectedAccountTab = tab } }
+                        let label = (tab == .today) ? decideChangeLabel(vm.portfolio?.summary?.priceAsOfDate) : tab.rawValue
+                        Button(label) { withAnimation(.easeInOut(duration: 0.18)) { selectedAccountTab = tab } }
                             .font(.caption)
                             .fontWeight(selectedAccountTab == tab ? .bold : .regular)
                             .padding(.horizontal, 10).padding(.vertical, 5)

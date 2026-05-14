@@ -214,23 +214,17 @@ struct DashboardView: View {
     }
 
     private func profitLabel(_ summary: Summary?) -> String {
-        if summary?.isTradingDay == false { return "최근 수익" }
-        return isBeforeMarketWindow ? "전일 수익" : "오늘의 수익"
+        // priceAsOfDate 기준 라벨 결정 (오늘/전일/최근)
+        "\(decideChangeLabel(summary?.priceAsOfDate)) 수익"
     }
 
     private func profitAmount(_ summary: Summary?) -> Double {
-        // 비거래일: dayChangAmount (이미 마지막 거래일 캐시 포함)
-        // 거래일 09:00 이전: prevDayChangAmount (어제 거래일 백업)
-        // 거래일 09:00 이후: dayChangAmount (실시간)
-        if summary?.isTradingDay == false { return summary?.dayChangAmount ?? 0 }
-        if isBeforeMarketWindow { return summary?.prevDayChangAmount ?? 0 }
-        return summary?.dayChangAmount ?? 0
+        // dayChangAmount는 GAS fallback으로 항상 priceAsOfDate 기준 변동을 반환
+        summary?.dayChangAmount ?? 0
     }
 
     private func profitPct(_ summary: Summary?) -> String {
-        if summary?.isTradingDay == false { return summary?.dayChangePct ?? "0%" }
-        if isBeforeMarketWindow { return summary?.prevDayChangePct ?? "0%" }
-        return summary?.dayChangePct ?? "0%"
+        summary?.dayChangePct ?? "0%"
     }
 
     private var effectiveTradingDateString: String {
