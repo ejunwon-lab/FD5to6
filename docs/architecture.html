@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FD5to6 — 시스템 아키텍처</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #161c24;
+    --panel-2: #1d242e;
+    --text: #e4e8ed;
+    --text-dim: #8a96a3;
+    --border: #2a323d;
+    --shadow: rgba(0,0,0,0.4);
+
+    --c-external: #7a8a9a;
+    --c-data: #4ade80;
+    --c-logic: #a78bfa;
+    --c-ios: #60a5fa;
+    --c-web: #fb923c;
+    --c-arrow: #4a5563;
+    --c-arrow-hl: #fbbf24;
+  }
+  [data-theme="light"] {
+    --bg: #f7f8fa;
+    --panel: #ffffff;
+    --panel-2: #f1f3f6;
+    --text: #1a1f26;
+    --text-dim: #5a6573;
+    --border: #d8dde3;
+    --shadow: rgba(0,0,0,0.08);
+    --c-arrow: #cbd2db;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  header .sub { color: var(--text-dim); font-size: 13px; margin-top: 4px; }
+  .theme-toggle {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { background: var(--border); }
+
+  main { padding: 24px 32px 80px; max-width: 1600px; margin: 0 auto; }
+
+  /* 시나리오 토글 */
+  .scenarios {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .scenarios button {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .scenarios button:hover { background: var(--panel-2); }
+  .scenarios button.active {
+    background: var(--c-arrow-hl);
+    color: #1a1f26;
+    border-color: var(--c-arrow-hl);
+  }
+
+  /* 메인 다이어그램 */
+  .diagram {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .diagram-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 60px;
+    align-items: start;
+  }
+  .col-header {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    text-align: center;
+  }
+
+  .layer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    z-index: 2;
+  }
+  .group {
+    background: var(--panel-2);
+    border-radius: 10px;
+    padding: 10px;
+  }
+  .group-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    padding-left: 4px;
+  }
+  .box {
+    background: var(--panel);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    position: relative;
+  }
+  .box:last-child { margin-bottom: 0; }
+  .box:hover {
+    transform: translateX(2px);
+    box-shadow: 0 4px 12px var(--shadow);
+  }
+  .box.highlight {
+    border-color: var(--c-arrow-hl);
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+  }
+  .box .icon {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .box.data .icon { background: var(--c-data); }
+  .box.logic .icon { background: var(--c-logic); }
+  .box.ios .icon { background: var(--c-ios); }
+  .box.web .icon { background: var(--c-web); }
+  .box.ext .icon { background: var(--c-external); }
+  .box .label { flex: 1; }
+  .box .badge {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  /* SVG arrow overlay */
+  svg.arrows {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .arrow {
+    stroke: var(--c-arrow);
+    stroke-width: 1.5;
+    fill: none;
+    transition: all 0.3s;
+  }
+  .arrow.highlight {
+    stroke: var(--c-arrow-hl);
+    stroke-width: 2.5;
+  }
+  .arrow.dim {
+    opacity: 0.15;
+  }
+
+  /* 호버 패널 */
+  .hover-panel {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 380px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 12px;
+    line-height: 1.5;
+    box-shadow: 0 8px 24px var(--shadow);
+    z-index: 100;
+    display: none;
+  }
+  .hover-panel.visible { display: block; }
+  .hover-panel h3 {
+    margin: 0 0 6px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hover-panel .type {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+  .hover-panel ul {
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .hover-panel li {
+    padding: 3px 0;
+    color: var(--text-dim);
+    font-size: 11px;
+    border-top: 1px solid var(--border);
+  }
+  .hover-panel li:first-child { border-top: none; }
+  .hover-panel code {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    color: var(--text);
+    font-size: 11px;
+    background: var(--panel-2);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  /* 상세 섹션 */
+  .details {
+    margin-top: 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .details-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .details-card h2 {
+    margin: 0 0 14px;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .details-card h2::before {
+    content: "";
+    width: 4px; height: 16px;
+    border-radius: 2px;
+    background: var(--c-logic);
+  }
+  .details-card.data h2::before { background: var(--c-data); }
+  .details-card.ios h2::before { background: var(--c-ios); }
+  .details-card.web h2::before { background: var(--c-web); }
+  .details-card .row {
+    display: flex;
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    gap: 12px;
+  }
+  .details-card .row:first-of-type { border-top: none; }
+  .details-card .row .name {
+    flex: 0 0 200px;
+    font-weight: 500;
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 11px;
+  }
+  .details-card .row .desc {
+    flex: 1;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .details-card .sub-section {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+  }
+  .details-card .sub-section .stitle {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-item .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .scenario-desc {
+    background: rgba(251, 191, 36, 0.08);
+    border-left: 3px solid var(--c-arrow-hl);
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 16px;
+    display: none;
+  }
+  .scenario-desc.visible { display: block; }
+  .scenario-desc .steps {
+    margin: 6px 0 0;
+    padding-left: 20px;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 1100px) {
+    .diagram-grid { grid-template-columns: 1fr; gap: 30px; }
+    .details { grid-template-columns: 1fr; }
+    svg.arrows { display: none; }
+    .hover-panel { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>FD5to6 — 시스템 아키텍처</h1>
+    <div class="sub">신시스템 (GAS v2) ↔ iOS2 (뉴FD7) ↔ 웹앱 (PWA) · 2026-05-14</div>
+  </div>
+  <button class="theme-toggle" onclick="toggleTheme()">🌓 테마</button>
+</header>
+
+<main>
+
+  <div class="legend">
+    <div class="legend-item"><span class="dot" style="background:var(--c-external)"></span>외부 시스템</div>
+    <div class="legend-item"><span class="dot" style="background:var(--c-data)"></span>데이터 (시트)</div>
+    <div class="legend-item"><span class="dot" style="background:var(--c-logic)"></span>GAS 함수</div>
+    <div class="legend-item"><span class="dot" style="background:var(--c-ios)"></span>iOS2</div>
+    <div class="legend-item"><span class="dot" style="background:var(--c-web)"></span>웹앱</div>
+    <div style="margin-left:auto; color: var(--text-dim); font-size:11px;">박스에 마우스 올리면 상세 표시 · 시나리오 버튼으로 흐름 강조</div>
+  </div>
+
+  <div class="scenarios" id="scenarios">
+    <button data-scenario="none" class="active">전체 보기</button>
+    <button data-scenario="updateAll">🔄 전체 업데이트</button>
+    <button data-scenario="portfolio">📱 포트폴리오 조회</button>
+    <button data-scenario="stockDetail">📊 종목 상세</button>
+    <button data-scenario="sortChange">🔀 정렬 드롭다운</button>
+    <button data-scenario="scheduled">⏰ 17:30 자동</button>
+  </div>
+
+  <div class="scenario-desc" id="scenario-desc"></div>
+
+  <div class="diagram">
+    <div class="diagram-grid">
+      <!-- DATA -->
+      <div class="layer" id="layer-data">
+        <div class="col-header">Data (Google Sheets + External)</div>
+        <div class="group">
+          <div class="group-title">External</div>
+          <div class="box ext" data-id="kis-api"><div class="icon"></div><div class="label">KIS API</div><div class="badge">price · index</div></div>
+          <div class="box ext" data-id="gfin"><div class="icon"></div><div class="label">GOOGLEFINANCE</div><div class="badge">FX · 지표</div></div>
+          <div class="box ext" data-id="yahoo"><div class="icon"></div><div class="label">Yahoo Finance</div><div class="badge">선물 · 지표</div></div>
+        </div>
+        <div class="group">
+          <div class="group-title">Sheets (NS)</div>
+          <div class="box data" data-id="ledger"><div class="icon"></div><div class="label">*거래_원장*</div><div class="badge">12col</div></div>
+          <div class="box data" data-id="form"><div class="icon"></div><div class="label">*거래_입력폼*</div><div class="badge">UI</div></div>
+          <div class="box data" data-id="price-hist"><div class="icon"></div><div class="label">*현재가_이력*</div><div class="badge">N×M</div></div>
+          <div class="box data" data-id="position"><div class="icon"></div><div class="label">*보유현황*</div><div class="badge">15col</div></div>
+          <div class="box data" data-id="realized"><div class="icon"></div><div class="label">*실현손익*</div><div class="badge">14col</div></div>
+          <div class="box data" data-id="settings"><div class="icon"></div><div class="label">*설정*</div><div class="badge">FX · 대기</div></div>
+          <div class="box data" data-id="trend"><div class="icon"></div><div class="label">*추이 기록*</div><div class="badge">B/N/U sec</div></div>
+          <div class="box data" data-id="dashboard"><div class="icon"></div><div class="label">*대시보드*</div><div class="badge">20col 시각화</div></div>
+          <div class="box data" data-id="indic-sheet"><div class="icon"></div><div class="label">참고지표 / _히스토리</div><div class="badge">22개 지수</div></div>
+        </div>
+      </div>
+
+      <!-- LOGIC -->
+      <div class="layer" id="layer-logic">
+        <div class="col-header">Logic (apps-script-v2)</div>
+        <div class="group">
+          <div class="group-title">메뉴 함수 (Main.js)</div>
+          <div class="box logic" data-id="updateAllNew"><div class="icon"></div><div class="label">🔄 updateAllNew</div></div>
+          <div class="box logic" data-id="updatePrices"><div class="icon"></div><div class="label">💹 menuUpdatePricesOnly</div></div>
+          <div class="box logic" data-id="updatePos"><div class="icon"></div><div class="label">📋 updatePositionFromLedger</div></div>
+          <div class="box logic" data-id="buildDash"><div class="icon"></div><div class="label">📊 buildDashboard</div></div>
+        </div>
+        <div class="group">
+          <div class="group-title">자동 트리거</div>
+          <div class="box logic" data-id="onOpen"><div class="icon"></div><div class="label">onOpen</div><div class="badge">메뉴+대시보드</div></div>
+          <div class="box logic" data-id="onEdit"><div class="icon"></div><div class="label">onEdit</div><div class="badge">폼+정렬</div></div>
+          <div class="box logic" data-id="scheduled"><div class="icon"></div><div class="label">scheduledDailyUpdate</div><div class="badge">17:30 cron</div></div>
+        </div>
+        <div class="group">
+          <div class="group-title">Mobile API (MobileAPI.js)</div>
+          <div class="box logic" data-id="getPortfolio"><div class="icon"></div><div class="label">newMobileGetPortfolio</div></div>
+          <div class="box logic" data-id="updCurrent"><div class="icon"></div><div class="label">newMobileUpdateCurrentPrice</div></div>
+          <div class="box logic" data-id="updHistory"><div class="icon"></div><div class="label">newMobileUpdateHistory</div></div>
+          <div class="box logic" data-id="updAll"><div class="icon"></div><div class="label">newMobileUpdateAll</div></div>
+          <div class="box logic" data-id="getIndic"><div class="icon"></div><div class="label">newMobileGetIndicators</div></div>
+          <div class="box logic" data-id="getStockDetail"><div class="icon"></div><div class="label">newMobileGetStockDetail</div></div>
+          <div class="box logic" data-id="getMonthly"><div class="icon"></div><div class="label">newMobileGetMonthlyRealized</div></div>
+          <div class="box logic" data-id="getProfitHist"><div class="icon"></div><div class="label">newMobileGetProfitHistory</div></div>
+        </div>
+        <div class="group">
+          <div class="group-title">내부 로직</div>
+          <div class="box logic" data-id="logTrend"><div class="icon"></div><div class="label">logToTrendSheet</div><div class="badge">Trend.js</div></div>
+          <div class="box logic" data-id="updPriceHist"><div class="icon"></div><div class="label">updateNewPriceHistory</div><div class="badge">batch KIS</div></div>
+          <div class="box logic" data-id="updFx"><div class="icon"></div><div class="label">updateFxRates</div><div class="badge">GFin</div></div>
+          <div class="box logic" data-id="calcExtra"><div class="icon"></div><div class="label">_calcExtraColumns</div><div class="badge">change · m1~y1</div></div>
+        </div>
+      </div>
+
+      <!-- CLIENTS -->
+      <div class="layer" id="layer-client">
+        <div class="col-header">Clients (iOS / Web)</div>
+        <div class="group">
+          <div class="group-title">iOS2 (뉴FD7) · 4탭</div>
+          <div class="box ios" data-id="ios-dashboard"><div class="icon"></div><div class="label">📊 대시보드</div><div class="badge">요약+업데이트</div></div>
+          <div class="box ios" data-id="ios-history"><div class="icon"></div><div class="label">📈 기간별 수익</div><div class="badge">↑스와이프</div></div>
+          <div class="box ios" data-id="ios-holdings"><div class="icon"></div><div class="label">📋 종목</div><div class="badge">카드+상세모달</div></div>
+          <div class="box ios" data-id="ios-analysis"><div class="icon"></div><div class="label">📊 분석</div><div class="badge">차트+월별</div></div>
+          <div class="box ios" data-id="ios-indic"><div class="icon"></div><div class="label">◈ 참고지표</div><div class="badge">22지수</div></div>
+        </div>
+        <div class="group">
+          <div class="group-title">웹앱 (PWA) · 4탭</div>
+          <div class="box web" data-id="web-dashboard"><div class="icon"></div><div class="label">◎ 대시보드</div><div class="badge">요약+수익차트</div></div>
+          <div class="box web" data-id="web-holdings"><div class="icon"></div><div class="label">≡ 종목</div><div class="badge">카드+상세모달</div></div>
+          <div class="box web" data-id="web-analysis"><div class="icon"></div><div class="label">△ 분석</div><div class="badge">매트릭스+계좌</div></div>
+          <div class="box web" data-id="web-indic"><div class="icon"></div><div class="label">◈ 참고지표</div><div class="badge">22지수</div></div>
+        </div>
+      </div>
+    </div>
+    <svg class="arrows" id="arrows"></svg>
+  </div>
+
+  <!-- 상세 섹션 -->
+  <div class="details">
+    <div class="details-card data">
+      <h2>데이터 시트 (NS 상수)</h2>
+      <div class="row"><div class="name">*거래_원장*</div><div class="desc">날짜·구분·종목코드·종목명·분류·증권사·계좌·수량·단가·금액·수수료·메모 (12컬럼). 매수/매도만 누적</div></div>
+      <div class="row"><div class="name">*거래_입력폼*</div><div class="desc">사용자 거래 추가용 UI. 체크박스 submit → onEdit → 원장 추가</div></div>
+      <div class="row"><div class="name">*현재가_이력*</div><div class="desc">행=날짜, 열=종목코드. KIS 가격 + 일별 누적. 1M/3M/6M/1Y 계산 소스</div></div>
+      <div class="row"><div class="name">*보유현황*</div><div class="desc">종목코드·종목명·분류·증권사·계좌·보유기간·수량·평균단가·매입금액·현재단가·평가금액·손익·수익률·수동평가금액·비고 (15컬럼). 펀드/예금/보험은 K~M 셀에 수식 보존</div></div>
+      <div class="row"><div class="name">*실현손익*</div><div class="desc">매도 시점·종목·수량·매도단가·매도금액·평균단가·매수원가·수수료·실현손익·수익률 (14컬럼)</div></div>
+      <div class="row"><div class="name">*설정*</div><div class="desc">B2=USD/KRW, B3=GBP/KRW (GOOGLEFINANCE), 5행~ 대기 자금 항목 + 합계 행 (자동 감지)</div></div>
+      <div class="row"><div class="name">*추이 기록*</div><div class="desc">(A) B~L 업데이트별 추이, (B) N~S 일별, (C) U~AF 수익. row 2=최신 스냅샷, AH/AI 캐시, AJ/AK 전일 백업</div></div>
+      <div class="row"><div class="name">*대시보드*</div><div class="desc">20컬럼. [1]타이틀 [2]요약(4×2카드) [3]보유 종목 현황(정렬+합계) [4]계좌별 [5]분류별 [6]확정수익+Top/Bottom 5</div></div>
+      <div class="row"><div class="name">참고지표 / _히스토리</div><div class="desc">KOSPI·KOSDAQ·KOSPI200·SPX·NDX·DJI·SOX·ES·NQ·GC·CL·VIX·TNX·DXY·NVDA·AAPL·MSFT·GOOGL·META·AMZN·TSLA·HSI (22개)</div></div>
+    </div>
+
+    <div class="details-card">
+      <h2>로직 (apps-script-v2)</h2>
+      <div class="sub-section">
+        <div class="stitle">메뉴 (Main.js)</div>
+        <div class="row"><div class="name">🔄 전체 업데이트</div><div class="desc">updateAllNew → 환율 + 가격 + 보유현황 + 추이 기록 + 대시보드</div></div>
+        <div class="row"><div class="name">💹 현재가만</div><div class="desc">updateNewPriceHistory만 (KIS API batch)</div></div>
+        <div class="row"><div class="name">📋 보유현황 재계산</div><div class="desc">*거래_원장* → *보유현황* (펀드/예금/보험 수식 보존)</div></div>
+        <div class="row"><div class="name">📊 대시보드 갱신</div><div class="desc">buildDashboard만 (가격 갱신 없음, 빠름)</div></div>
+        <div class="row"><div class="name">⏰ 17:30 트리거 등록/해제</div><div class="desc">setupDailyTrigger / deleteDailyTrigger</div></div>
+      </div>
+      <div class="sub-section">
+        <div class="stitle">트리거</div>
+        <div class="row"><div class="name">onOpen</div><div class="desc">메뉴 생성 + *대시보드* 시트 자동 활성화</div></div>
+        <div class="row"><div class="name">onEdit</div><div class="desc">_handleFormOnEdit (거래 입력) + _handleDashSortChange (정렬 드롭다운)</div></div>
+        <div class="row"><div class="name">scheduledDailyUpdate</div><div class="desc">매일 17:30 atHour(17).nearMinute(30) → updateAllNew</div></div>
+      </div>
+      <div class="sub-section">
+        <div class="stitle">Mobile API (8개)</div>
+        <div class="row"><div class="name">newMobileGetPortfolio</div><div class="desc">summary + holdings[] + byCategory + byAccount + 환율. summary: totalBuy/totalCurrent/totalProfit/dayChang*/prevDayChang*/isMarketDay</div></div>
+        <div class="row"><div class="name">newMobileUpdateCurrentPrice</div><div class="desc">가격 갱신 + 보유현황 재계산 후 getPortfolio (LockService)</div></div>
+        <div class="row"><div class="name">newMobileUpdateHistory</div><div class="desc">UpdateCurrentPrice의 alias</div></div>
+        <div class="row"><div class="name">newMobileUpdateAll</div><div class="desc">updateAllNew 후 getPortfolio</div></div>
+        <div class="row"><div class="name">newMobileGetIndicators</div><div class="desc">22개 지수 (KIS + Yahoo + GFin) + 시트 캐싱</div></div>
+        <div class="row"><div class="name">newMobileGetStockDetail(code)</div><div class="desc">positions[] + transactions[] + priceHistory[] + 52주 + 통계</div></div>
+        <div class="row"><div class="name">newMobileGetMonthlyRealized</div><div class="desc">월별 매도 건수·승률·수익률 집계</div></div>
+        <div class="row"><div class="name">newMobileGetProfitHistory</div><div class="desc">*추이 기록* U(날짜)+AD(합계 수익) 시계열 (최근 180일)</div></div>
+      </div>
+      <div class="sub-section">
+        <div class="stitle">내부 로직</div>
+        <div class="row"><div class="name">updatePositionFromLedger</div><div class="desc">매수/매도 누적, 실현손익 계산, 평균단가, KIS_SKIP 행 수식 보존</div></div>
+        <div class="row"><div class="name">updateNewPriceHistory</div><div class="desc">KIS batch (5개씩) + 해외 KRW 환산 + 헤더 자동 정규화</div></div>
+        <div class="row"><div class="name">logToTrendSheet</div><div class="desc">B~L (업데이트별 누적), N~S (일별 upsert), U~AF (수익 upsert) + AJ/AK 전일 백업</div></div>
+        <div class="row"><div class="name">buildDashboard</div><div class="desc">_calcTodayProfit + _calcExtraColumns (extraMap 키=code+broker+account)</div></div>
+        <div class="row"><div class="name">_normCode</div><div class="desc">한국 코드 6자리 padStart('0') + 해외 영문 그대로</div></div>
+      </div>
+    </div>
+
+    <div class="details-card ios">
+      <h2>iOS2 (뉴FD7)</h2>
+      <div class="row"><div class="name">📊 대시보드</div><div class="desc">총수익/오늘수익/환율 카드 + 업데이트 버튼 3개. 위로 스와이프 → 기간별 수익 차트 (1주/1달/3달/6달)</div></div>
+      <div class="row"><div class="name">📋 종목</div><div class="desc">정렬 6가지 + 계좌 필터 + 검색. HoldingCard (allInfo/standard 2모드) · 보유기간 라인 끝 📊 상세 버튼 → StockDetailView 시트 모달 (요약+가격차트+계좌별+거래이력)</div></div>
+      <div class="row"><div class="name">📊 분석</div><div class="desc">분류별·계좌별 도넛 + 수익률 순위 + 월별 실현손익</div></div>
+      <div class="row"><div class="name">◈ 참고지표</div><div class="desc">22개 지수 카테고리별 (한국시장/미국시장/AI반도체/매크로/빅테크/중국)</div></div>
+      <div class="sub-section">
+        <div class="stitle">호출 API</div>
+        <div class="row"><div class="name">PortfolioViewModel</div><div class="desc">getPortfolio / triggerUpdate / updateFull / updateFast / updateAll / getProfitHistory</div></div>
+        <div class="row"><div class="name">ScriptAPIService</div><div class="desc">Script API :run + Google Sign-In token</div></div>
+      </div>
+    </div>
+
+    <div class="details-card web">
+      <h2>웹앱 (PWA)</h2>
+      <div class="row"><div class="name">◎ 대시보드</div><div class="desc">DashboardPage + ProfitHistoryChart. 분기: 비거래일 "최근 수익"/거래일 09시 전 "전일 수익"/이후 "오늘의 수익"</div></div>
+      <div class="row"><div class="name">≡ 종목</div><div class="desc">HoldingsPage + HoldingCard · 보유기간 라인 끝 📊 상세 버튼 → StockDetailModal (가격차트+거래이력)</div></div>
+      <div class="row"><div class="name">△ 분석</div><div class="desc">AnalysisPage — 매트릭스/계좌별 5탭/연환산/52주 포지션</div></div>
+      <div class="row"><div class="name">◈ 참고지표</div><div class="desc">IndicatorsPage — 카테고리별 섹션</div></div>
+      <div class="sub-section">
+        <div class="stitle">호출 API (gasApi.ts)</div>
+        <div class="row"><div class="name">SCRIPT_ID</div><div class="desc"><code>1DC8llpWYz2ZvzsqVCaz60qomATwxP_CBzuHBitCf0uQT5NbBF-n7IHdZ</code></div></div>
+        <div class="row"><div class="name">엔드포인트</div><div class="desc">script.googleapis.com/v1/scripts/:run · function/parameters/devMode 형식</div></div>
+        <div class="row"><div class="name">배포</div><div class="desc">GitHub Actions → GitHub Pages (https://ejunwon-lab.github.io/FD5to6/)</div></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="hover-panel" id="hover-panel"></div>
+
+<script>
+  // 호버 상세 데이터
+  const META = {
+    'kis-api': { type:'External', desc:'한국투자증권 KIS Developers API. OAuth 토큰 + Secret.js로 인증', io:['→ 국내·해외 주식 현재가/일봉','→ 국내·해외 지수 / 선물'] },
+    'gfin': { type:'External', desc:'GOOGLEFINANCE 함수 (시트 내장)', io:['→ USD/KRW · GBP/KRW','→ VIX · TNX · DXY 등 지표','→ 과거 일별 환율 (USD→KRW 환산용)'] },
+    'yahoo': { type:'External', desc:'Yahoo Finance API (UrlFetchApp)', io:['→ 해외 지표 (NVDA, AAPL 등)','→ 선물 (ES, NQ, GC, CL)'] },
+    'ledger': { type:'Sheet', desc:'*거래_원장* — 모든 매수/매도 기록', io:['12컬럼: 날짜·구분·코드·이름·분류·증권사·계좌·수량·단가·금액·수수료·메모'] },
+    'form': { type:'Sheet', desc:'*거래_입력폼* — 거래 추가 UI', io:['onEdit 트리거로 원장에 추가'] },
+    'price-hist': { type:'Sheet', desc:'*현재가_이력* — 날짜×종목 가격 매트릭스', io:['열 헤더 = 종목코드 (자동 정규화)','일별 누적 + 헤더 자동 갱신'] },
+    'position': { type:'Sheet', desc:'*보유현황* — 종목별 현재 보유', io:['15컬럼','KIS_SKIP(펀드/예금/보험/기타) 행은 K~M에 사용자 수식 보존','수동평가금액(N열) + 비고(O열)'] },
+    'realized': { type:'Sheet', desc:'*실현손익* — 매도 시 확정', io:['14컬럼: 일자·종목·수량·단가·금액·원가·손익·수익률'] },
+    'settings': { type:'Sheet', desc:'*설정*', io:['B2 = USD/KRW','B3 = GBP/KRW','5행~ 대기 자금 + 합계 행 자동 감지'] },
+    'trend': { type:'Sheet', desc:'*추이 기록* — 3개 섹션', io:['B~L: 업데이트별 누적 (row 2 = 최신)','N~S: 일별 upsert','U~AF: 수익 추이 (AD = 합계 수익)','AH/AI: 거래일 캐시 · AJ/AK: 전일 백업'] },
+    'dashboard': { type:'Sheet', desc:'*대시보드* — 시각화', io:['20컬럼','정렬 드롭다운 (PropertiesService)','합계 행 포함 보유 종목 현황'] },
+    'indic-sheet': { type:'Sheet', desc:'참고지표 + 히스토리', io:['22개 지수 · 카테고리 분류','일별 누적'] },
+
+    'updateAllNew': { type:'GAS 메뉴', desc:'전체 업데이트 (시퀀스)', io:['1) updateFxRates','2) updateNewPriceHistory','3) updatePositionFromLedger','4) logToTrendSheet','5) buildDashboard'] },
+    'updatePrices': { type:'GAS 메뉴', desc:'현재가만 갱신', io:['KIS batch 5개씩','해외 KRW 환산','*현재가_이력* upsert'] },
+    'updatePos': { type:'GAS 함수', desc:'*거래_원장* → *보유현황* 재집계', io:['종목별 매수/매도 누적','평균단가 + 실현손익','KIS_SKIP 수식 보존'] },
+    'buildDash': { type:'GAS 함수', desc:'*대시보드* 시트 그리기', io:['_calcTodayProfit','_calcExtraColumns','정렬 드롭다운 다시 그림','clearDataValidations 후 재설정'] },
+    'onOpen': { type:'Simple Trigger', desc:'시트 열 때', io:['메뉴 6개 생성','*대시보드* 시트 활성화'] },
+    'onEdit': { type:'Simple Trigger', desc:'시트 셀 편집', io:['_handleFormOnEdit (거래 입력)','_handleDashSortChange (정렬 드롭다운 — installable 필요)'] },
+    'scheduled': { type:'Time Trigger', desc:'매일 17:30', io:['atHour(17).nearMinute(30)','→ updateAllNew'] },
+
+    'getPortfolio': { type:'Mobile API', desc:'클라이언트 진입점', io:['Input: token','Output: summary + holdings + byCategory + byAccount + 환율','종목별 1M/3M/6M/1Y + 당일 등락 + 52주'] },
+    'updCurrent': { type:'Mobile API', desc:'가격 갱신 후 조회', io:['LockService 단일 실행','→ updateFxRates + updateNewPriceHistory + updatePositionFromLedger','→ newMobileGetPortfolio'] },
+    'updHistory': { type:'Mobile API', desc:'newMobileUpdateCurrentPrice 호출', io:['신시스템은 *현재가_이력* 누적이라 가격 갱신과 동일'] },
+    'updAll': { type:'Mobile API', desc:'전체 업데이트 + 조회', io:['updateAllNew','→ newMobileGetPortfolio'] },
+    'getIndic': { type:'Mobile API', desc:'22개 참고지표', io:['KIS / Yahoo / GFin 통합','참고지표 시트 + _히스토리 시트 갱신'] },
+    'getStockDetail': { type:'Mobile API', desc:'종목별 상세', io:['Input: code','positions[] · transactions[] · priceHistory[] · 52주 · 통계','*현재가_이력* 컬럼에서 그 종목 시계열'] },
+    'getMonthly': { type:'Mobile API', desc:'월별 실현손익', io:['*실현손익* 월별 집계','매도 건수 · 승률 · 수익률'] },
+    'getProfitHist': { type:'Mobile API', desc:'기간별 수익 시계열', io:['*추이 기록* U(날짜) + AD(합계 수익)','최근 180일'] },
+
+    'logTrend': { type:'GAS 함수 (Trend.js)', desc:'*추이 기록* 시트 갱신', io:['(A) B~L 업데이트별 누적 행','(B) N~S 일별 upsert','(C) U~AF 수익 upsert','대기 = *설정* 합계 행 자동 감지','AJ/AK = 어제 AE/AF 백업 (거래일만)'] },
+    'updPriceHist': { type:'GAS 함수', desc:'*현재가_이력* 갱신', io:['*거래_원장* 종목 추출 (KIS_SKIP 제외)','국내: getKisPricesBatch (5개씩)','해외: getOverseasStockInfoAuto × FX 환산','신규 종목 컬럼 자동 추가'] },
+    'updFx': { type:'GAS 함수', desc:'환율 갱신', io:['=GOOGLEFINANCE("CURRENCY:USDKRW")','*설정* B2/B3에 값으로 저장'] },
+    'calcExtra': { type:'GAS 함수', desc:'종목별 확장 지표', io:['change · changePct · todayPnl','1주일/1달 손익 (수량 변화 없는 경우만)','m1/m3/m6/y1 % 수익률','52주 high/low','키 = code+broker+account'] },
+
+    'ios-dashboard': { type:'iOS Tab', desc:'대시보드 (메인)', io:['요약 카드: 합계수익 / 오늘수익 / 환율','업데이트 버튼: 빠른 / 전체 / 통합','PortfolioViewModel.fetchPortfolio'] },
+    'ios-history': { type:'iOS Screen', desc:'기간별 수익 (위로 스와이프)', io:['1주/1달/3달/6달','캘린더 기준 (오늘 − N일)','일평균 / 최고/최저 하루'] },
+    'ios-holdings': { type:'iOS Tab', desc:'종목 카드 리스트', io:['정렬 6가지 · 계좌 필터 · 검색','HoldingCard (allInfo + standard 모드)','보유기간 라인 끝 📊 상세 → StockDetailView 시트 모달'] },
+    'ios-analysis': { type:'iOS Tab', desc:'분석', io:['분류별 도넛 차트','계좌별 도넛','수익률 순위','월별 실현손익'] },
+    'ios-indic': { type:'iOS Tab', desc:'참고지표', io:['22개 지수 카테고리별','newMobileGetIndicators 호출','캐시 + 갱신 버튼'] },
+
+    'web-dashboard': { type:'Web Tab', desc:'대시보드 (DashboardPage)', io:['합계수익 + 오늘수익 + 확정운용 + 환율','수익 히스토리 차트 (ProfitHistoryChart)','캘린더 기준 1W/1M/3M/6M'] },
+    'web-holdings': { type:'Web Tab', desc:'종목 (HoldingsPage)', io:['검색 + 계좌 필터 + 정렬','HoldingCard (allInfo + standard)','보유기간 라인 끝 📊 상세 → StockDetailModal'] },
+    'web-analysis': { type:'Web Tab', desc:'분석 (AnalysisPage)', io:['매트릭스 / 계좌별 5탭','연환산 차트 / 52주 포지션'] },
+    'web-indic': { type:'Web Tab', desc:'참고지표 (IndicatorsPage)', io:['카테고리별 섹션','갱신 버튼'] },
+  };
+
+  // 시나리오 정의: 강조할 박스 ID + 화살표
+  const SCENARIOS = {
+    none: { title:'전체 보기', desc:'', steps:[], boxes:[], arrows:[] },
+    updateAll: {
+      title:'🔄 전체 업데이트', desc:'사용자가 시트 메뉴 클릭 또는 17:30 자동 실행',
+      steps:[
+        '메뉴 클릭 또는 scheduledDailyUpdate 트리거 발동',
+        'updateFxRates → GOOGLEFINANCE 호출 → *설정* B2/B3',
+        'updateNewPriceHistory → KIS API batch → *현재가_이력* 새 행',
+        'updatePositionFromLedger → *거래_원장* 재집계 → *보유현황* (KIS_SKIP 수식 보존)',
+        'logToTrendSheet → *보유현황* + *실현손익* + *설정* → *추이 기록* 3개 섹션',
+        'buildDashboard → 모든 시트 종합 → *대시보드*',
+      ],
+      boxes:['updateAllNew','updFx','updPriceHist','updatePos','logTrend','buildDash','kis-api','gfin','settings','price-hist','ledger','position','realized','trend','dashboard'],
+      arrows:[['updateAllNew','updFx'],['updateAllNew','updPriceHist'],['updateAllNew','updatePos'],['updateAllNew','logTrend'],['updateAllNew','buildDash'],['gfin','updFx'],['updFx','settings'],['kis-api','updPriceHist'],['updPriceHist','price-hist'],['ledger','updatePos'],['updatePos','position'],['position','logTrend'],['realized','logTrend'],['settings','logTrend'],['logTrend','trend'],['position','buildDash'],['price-hist','buildDash'],['trend','buildDash'],['realized','buildDash'],['buildDash','dashboard']]
+    },
+    portfolio: {
+      title:'📱 포트폴리오 조회 (iOS / Web)', desc:'클라이언트 진입 시 첫 호출',
+      steps:[
+        '클라이언트 ScriptAPIService / gasApi.getPortfolio 호출',
+        'GAS newMobileGetPortfolio 실행',
+        '*보유현황* (전체) · *실현손익* · *추이 기록* (AD2 / AJ2 / AK2) · *현재가_이력* · *거래_원장* · *설정* 읽기',
+        '_mCalcExtras로 종목별 change/m1~y1/52주 계산',
+        'JSON 응답 (summary + holdings + byCategory + byAccount)',
+        'iOS PortfolioViewModel / Web setPortfolio → 화면 갱신',
+      ],
+      boxes:['ios-dashboard','ios-holdings','ios-analysis','web-dashboard','web-holdings','web-analysis','getPortfolio','position','realized','trend','price-hist','ledger','settings'],
+      arrows:[['ios-dashboard','getPortfolio'],['ios-holdings','getPortfolio'],['ios-analysis','getPortfolio'],['web-dashboard','getPortfolio'],['web-holdings','getPortfolio'],['web-analysis','getPortfolio'],['position','getPortfolio'],['realized','getPortfolio'],['trend','getPortfolio'],['price-hist','getPortfolio'],['ledger','getPortfolio'],['settings','getPortfolio']]
+    },
+    stockDetail: {
+      title:'📊 종목 상세 (모달)', desc:'카드의 📊 상세 버튼 클릭',
+      steps:[
+        'HoldingCard의 onDetail 콜백',
+        'iOS: StockDetailView sheet 모달 / Web: StockDetailModal',
+        'ScriptAPIService.getStockDetail(code) / gasApi.getStockDetail(token, code)',
+        'newMobileGetStockDetail(code) 실행',
+        '*보유현황* (계좌별) · *거래_원장* (이력) · *현재가_이력* (시계열)',
+        '52주 high/low 계산 + JSON 응답',
+        '클라이언트 차트 + 거래 이력 표시',
+      ],
+      boxes:['ios-holdings','web-holdings','getStockDetail','position','ledger','price-hist'],
+      arrows:[['ios-holdings','getStockDetail'],['web-holdings','getStockDetail'],['position','getStockDetail'],['ledger','getStockDetail'],['price-hist','getStockDetail']]
+    },
+    sortChange: {
+      title:'🔀 정렬 드롭다운', desc:'*대시보드* 시트의 정렬 컨트롤 변경',
+      steps:[
+        '시트 셀 편집 (정렬 옵션 선택) → onEdit 트리거 (installable 필요)',
+        '_handleDashSortChange 호출',
+        'PropertiesService.setProperty (DASH_POS_SORT_KEY/DIR)',
+        'buildDashboard 재호출 → 새 순서로 보유 종목 현황 다시 그림',
+      ],
+      boxes:['dashboard','onEdit','buildDash'],
+      arrows:[['dashboard','onEdit'],['onEdit','buildDash'],['buildDash','dashboard']]
+    },
+    scheduled: {
+      title:'⏰ 17:30 자동 갱신', desc:'GAS Script 시간 트리거',
+      steps:[
+        'ScriptApp 시간 트리거 (atHour 17, nearMinute 30) 발동',
+        'scheduledDailyUpdate 함수',
+        '→ updateAllNew 실행 (시나리오 1과 동일)',
+      ],
+      boxes:['scheduled','updateAllNew'],
+      arrows:[['scheduled','updateAllNew']]
+    },
+  };
+
+  // 호버 패널
+  const panel = document.getElementById('hover-panel');
+  document.querySelectorAll('.box').forEach(b => {
+    b.addEventListener('mouseenter', () => {
+      const id = b.dataset.id;
+      const m = META[id];
+      if (!m) return;
+      panel.innerHTML = `<div class="type">${m.type}</div><h3>${b.querySelector('.label').textContent}</h3><div style="color:var(--text-dim);">${m.desc}</div><ul>${(m.io||[]).map(x=>`<li>${x}</li>`).join('')}</ul>`;
+      panel.classList.add('visible');
+    });
+    b.addEventListener('mouseleave', () => panel.classList.remove('visible'));
+  });
+
+  // 화살표 그리기
+  function drawArrows(arrows = [], highlight = false) {
+    const svg = document.getElementById('arrows');
+    const diagram = document.querySelector('.diagram');
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', `0 0 ${diagram.clientWidth} ${diagram.clientHeight}`);
+
+    // 마커 정의
+    const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+    defs.innerHTML = `
+      <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M 0 0 L 6 3 L 0 6 z" fill="${getComputedStyle(document.documentElement).getPropertyValue('--c-arrow').trim()}" />
+      </marker>
+      <marker id="arr-hl" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+        <path d="M 0 0 L 6 3 L 0 6 z" fill="${getComputedStyle(document.documentElement).getPropertyValue('--c-arrow-hl').trim()}" />
+      </marker>`;
+    svg.appendChild(defs);
+
+    arrows.forEach(([fromId, toId]) => {
+      const from = document.querySelector(`.box[data-id="${fromId}"]`);
+      const to   = document.querySelector(`.box[data-id="${toId}"]`);
+      if (!from || !to) return;
+      const fr = from.getBoundingClientRect();
+      const tr = to.getBoundingClientRect();
+      const dr = diagram.getBoundingClientRect();
+
+      const x1 = fr.right - dr.left;
+      const y1 = fr.top + fr.height / 2 - dr.top;
+      const x2 = tr.left - dr.left;
+      const y2 = tr.top + tr.height / 2 - dr.top;
+
+      const dx = Math.abs(x2 - x1) * 0.5;
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      const d = (x2 > x1)
+        ? `M ${x1} ${y1} C ${x1+dx} ${y1}, ${x2-dx} ${y2}, ${x2} ${y2}`
+        : `M ${x1} ${y1} C ${x1-dx} ${y1}, ${x2+dx} ${y2}, ${x2} ${y2}`;
+      path.setAttribute('d', d);
+      path.setAttribute('class', 'arrow' + (highlight ? ' highlight' : ''));
+      path.setAttribute('marker-end', `url(#${highlight ? 'arr-hl' : 'arr'})`);
+      svg.appendChild(path);
+    });
+  }
+
+  // 시나리오 적용
+  function applyScenario(name) {
+    const sc = SCENARIOS[name] || SCENARIOS.none;
+    const allBoxes = document.querySelectorAll('.box');
+    allBoxes.forEach(b => b.classList.remove('highlight'));
+
+    const desc = document.getElementById('scenario-desc');
+    if (name === 'none') {
+      desc.classList.remove('visible');
+      drawArrows([], false);
+      return;
+    }
+    sc.boxes.forEach(id => {
+      const el = document.querySelector(`.box[data-id="${id}"]`);
+      if (el) el.classList.add('highlight');
+    });
+    desc.classList.add('visible');
+    desc.innerHTML = `<strong>${sc.title}</strong><ol class="steps">${sc.steps.map(s => `<li>${s}</li>`).join('')}</ol>`;
+    drawArrows(sc.arrows, true);
+  }
+
+  document.querySelectorAll('#scenarios button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#scenarios button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyScenario(btn.dataset.scenario);
+    });
+  });
+
+  window.addEventListener('resize', () => {
+    const active = document.querySelector('#scenarios button.active');
+    applyScenario(active.dataset.scenario);
+  });
+
+  // 테마 토글
+  function toggleTheme() {
+    const cur = document.documentElement.getAttribute('data-theme');
+    document.documentElement.setAttribute('data-theme', cur === 'light' ? 'dark' : 'light');
+    const active = document.querySelector('#scenarios button.active');
+    applyScenario(active.dataset.scenario);
+  }
+</script>
+
+</body>
+</html>
