@@ -653,36 +653,54 @@ function _calcExtraColumns(priceHistSheet, posRows, ledgerSheet) {
   const m6Idx = findNDaysAgo(180);
   const y1Idx = findNDaysAgo(365);
 
-  // 원장 → 종목별 매수/매도 시계열
-  const txByCode = {};
+  // 원장 → (종목코드+증권사+계좌)별 매수/매도 시계열.
+  //   같은 종목을 여러 계좌에서 보유하므로 code 단위로 합치면
+  //   *보유현황* 행별 수량(curQty, 계좌별)과 불일치 → key 단위로 분리해야 함.
+  const txByKey = {};
   if (ledgerSheet && ledgerSheet.getLastRow() >= 2) {
-    const lRows = ledgerSheet.getRange(2, 1, ledgerSheet.getLastRow() - 1, 8).getValues();
+    const lRows = ledgerSheet.getRange(2, 1, ledgerSheet.getLastRow() - 1, 10).getValues();
     lRows.forEach(r => {
       const dRaw = r[0];
       const d = dRaw instanceof Date
         ? Utilities.formatDate(dRaw, 'Asia/Seoul', 'yyyy-MM-dd')
         : String(dRaw).slice(0, 10);
-      const type = String(r[1] || '').trim();
-      const code = _normCode(String(r[2] || ''));
-      const qty  = Number(r[7]) || 0;
+      const type   = String(r[1] || '').trim();
+      const code   = _normCode(String(r[2] || ''));
+      const broker = String(r[5] || '');
+      const acct   = String(r[6] || '');
+      const qty    = Number(r[7]) || 0;
       if (!code || !d || qty === 0) return;
       const sign = type === '매수' ? 1 : type === '매도' ? -1 : 0;
       if (sign === 0) return;
-      if (!txByCode[code]) txByCode[code] = [];
-      txByCode[code].push({ date: d, qty: qty * sign });
+      // 거래 금액 (원장 '금액' 열, 없으면 단가×수량)
+      const amt = Number(r[9]) || (Number(r[8]) || 0) * qty;
+      const txKey = code + '||' + broker + '||' + acct;
+      if (!txByKey[txKey]) txByKey[txKey] = [];
+      txByKey[txKey].push({ date: d, qty: qty * sign, amt: amt * sign });
     });
-    Object.keys(txByCode).forEach(c =>
-      txByCode[c].sort((a, b) => a.date < b.date ? -1 : 1));
+    Object.keys(txByKey).forEach(k =>
+      txByKey[k].sort((a, b) => a.date < b.date ? -1 : 1));
   }
 
-  const qtyAtDate = (code, dateStr) => {
-    const txs = txByCode[code] || [];
+  // 특정 날짜 시점의 보유수량
+  const qtyAtDate = (txKey, dateStr) => {
+    const txs = txByKey[txKey] || [];
     let q = 0;
     for (const tx of txs) {
       if (tx.date <= dateStr) q += tx.qty;
       else break;
     }
     return q;
+  };
+
+  // fromDate 다음날 ~ 현재까지의 순매수금액 (매수 +, 매도 −)
+  const netInvestedSince = (txKey, fromDateStr) => {
+    const txs = txByKey[txKey] || [];
+    let amt = 0;
+    for (const tx of txs) {
+      if (tx.date > fromDateStr) amt += tx.amt;
+    }
+    return amt;
   };
 
   posRows.forEach(row => {
@@ -701,13 +719,15 @@ function _calcExtraColumns(priceHistSheet, posRows, ledgerSheet) {
     const todayChangePct = (todayChange !== null && pPrice > 0) ? (todayChange / pPrice * 100) : null;
     const todayPnl       = (todayChange !== null) ? todayChange * curQty : null;
 
+    // 정확한 기간 손익 = 오늘 평가금액 − N일전 평가금액 − 기간 내 순매수금액.
+    //   수량 불변이면 (오늘가−N일전가)×수량 과 동일, 거래가 있어도 올바른 값.
     const pnlAt = (idx) => {
       if (idx === -1 || tPrice <= 0) return null;
+      const pastQty   = qtyAtDate(key, dates[idx]);
       const pastPrice = Number(prices[idx][colIdx]) || 0;
-      if (pastPrice <= 0) return null;
-      // 기간 내 수량 변화 있는 종목은 "가격 변동만"의 의미가 무너지므로 비교 불가
-      if (qtyAtDate(code, dates[idx]) !== curQty) return null;
-      return (tPrice - pastPrice) * curQty;
+      // N일전에 보유 중이었는데 그 시점 가격이 없으면 평가 불가
+      if (pastQty > 0 && pastPrice <= 0) return null;
+      return tPrice * curQty - pastPrice * pastQty - netInvestedSince(key, dates[idx]);
     };
     const pctAt = (idx) => {
       if (idx === -1 || tPrice <= 0) return null;

@@ -86,3 +86,10 @@
 - **원인**: `updateNewPriceHistory()`(NewSystem.js)가 거래일 여부를 확인하지 않고 *현재가_이력*에 오늘 날짜 행을 추가 → 주말에 업데이트 버튼을 누르면 비거래일 날짜 행이 누적됨. 그 결과 `priceAsOfDate`(마지막 행 날짜)가 비거래일 날짜가 되어 `decideChangeLabel`이 "오늘" 반환. `_mCalcExtras`의 변동 계산도 `주말가−금요일가≈0`으로 오염 ("작동하다 바뀜" = 캐시(정상)→fresh fetch(오염))
 - **해결**: (A) `updateNewPriceHistory`에 `_mIsTradingDay()` 가드 추가 — 비거래일엔 행 미기록. (B) `priceAsOfDate`는 마지막 *거래일* 행을 역방향 스캔, `_mCalcExtras`는 비거래일 행 필터링 (`_isTradingDateStr` 헬퍼 추가). (C) 클라이언트 `decideChangeLabel`(changeLabel.ts/ChangeLabel.swift)이 비거래일이면 priceAsOfDate와 무관하게 "최근" 우선 판정
 - **교훈**: 이력 시트에 거래일 데이터만 들어간다는 전제로 라벨/변동 로직이 설계됨. 시트에 쓰는 쪽에서 거래일 가드를 빠뜨리면 읽는 쪽 로직이 전부 어긋남. 데이터 소스 가드 + 읽기 측 강건화 양쪽 모두 필요
+
+### 다계좌 보유 종목의 1주일/1달 손익이 항상 ─(빈칸)
+- **증상**: *대시보드* 보유종목 현황에서 특정 종목(TIGER 차이나테크 TOP10, KODEX AI전력핵심설비 등)의 "1주일 손익"·"1달 손익"이 보유기간(11개월+)과 무관하게 계속 빈칸
+- **원인**: Dashboard.js `_calcExtraColumns()`의 `txByCode`/`qtyAtDate`가 *거래_원장*을 **종목코드 단위로만** 합산. 손익 가드 `qtyAtDate(code) !== curQty`에서 `curQty`는 *보유현황* 행별 **계좌별 수량**이라, 같은 종목을 2개 이상 계좌에서 보유하면 `qtyAtDate(code)`(전 계좌 합계)와 영구 불일치 → `pnlAt`이 항상 null 반환. JUN & SOO 공동 포트폴리오라 다계좌 보유가 정상 케이스
+- **해결**: `txByKey`를 `code||증권사||계좌` 단위로 키잉, `qtyAtDate(key, …)`로 계좌별 판정. (`pctAt` 기반 m1/m3/m6/y1 %는 수량 가드가 없어 원래 정상이었음)
+- **교훈**: *보유현황*은 (종목,증권사,계좌) 행 단위인데 원장 집계를 코드 단위로 하면 다계좌 종목에서 어긋남. 집계 키 granularity를 소비처(curQty)와 일치시켜야 함
+- **후속**: 다계좌 수정 후에도 랩 계좌(미래애셋 종합_랩 등 기간 내 거래 잦은 계좌)는 수량 변동 가드(`qtyAtDate !== curQty`)에 걸려 계속 빈칸. `pnlAt`을 **정확한 기간 손익**(오늘 평가금액 − N일전 평가금액 − 기간 내 순매수금액)으로 교체 → 수량이 변해도 올바른 값, 가드 제거. 수량 불변 종목은 결과 동일. 원장 read 8→10열 확장(금액 열 사용)
