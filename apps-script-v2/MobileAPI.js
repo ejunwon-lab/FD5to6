@@ -754,25 +754,7 @@ function _mFindPrevDayProfitChange(trendSht) {
   return { amount: null, pct: null };
 }
 
-function _isKoreanHoliday(date) {
-  const dateStr = Utilities.formatDate(date, 'Asia/Seoul', 'yyyy-MM-dd');
-  const HOLIDAYS = [
-    '2025-01-01',
-    '2025-01-28', '2025-01-29', '2025-01-30',
-    '2025-03-01', '2025-05-01', '2025-05-05', '2025-06-06',
-    '2025-08-15',
-    '2025-10-03', '2025-10-05', '2025-10-06', '2025-10-07', '2025-10-09',
-    '2025-12-25',
-    '2026-01-01',
-    '2026-02-16', '2026-02-17', '2026-02-18',
-    '2026-03-01', '2026-03-02',
-    '2026-05-01', '2026-05-05', '2026-05-25',
-    '2026-06-06', '2026-08-15',
-    '2026-10-03', '2026-10-09',
-    '2026-12-25', '2026-12-31',
-  ];
-  return HOLIDAYS.includes(dateStr);
-}
+// _isKoreanHoliday(date) 는 Holidays.js 로 이동 (*휴장일* 시트 단일 소스)
 
 // 'yyyy-MM-dd' 문자열이 거래일(주말·공휴일 아님)인지 판정
 function _isTradingDateStr(s) {
