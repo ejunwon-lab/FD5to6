@@ -20,6 +20,7 @@ const NS = {
   SETTINGS:      '*설정*',
   TREND:         '*추이 기록*',
   HOLIDAYS:      '*휴장일*',
+  STOCK_METRICS: '*종목지표*',
 
   BROKERS:    ['미래에셋투자증권', '삼성증권'],
   ACCOUNTS: {
@@ -627,6 +628,7 @@ function updatePositionFromLedger() {
     Logger.log('*실현손익* 갱신 완료: ' + realizedRows.length + '건');
   }
 
+  computeStockMetrics();   // 보유현황 갱신 후 *종목지표* 재계산 (모든 갱신 경로가 여기 통과)
   buildDashboard();
 }
 
