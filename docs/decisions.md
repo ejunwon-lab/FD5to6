@@ -36,3 +36,15 @@
 - **결정**: 모든 탭에서 pull-to-refresh 제거
 - **이유**: 실제로 당겨서 취소하면 CancellationError가 UI에 에러로 표시됨. GAS 호출이 30~90초 걸려서 당기기 UX와 맞지 않음
 - **대체**: 대시보드 상단 버튼(번개·그리드·별) 으로 업데이트
+
+## 2026-05-17 — 종목 지표를 *종목지표* 시트로 미리 계산 (E안)
+
+- **결정**: 종목별 지표(당일등락·1주/1달 손익·1M~1Y%·52주)를 `computeStockMetrics`가
+  한 번 계산해 *종목지표* 시트에 저장. 앱·대시보드는 `_readStockMetrics`로 읽기만 함.
+- **이유**: 기존엔 `_mCalcExtras`(앱)·`_calcExtraColumns`·`_calcTodayProfit`(시트)이
+  같은 계산을 따로 구현 → 한쪽만 수정되면 드리프트(감사 #1 버그가 그 사례).
+  *보유현황*이 이미 "원장에서 미리 계산해 저장한 표"인 것과 동일한 패턴.
+- **효과**: 계산 함수 3개 → 1개. 앱 응답 빨라짐(읽기만). 앱·시트 값 항상 일치.
+  클라이언트(web/iOS) 영향 없음 — API 응답 구조 불변.
+- **갱신 보장**: `updatePositionFromLedger` 끝에서 `computeStockMetrics` 호출 →
+  모든 갱신 경로(updateAllNew·newMobileUpdate*·메뉴)가 통과. 읽기 시 시트 없으면 1회 자동 계산.

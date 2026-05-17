@@ -44,9 +44,9 @@ function newMobileGetPortfolio() {
 
     const buyDateMap = _mGetBuyDates(ss);
     const fx         = _mGetFxRates(ss);
-    const extras     = _mCalcExtras(priceHistSheet, posRows, ledgerSheet);
+    const metrics    = _readStockMetrics(ss);
 
-    const holdings = posRows.map(r => _mMapHolding(r, buyDateMap, extras));
+    const holdings = posRows.map(r => _mMapHolding(r, buyDateMap, metrics));
 
     // ── 요약 계산 (전체 보유 기준 — KIS_SKIP 포함, *추이 기록* 운용중과 동일 정의) ──
     const totalBuy = allPosRows.reduce((s, r) => s + (Number(r[8])  || 0), 0);
@@ -76,14 +76,12 @@ function newMobileGetPortfolio() {
     }
     const totRate   = totalBuy > 0 ? totProfit / totalBuy * 100 : 0;
 
-    // ── 오늘 수익 (extras.change × 수량, 행별로) ──
+    // ── 오늘 수익 (*종목지표*의 행별 당일손익 합산) ──
     let dayChange = 0;
     posRows.forEach(r => {
       const key = _normCode(String(r[0])) + '||' + String(r[3] || '') + '||' + String(r[4] || '');
-      const ex = extras.get(key);
-      if (ex && ex.change != null) {
-        dayChange += ex.change * (Number(r[6]) || 0);
-      }
+      const ex = metrics.get(key);
+      if (ex && ex.todayPnl != null) dayChange += ex.todayPnl;
     });
     const prevCur = totalCur - dayChange;
     const dayPct  = prevCur > 0 ? dayChange / prevCur * 100 : 0;
@@ -500,120 +498,8 @@ function newMobileGetIndicators() {
 
 // *현재가_이력*에서 종목별 확장 지표 계산
 // 반환: Map<normCode, { change, changePct, m1, m3, m6, y1, high52, low52 }>
-function _mCalcExtras(priceHistSheet, posRows, ledgerSheet) {
-  const result = new Map();
-  if (!priceHistSheet || priceHistSheet.getLastRow() < 2 || priceHistSheet.getLastColumn() < 2) return result;
-
-  const lastRow = priceHistSheet.getLastRow();
-  const lastCol = priceHistSheet.getLastColumn();
-  const headers = priceHistSheet.getRange(1, 2, 1, lastCol - 1).getValues()[0]
-    .map(c => _normCode(String(c)));
-  const codeColMap = {};
-  headers.forEach((c, i) => { if (c) codeColMap[c] = i; });
-
-  const datesRaw  = priceHistSheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  const allDates  = datesRaw.map(r => {
-    const raw = r[0];
-    return raw instanceof Date
-      ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
-      : String(raw).slice(0, 10);
-  });
-  const allPrices = priceHistSheet.getRange(2, 2, lastRow - 1, lastCol - 1).getValues();
-
-  // 비거래일(주말/공휴일) 행 제거 — 잘못 누적된 행이 변동 계산을 오염시키지 않도록
-  const dates = [], prices = [];
-  for (let i = 0; i < allDates.length; i++) {
-    if (_isTradingDateStr(allDates[i])) { dates.push(allDates[i]); prices.push(allPrices[i]); }
-  }
-
-  const today = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
-  let todayIdx = -1, prevIdx = -1;
-  for (let i = 0; i < dates.length; i++) {
-    if (dates[i] === today) todayIdx = i;
-    else if (dates[i] < today && dates[i].length === 10) prevIdx = i;
-  }
-  // 오늘 행이 없으면: 마지막 행을 today로, 그 직전 거래일을 prev로 재설정
-  // (자정 ~ 거래일 09시 사이엔 "어제 거래일 변동"이 반환됨)
-  if (todayIdx === -1) {
-    todayIdx = dates.length - 1;
-    prevIdx = -1;
-    for (let i = 0; i < todayIdx; i++) {
-      if (dates[i].length === 10) prevIdx = i;
-    }
-  }
-
-  const findNDaysAgo = (n) => {
-    if (todayIdx < 0) return -1;
-    const targetMs = new Date(dates[todayIdx]).getTime() - n * 86400000;
-    let best = -1;
-    for (let i = 0; i < dates.length; i++) {
-      if (dates[i].length !== 10) continue;
-      const ms = new Date(dates[i]).getTime();
-      if (ms <= targetMs && (best === -1 || ms > new Date(dates[best]).getTime())) {
-        best = i;
-      }
-    }
-    return best;
-  };
-  const m1Idx = findNDaysAgo(30);
-  const m3Idx = findNDaysAgo(90);
-  const m6Idx = findNDaysAgo(180);
-  const y1Idx = findNDaysAgo(365);
-
-  posRows.forEach(row => {
-    const code   = _normCode(String(row[0]));
-    const broker = String(row[3] || '');
-    const acct   = String(row[4] || '');
-    const key    = code + '||' + broker + '||' + acct;
-    const colIdx = codeColMap[code];
-    if (colIdx === undefined) { result.set(key, {}); return; }
-
-    const tPrice = todayIdx >= 0 ? (Number(prices[todayIdx][colIdx]) || 0) : 0;
-    const pPrice = prevIdx  >= 0 ? (Number(prices[prevIdx][colIdx])  || 0) : 0;
-
-    const change    = (tPrice > 0 && pPrice > 0) ? (tPrice - pPrice) : null;
-    const changePct = (change !== null && pPrice > 0) ? (change / pPrice * 100) : null;
-
-    const pctAt = (idx) => {
-      if (idx === -1 || tPrice <= 0) return null;
-      const past = Number(prices[idx][colIdx]) || 0;
-      if (past <= 0) return null;
-      return (tPrice - past) / past * 100;
-    };
-
-    // 52주 (해당 컬럼의 1년치 max/min)
-    let high52 = 0, low52 = 0;
-    if (y1Idx !== -1) {
-      for (let i = y1Idx; i <= todayIdx; i++) {
-        const p = Number(prices[i][colIdx]) || 0;
-        if (p > 0) {
-          if (p > high52) high52 = p;
-          if (low52 === 0 || p < low52) low52 = p;
-        }
-      }
-    } else {
-      // 1년치 데이터 없으면 전체 범위로
-      for (let i = 0; i <= todayIdx; i++) {
-        const p = Number(prices[i][colIdx]) || 0;
-        if (p > 0) {
-          if (p > high52) high52 = p;
-          if (low52 === 0 || p < low52) low52 = p;
-        }
-      }
-    }
-
-    result.set(key, {
-      change, changePct,
-      m1: pctAt(m1Idx),
-      m3: pctAt(m3Idx),
-      m6: pctAt(m6Idx),
-      y1: pctAt(y1Idx),
-      high52, low52,
-    });
-  });
-
-  return result;
-}
+// _mCalcExtras 는 StockMetrics.js 의 computeStockMetrics 로 통합 (*종목지표* 시트).
+// newMobileGetPortfolio 는 _readStockMetrics() 로 읽는다.
 
 // *현재가_이력*에서 특정 종목의 가격 시계열 추출 → { dates, prices }
 function _mFindPriceColumn(priceHistSheet, normCode) {
@@ -637,14 +523,14 @@ function _mFindPriceColumn(priceHistSheet, normCode) {
   return { dates, prices };
 }
 
-function _mMapHolding(r, buyDateMap, extras) {
+function _mMapHolding(r, buyDateMap, metrics) {
   const code   = String(r[0] || '');
   const name   = String(r[1] || '');
   const broker = String(r[3] || '');
   const acct   = String(r[4] || '');
   const key    = code + '||' + name + '||' + broker + '||' + acct;
-  const extraKey = _normCode(code) + '||' + broker + '||' + acct;
-  const ex     = extras.get(extraKey) || {};
+  const metricKey = _normCode(code) + '||' + broker + '||' + acct;
+  const ex     = metrics.get(metricKey) || {};
   const change    = ex.change    != null ? ex.change    : 0;
   const changePct = ex.changePct != null ? ex.changePct : 0;
 
@@ -663,10 +549,10 @@ function _mMapHolding(r, buyDateMap, extras) {
     profitRate:   Number(r[12]) || 0,
     change,
     changePct:    (changePct >= 0 ? '+' : '') + Number(changePct).toFixed(2) + '%',
-    m1:           ex.m1 != null ? Number(ex.m1) : 0,
-    m3:           ex.m3 != null ? Number(ex.m3) : 0,
-    m6:           ex.m6 != null ? Number(ex.m6) : 0,
-    y1:           ex.y1 != null ? Number(ex.y1) : 0,
+    m1:           ex.m1Pct != null ? Number(ex.m1Pct) : 0,
+    m3:           ex.m3Pct != null ? Number(ex.m3Pct) : 0,
+    m6:           ex.m6Pct != null ? Number(ex.m6Pct) : 0,
+    y1:           ex.y1Pct != null ? Number(ex.y1Pct) : 0,
     high52:       Number(ex.high52) || 0,
     low52:        Number(ex.low52)  || 0,
     buyDate:      buyDateMap[key] || null,

@@ -35,7 +35,7 @@ last updated: 2026-05-17
 | `totalProfitRate` | 합계 수익률 | trendTotalProfit / totalBuy |
 | `confirmedProfit` / `confirmedProfitRate` | 확정(실현) 수익 | *실현손익* 시트 합 |
 | `trendOperatingProfit` / `operatingProfitRate` | 운용 수익 | 평가−매입 |
-| `dayChangAmount` | 당일(=최근 거래일) 수익액 | Σ(`_mCalcExtras.change` × 수량) |
+| `dayChangAmount` | 당일(=최근 거래일) 수익액 | Σ(*종목지표*.당일손익) ← `computeStockMetrics` |
 | `dayChangePct` | 당일 수익률 (문자열 "+0.00%") | dayChange / 전일평가금액 |
 | `prevDayChangAmount` / `prevDayChangePct` | 전일 거래일 변동 | `_mFindPrevDayProfitChange` ← *추이 기록* U열 |
 | `isMarketDay` | 지금이 장중인가 | `_mIsMarketDay` |
@@ -49,9 +49,9 @@ last updated: 2026-05-17
 | `code`·`name`·`category`·`broker`·`accountType` | 식별 정보 | *보유현황* 행 |
 | `quantity`·`buyPrice`·`currentPrice` | 수량·평균단가·현재단가 | *보유현황* 행 |
 | `opBuy`·`opCurrent`·`opProfit`·`profitRate` | 매입금액·평가금액·손익·수익률 | *보유현황* 행 |
-| `change`·`changePct` | 당일 등락 | `_mCalcExtras` ← *현재가_이력* |
-| `m1`·`m3`·`m6`·`y1` | 1·3·6·12개월 수익률(%) | `_mCalcExtras` `pctAt` |
-| `high52`·`low52` | 52주 고·저 | `_mCalcExtras` |
+| `change`·`changePct` | 당일 등락 | *종목지표* 시트 ← `computeStockMetrics` (StockMetrics.js) |
+| `m1`·`m3`·`m6`·`y1` | 1·3·6·12개월 수익률(%) | *종목지표* 시트 ← `computeStockMetrics` `pctAt` |
+| `high52`·`low52` | 52주 고·저 | *종목지표* 시트 ← `computeStockMetrics` |
 | `buyDate` | 첫 매수일 | `_mGetBuyDates` ← *거래_원장* |
 
 ### GroupStat (byCategory / byAccount 값)

@@ -97,8 +97,13 @@ function buildDashboard() {
   const winCount    = pnlRows.filter(r => Number(r[12]) > 0).length;
   const winRate     = pnlRows.length > 0 ? winCount / pnlRows.length * 100 : 0;
 
-  const todayProfit = _calcTodayProfit(priceHistSheet, posRows);
-  const extraMap    = _calcExtraColumns(priceHistSheet, posRows, ledgerSheet);
+  const extraMap = _readStockMetrics(ss);   // *종목지표* 시트 읽기 (StockMetrics.js)
+  let todayProfit = null;
+  posRows.forEach(row => {
+    const k = _normCode(String(row[0])) + '||' + String(row[3] || '') + '||' + String(row[4] || '');
+    const ex = extraMap.get(k);
+    if (ex && ex.todayPnl != null) todayProfit = (todayProfit || 0) + ex.todayPnl;
+  });
   const fx          = _getFxRates(ss);
 
   // ── 시트 준비 ──
@@ -261,7 +266,7 @@ function buildDashboard() {
     const code = _normCode(String(row[0]));
     const key  = code + '||' + String(row[3] || '') + '||' + String(row[4] || '');
     const ex   = extraMap.get(key) || {};
-    const tCh  = ex.todayChange,    tPct = ex.todayChangePct, tPnl = ex.todayPnl;
+    const tCh  = ex.change,         tPct = ex.changePct,      tPnl = ex.todayPnl;
     const w1   = ex.w1Pnl,          m1L  = ex.m1Pnl;
     const m1P  = ex.m1Pct, m3P = ex.m3Pct, m6P = ex.m6Pct, y1P = ex.y1Pct;
 
@@ -610,217 +615,8 @@ function _handleDashSortChange(e) {
   }
 }
 
-// ── 오늘의 수익 ──────────────────────────────────
-function _calcTodayProfit(priceHistSheet, posRows) {
-  if (!priceHistSheet || priceHistSheet.getLastRow() < 3) return null;
-  const lastRow = priceHistSheet.getLastRow();
-  const lastCol = priceHistSheet.getLastColumn();
-  if (lastCol < 2) return null;
-
-  const today    = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
-  const dataRows = lastRow - 1;
-  const dates    = priceHistSheet.getRange(2, 1, dataRows, 1).getValues();
-
-  let todayRowIdx = -1, prevRowIdx = -1;
-  for (let i = 0; i < dataRows; i++) {
-    const raw = dates[i][0];
-    const d   = raw instanceof Date
-      ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
-      : String(raw).slice(0, 10);
-    if (d === today)                       todayRowIdx = i;
-    else if (d < today && d.length === 10) prevRowIdx  = i;
-  }
-  // 오늘 행이 없으면(비거래일 등) 마지막 거래일을 today로, 그 직전 거래일을 prev로
-  if (todayRowIdx === -1) {
-    todayRowIdx = prevRowIdx;   // 위 루프의 prevRowIdx = 마지막 거래일 행
-    prevRowIdx = -1;
-    for (let i = 0; i < todayRowIdx; i++) {
-      const raw = dates[i][0];
-      const d = raw instanceof Date
-        ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
-        : String(raw).slice(0, 10);
-      if (d.length === 10) prevRowIdx = i;
-    }
-  }
-  if (todayRowIdx < 0 || prevRowIdx === -1) return null;
-
-  const colCount   = lastCol - 1;
-  const codes      = priceHistSheet.getRange(1, 2, 1, colCount).getValues()[0];
-  const curPrices  = priceHistSheet.getRange(todayRowIdx + 2, 2, 1, colCount).getValues()[0];
-  const prevPrices = priceHistSheet.getRange(prevRowIdx  + 2, 2, 1, colCount).getValues()[0];
-
-  const diffMap = {};
-  codes.forEach((code, i) => {
-    if (!code) return;
-    const p = Number(prevPrices[i]) || 0;
-    const c = Number(curPrices[i])  || 0;
-    if (p > 0 && c > 0) diffMap[_normCode(String(code))] = c - p;
-  });
-
-  let total = 0;
-  posRows.forEach(row => {
-    const code = _normCode(String(row[0]));
-    const qty  = Number(row[6]) || 0;
-    const diff = diffMap[code];
-    if (diff !== undefined) total += diff * qty;
-  });
-  return Math.round(total);
-}
-
-// ── 종목별 확장 컬럼 계산 ─────────────────────────
-// 당일 등락액/율/손익 + 1주일/1달 손익(평가금액 차이) + 1M/3M/6M/1Y % 수익률
-function _calcExtraColumns(priceHistSheet, posRows, ledgerSheet) {
-  const result = new Map();
-  if (!priceHistSheet || priceHistSheet.getLastRow() < 3) return result;
-
-  const lastRow = priceHistSheet.getLastRow();
-  const lastCol = priceHistSheet.getLastColumn();
-  if (lastCol < 2) return result;
-
-  const rawDates = priceHistSheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  const dates = rawDates.map(r => {
-    const raw = r[0];
-    return raw instanceof Date
-      ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
-      : String(raw).slice(0, 10);
-  });
-  const codes  = priceHistSheet.getRange(1, 2, 1, lastCol - 1).getValues()[0];
-  const prices = priceHistSheet.getRange(2, 2, lastRow - 1, lastCol - 1).getValues();
-
-  const codeColMap = {};
-  codes.forEach((c, i) => { if (c) codeColMap[_normCode(String(c))] = i; });
-
-  const today = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
-  let todayIdx = -1, prevIdx = -1;
-  for (let i = 0; i < dates.length; i++) {
-    if (dates[i] === today) todayIdx = i;
-    else if (dates[i] < today && dates[i].length === 10) prevIdx = i;
-  }
-  // 오늘 행이 없으면(비거래일 등) 마지막 거래일을 today로, 그 직전 거래일을 prev로.
-  // (이게 없으면 주말·공휴일에 buildDashboard 시 보유종목표 확장 컬럼이 전부 빈칸)
-  if (todayIdx === -1) {
-    todayIdx = dates.length - 1;
-    prevIdx = -1;
-    for (let i = 0; i < todayIdx; i++) {
-      if (dates[i].length === 10) prevIdx = i;
-    }
-  }
-  if (todayIdx < 0 || prevIdx === -1) return result;
-
-  const findNDaysAgo = (n) => {
-    const targetMs = new Date(today).getTime() - n * 86400000;
-    let best = -1;
-    for (let i = 0; i < dates.length; i++) {
-      if (dates[i].length !== 10) continue;
-      const ms = new Date(dates[i]).getTime();
-      if (ms <= targetMs && (best === -1 || ms > new Date(dates[best]).getTime())) {
-        best = i;
-      }
-    }
-    return best;
-  };
-  const w1Idx = findNDaysAgo(7);
-  const m1Idx = findNDaysAgo(30);
-  const m3Idx = findNDaysAgo(90);
-  const m6Idx = findNDaysAgo(180);
-  const y1Idx = findNDaysAgo(365);
-
-  // 원장 → (종목코드+증권사+계좌)별 매수/매도 시계열.
-  //   같은 종목을 여러 계좌에서 보유하므로 code 단위로 합치면
-  //   *보유현황* 행별 수량(curQty, 계좌별)과 불일치 → key 단위로 분리해야 함.
-  const txByKey = {};
-  if (ledgerSheet && ledgerSheet.getLastRow() >= 2) {
-    const lRows = ledgerSheet.getRange(2, 1, ledgerSheet.getLastRow() - 1, 10).getValues();
-    lRows.forEach(r => {
-      const dRaw = r[0];
-      const d = dRaw instanceof Date
-        ? Utilities.formatDate(dRaw, 'Asia/Seoul', 'yyyy-MM-dd')
-        : String(dRaw).slice(0, 10);
-      const type   = String(r[1] || '').trim();
-      const code   = _normCode(String(r[2] || ''));
-      const broker = String(r[5] || '');
-      const acct   = String(r[6] || '');
-      const qty    = Number(r[7]) || 0;
-      if (!code || !d || qty === 0) return;
-      const sign = type === '매수' ? 1 : type === '매도' ? -1 : 0;
-      if (sign === 0) return;
-      // 거래 금액 (원장 '금액' 열, 없으면 단가×수량)
-      const amt = Number(r[9]) || (Number(r[8]) || 0) * qty;
-      const txKey = code + '||' + broker + '||' + acct;
-      if (!txByKey[txKey]) txByKey[txKey] = [];
-      txByKey[txKey].push({ date: d, qty: qty * sign, amt: amt * sign });
-    });
-    Object.keys(txByKey).forEach(k =>
-      txByKey[k].sort((a, b) => a.date < b.date ? -1 : 1));
-  }
-
-  // 특정 날짜 시점의 보유수량
-  const qtyAtDate = (txKey, dateStr) => {
-    const txs = txByKey[txKey] || [];
-    let q = 0;
-    for (const tx of txs) {
-      if (tx.date <= dateStr) q += tx.qty;
-      else break;
-    }
-    return q;
-  };
-
-  // fromDate 다음날 ~ 현재까지의 순매수금액 (매수 +, 매도 −)
-  const netInvestedSince = (txKey, fromDateStr) => {
-    const txs = txByKey[txKey] || [];
-    let amt = 0;
-    for (const tx of txs) {
-      if (tx.date > fromDateStr) amt += tx.amt;
-    }
-    return amt;
-  };
-
-  posRows.forEach(row => {
-    const code = _normCode(String(row[0]));
-    const broker = String(row[3] || '');
-    const acct   = String(row[4] || '');
-    const key    = code + '||' + broker + '||' + acct;
-    const curQty = Number(row[6]) || 0;
-    const colIdx = codeColMap[code];
-    if (colIdx === undefined) { result.set(key, {}); return; }
-
-    const tPrice = Number(prices[todayIdx][colIdx]) || 0;
-    const pPrice = Number(prices[prevIdx][colIdx])  || 0;
-
-    const todayChange    = (tPrice > 0 && pPrice > 0) ? (tPrice - pPrice) : null;
-    const todayChangePct = (todayChange !== null && pPrice > 0) ? (todayChange / pPrice * 100) : null;
-    const todayPnl       = (todayChange !== null) ? todayChange * curQty : null;
-
-    // 정확한 기간 손익 = 오늘 평가금액 − N일전 평가금액 − 기간 내 순매수금액.
-    //   수량 불변이면 (오늘가−N일전가)×수량 과 동일, 거래가 있어도 올바른 값.
-    const pnlAt = (idx) => {
-      if (idx === -1 || tPrice <= 0) return null;
-      const pastQty   = qtyAtDate(key, dates[idx]);
-      const pastPrice = Number(prices[idx][colIdx]) || 0;
-      // N일전에 보유 중이었는데 그 시점 가격이 없으면 평가 불가
-      if (pastQty > 0 && pastPrice <= 0) return null;
-      return tPrice * curQty - pastPrice * pastQty - netInvestedSince(key, dates[idx]);
-    };
-    const pctAt = (idx) => {
-      if (idx === -1 || tPrice <= 0) return null;
-      const pastPrice = Number(prices[idx][colIdx]) || 0;
-      if (pastPrice <= 0) return null;
-      return (tPrice - pastPrice) / pastPrice * 100;
-    };
-
-    result.set(key, {
-      todayChange, todayChangePct, todayPnl,
-      w1Pnl: pnlAt(w1Idx),
-      m1Pnl: pnlAt(m1Idx),
-      m1Pct: pctAt(m1Idx),
-      m3Pct: pctAt(m3Idx),
-      m6Pct: pctAt(m6Idx),
-      y1Pct: pctAt(y1Idx),
-    });
-  });
-
-  return result;
-}
+// _calcTodayProfit / _calcExtraColumns 는 StockMetrics.js 의 computeStockMetrics 로 통합.
+// buildDashboard 는 _readStockMetrics() 로 *종목지표* 시트를 읽는다.
 
 // ── 환율 (*설정* 시트) ──────────────────────────
 function _getFxRates(ss) {
