@@ -19,6 +19,7 @@ const NS = {
   REALIZED_PNL:  '*실현손익*',
   SETTINGS:      '*설정*',
   TREND:         '*추이 기록*',
+  HOLIDAYS:      '*휴장일*',
 
   BROKERS:    ['미래에셋투자증권', '삼성증권'],
   ACCOUNTS: {

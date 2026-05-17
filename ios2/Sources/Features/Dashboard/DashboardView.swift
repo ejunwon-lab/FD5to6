@@ -197,7 +197,7 @@ struct DashboardView: View {
 
     private func profitLabel(_ summary: Summary?) -> String {
         // priceAsOfDate 기준 라벨 결정 (오늘/전일/최근)
-        "\(decideChangeLabel(summary?.priceAsOfDate)) 수익"
+        "\(decideChangeLabel(summary?.priceAsOfDate, summary?.isTradingDay)) 수익"
     }
 
     private func profitAmount(_ summary: Summary?) -> Double {

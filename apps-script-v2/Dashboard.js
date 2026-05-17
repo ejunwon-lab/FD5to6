@@ -630,7 +630,19 @@ function _calcTodayProfit(priceHistSheet, posRows) {
     if (d === today)                       todayRowIdx = i;
     else if (d < today && d.length === 10) prevRowIdx  = i;
   }
-  if (todayRowIdx === -1 || prevRowIdx === -1) return null;
+  // 오늘 행이 없으면(비거래일 등) 마지막 거래일을 today로, 그 직전 거래일을 prev로
+  if (todayRowIdx === -1) {
+    todayRowIdx = prevRowIdx;   // 위 루프의 prevRowIdx = 마지막 거래일 행
+    prevRowIdx = -1;
+    for (let i = 0; i < todayRowIdx; i++) {
+      const raw = dates[i][0];
+      const d = raw instanceof Date
+        ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
+        : String(raw).slice(0, 10);
+      if (d.length === 10) prevRowIdx = i;
+    }
+  }
+  if (todayRowIdx < 0 || prevRowIdx === -1) return null;
 
   const colCount   = lastCol - 1;
   const codes      = priceHistSheet.getRange(1, 2, 1, colCount).getValues()[0];
@@ -684,7 +696,16 @@ function _calcExtraColumns(priceHistSheet, posRows, ledgerSheet) {
     if (dates[i] === today) todayIdx = i;
     else if (dates[i] < today && dates[i].length === 10) prevIdx = i;
   }
-  if (todayIdx === -1 || prevIdx === -1) return result;
+  // 오늘 행이 없으면(비거래일 등) 마지막 거래일을 today로, 그 직전 거래일을 prev로.
+  // (이게 없으면 주말·공휴일에 buildDashboard 시 보유종목표 확장 컬럼이 전부 빈칸)
+  if (todayIdx === -1) {
+    todayIdx = dates.length - 1;
+    prevIdx = -1;
+    for (let i = 0; i < todayIdx; i++) {
+      if (dates[i].length === 10) prevIdx = i;
+    }
+  }
+  if (todayIdx < 0 || prevIdx === -1) return result;
 
   const findNDaysAgo = (n) => {
     const targetMs = new Date(today).getTime() - n * 86400000;

@@ -10,6 +10,7 @@ function onOpen() {
     .addItem('📋 보유현황 재계산', 'updatePositionFromLedger')
     .addItem('📊 대시보드 갱신', 'buildDashboard')
     .addSeparator()
+    .addItem('🗓️ 휴장일 동기화', 'syncHolidays')
     .addItem('⏰ 매일 17:30 자동 트리거 등록', 'setupDailyTrigger')
     .addItem('🗑️ 자동 트리거 해제', 'deleteDailyTrigger')
     .addToUi();

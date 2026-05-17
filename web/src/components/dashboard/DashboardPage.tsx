@@ -64,7 +64,7 @@ export function DashboardPage({
   //   today가 비거래일        → "최근 수익"
   //   priceAsOfDate === today-1 → "전일 수익"
   //   그 외                    → "최근 수익"
-  const changeLabel = decideChangeLabel(summary?.priceAsOfDate)
+  const changeLabel = decideChangeLabel(summary?.priceAsOfDate, summary?.isTradingDay)
   const dayLabel    = `${changeLabel} 수익`
   const dayAmt      = summary?.dayChangAmount ?? 0
   const dayPct      = summary?.dayChangePct ?? '0%'
