@@ -103,11 +103,19 @@ function syncHolidays() {
   }
   const thisYear = new Date().getFullYear();
   const events = cal.getEvents(new Date(thisYear, 0, 1), new Date(thisYear + 2, 0, 1));
+  // 구글 캘린더엔 스승의날·어버이날 등 '기념일'도 섞여 있음 → 실제 증시 휴장일 이름만 채택
+  const HOLIDAY_NAMES = [
+    '신정', '새해', '설날', '삼일절', '3·1', '어린이날', '부처', '석가탄',
+    '현충일', '광복절', '추석', '개천절', '한글날', '성탄', '기독탄신', '크리스마스',
+    '대체공휴일', '임시공휴일', '근로자',
+  ];
   const map = {};
   events.forEach(ev => {
+    const title = String(ev.getTitle() || '');
+    if (!HOLIDAY_NAMES.some(n => title.indexOf(n) !== -1)) return;  // 기념일 제외
     const dt = ev.isAllDayEvent() ? ev.getAllDayStartDate() : ev.getStartTime();
     const ds = Utilities.formatDate(dt, 'Asia/Seoul', 'yyyy-MM-dd');
-    map[ds] = ev.getTitle();
+    map[ds] = title;
   });
 
   // KRX 전용 고정 휴장일 (공휴일 캘린더에 없을 수 있음)
