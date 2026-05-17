@@ -4,7 +4,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { ProfitHistoryChart } from './ProfitHistoryChart'
-import { decideChangeLabel } from '../../utils/changeLabel'
+import { decideChangeLabel, formatPriceAsOfDate } from '../../utils/changeLabel'
 import { krwCompact, krwCompactSigned, krwFull, pctFormatted, normalizeChangePct } from '../../utils/format'
 import type { PortfolioResponse, TrendEntry } from '../../models/types'
 
@@ -69,6 +69,8 @@ export function DashboardPage({
   const dayAmt      = summary?.dayChangAmount ?? 0
   const dayPct      = summary?.dayChangePct ?? '0%'
   const dayIsProfit = dayAmt >= 0
+  // 수익 기준일(priceAsOfDate). 없으면 호출 시각으로 폴백
+  const asOfText    = formatPriceAsOfDate(summary?.priceAsOfDate) || portfolio?.updatedAt || ''
 
   return (
     <div ref={scrollRef} className="h-[100dvh] overflow-y-auto no-scrollbar bg-[rgb(var(--page-bg))]">
@@ -127,8 +129,8 @@ export function DashboardPage({
                 <p className="text-white/80 text-base font-semibold mt-1">
                   {normalizeChangePct(dayPct)}
                 </p>
-                {portfolio?.updatedAt && (
-                  <p className="text-white/50 text-[10px] mt-2">{portfolio.updatedAt}</p>
+                {asOfText && (
+                  <p className="text-white/50 text-[10px] mt-2">{asOfText}</p>
                 )}
               </div>
 

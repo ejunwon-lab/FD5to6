@@ -91,14 +91,20 @@ function newMobileGetPortfolio() {
     const isMarketDay  = _mIsMarketDay();
     const isTradingDay = _mIsTradingDay();
 
-    // priceAsOfDate = *현재가_이력* 마지막 행 날짜 (클라이언트 라벨 결정용)
+    // priceAsOfDate = *현재가_이력*의 마지막 '거래일' 행 날짜 (클라이언트 라벨 결정용).
+    // 비거래일 행이 잘못 누적돼 있어도 건너뛰고 마지막 거래일 날짜를 찾음.
     let priceAsOfDate = null;
     if (priceHistSheet && priceHistSheet.getLastRow() >= 2) {
-      const raw = priceHistSheet.getRange(priceHistSheet.getLastRow(), 1).getValue();
-      const d = raw instanceof Date
-        ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
-        : String(raw).slice(0, 10);
-      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) priceAsOfDate = d;
+      const lastRow = priceHistSheet.getLastRow();
+      const scanN   = Math.min(lastRow - 1, 15);
+      const dcol    = priceHistSheet.getRange(lastRow - scanN + 1, 1, scanN, 1).getValues();
+      for (let i = dcol.length - 1; i >= 0; i--) {
+        const raw = dcol[i][0];
+        const d = raw instanceof Date
+          ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
+          : String(raw).slice(0, 10);
+        if (_isTradingDateStr(d)) { priceAsOfDate = d; break; }
+      }
     }
 
     const summary = {
@@ -505,14 +511,20 @@ function _mCalcExtras(priceHistSheet, posRows, ledgerSheet) {
   const codeColMap = {};
   headers.forEach((c, i) => { if (c) codeColMap[c] = i; });
 
-  const datesRaw = priceHistSheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  const dates = datesRaw.map(r => {
+  const datesRaw  = priceHistSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  const allDates  = datesRaw.map(r => {
     const raw = r[0];
     return raw instanceof Date
       ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
       : String(raw).slice(0, 10);
   });
-  const prices = priceHistSheet.getRange(2, 2, lastRow - 1, lastCol - 1).getValues();
+  const allPrices = priceHistSheet.getRange(2, 2, lastRow - 1, lastCol - 1).getValues();
+
+  // 비거래일(주말/공휴일) 행 제거 — 잘못 누적된 행이 변동 계산을 오염시키지 않도록
+  const dates = [], prices = [];
+  for (let i = 0; i < allDates.length; i++) {
+    if (_isTradingDateStr(allDates[i])) { dates.push(allDates[i]); prices.push(allPrices[i]); }
+  }
 
   const today = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
   let todayIdx = -1, prevIdx = -1;
@@ -760,6 +772,17 @@ function _isKoreanHoliday(date) {
     '2026-12-25', '2026-12-31',
   ];
   return HOLIDAYS.includes(dateStr);
+}
+
+// 'yyyy-MM-dd' 문자열이 거래일(주말·공휴일 아님)인지 판정
+function _isTradingDateStr(s) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const p = s.split('-');
+  // 정오로 생성 → 스크립트 TZ가 Asia/Seoul이 아니어도 날짜가 밀리지 않음
+  const d  = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]), 12, 0, 0);
+  const wd = d.getDay();           // 0=일, 6=토
+  if (wd === 0 || wd === 6) return false;
+  return !_isKoreanHoliday(d);
 }
 
 function _mIsMarketDay() {
