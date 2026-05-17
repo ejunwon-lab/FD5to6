@@ -130,8 +130,9 @@ function buildDashboard() {
   r++;
 
   dash.getRange(r, 1, 1, DB.COLS).merge()
-    .setValue(Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm 기준'))
-    .setFontSize(10).setFontColor('#888888')
+    .setValue('🕐 마지막 갱신  ' +
+      Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm') + '  ·  정상')
+    .setFontSize(10).setFontColor('#888888').setFontWeight('normal')
     .setHorizontalAlignment('right').setBackground('#f8f9fa');
   r += 2;
 
@@ -617,6 +618,28 @@ function _handleDashSortChange(e) {
 
 // _calcTodayProfit / _calcExtraColumns 는 StockMetrics.js 의 computeStockMetrics 로 통합.
 // buildDashboard 는 _readStockMetrics() 로 *종목지표* 시트를 읽는다.
+
+// *대시보드* 2행(마지막 갱신 상태줄)에 실행 결과를 기록.
+// buildDashboard는 성공 시 직접 '정상'을 그리고, 실패 시 updateAllNew의 catch가 이걸 호출.
+function _writeDashboardStatus(ss, ok, detail) {
+  try {
+    const dash = ss.getSheetByName(DB.SHEET);
+    if (!dash) return;
+    const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm');
+    const msg = ok
+      ? '🕐 마지막 갱신  ' + now + '  ·  정상'
+      : '⚠️ 마지막 갱신 실패  ' + now + '  ·  ' + String(detail || '').slice(0, 80);
+    dash.getRange(2, 1, 1, DB.COLS)
+      .setValue(msg)
+      .setFontSize(10)
+      .setFontWeight(ok ? 'normal' : 'bold')
+      .setFontColor(ok ? '#888888' : '#ffffff')
+      .setBackground(ok ? '#f8f9fa' : '#c62828')
+      .setHorizontalAlignment(ok ? 'right' : 'center');
+  } catch (e) {
+    Logger.log('_writeDashboardStatus 오류: ' + e);
+  }
+}
 
 // ── 환율 (*설정* 시트) ──────────────────────────
 function _getFxRates(ss) {
