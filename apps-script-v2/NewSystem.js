@@ -672,6 +672,14 @@ function updateNewPriceHistory(ss) {
   const ledger = ss.getSheetByName(NS.LEDGER);
   if (!sheet || !ledger || ledger.getLastRow() < 2) return;
 
+  // 비거래일(주말/공휴일)엔 *현재가_이력*에 행을 쓰지 않음.
+  // 비거래일 날짜 행이 들어가면 priceAsOfDate가 그 날짜가 되어
+  // 클라이언트 변동 라벨이 "최근"이어야 할 때 "오늘"로 잘못 표시됨.
+  if (!_mIsTradingDay()) {
+    Logger.log('updateNewPriceHistory 건너뜀: 비거래일 (주말/공휴일)');
+    return;
+  }
+
   // *거래_원장*에서 KIS 조회 대상 종목코드 추출
   const ledgerRows = ledger.getRange(2, 1, ledger.getLastRow() - 1, 5).getValues();
   const codeSet = new Set();

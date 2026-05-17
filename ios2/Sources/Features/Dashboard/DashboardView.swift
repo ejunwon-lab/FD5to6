@@ -113,7 +113,7 @@ struct DashboardView: View {
                     Text(dayPct.asChangePct)
                         .font(.headline)
                         .foregroundColor(.white.opacity(0.85))
-                    Text(effectiveTradingDateString)
+                    Text(asOfDateString)
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.65))
                         .padding(.top, 2)
@@ -195,24 +195,6 @@ struct DashboardView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var isBeforeMarketWindow: Bool {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "Asia/Seoul")!
-        let hour = cal.component(.hour, from: Date())
-        return hour < 9   // 한국시간 09:00 이전 (장 개시 전)
-    }
-
-    private var showPrevDayProfit: Bool {
-        // 거래일 + 장 개시 전(09:00 이전) = 전일 수익
-        let isTradingDay = vm.portfolio?.summary?.isTradingDay ?? true
-        return isTradingDay && isBeforeMarketWindow
-    }
-
-    private var showRecentProfit: Bool {
-        // 비거래일(주말/공휴일) = 최근 수익
-        vm.portfolio?.summary?.isTradingDay == false
-    }
-
     private func profitLabel(_ summary: Summary?) -> String {
         // priceAsOfDate 기준 라벨 결정 (오늘/전일/최근)
         "\(decideChangeLabel(summary?.priceAsOfDate)) 수익"
@@ -227,23 +209,10 @@ struct DashboardView: View {
         summary?.dayChangePct ?? "0%"
     }
 
-    private var effectiveTradingDateString: String {
-        let calendar = Calendar.current
-        var date = Date()
-        let todayWeekday = calendar.component(.weekday, from: date)
-        let todayIsWeekend = (todayWeekday == 1 || todayWeekday == 7)
-        if todayWeekday == 1 { date = calendar.date(byAdding: .day, value: -2, to: date) ?? date }
-        else if todayWeekday == 7 { date = calendar.date(byAdding: .day, value: -1, to: date) ?? date }
-        if showPrevDayProfit && !todayIsWeekend {
-            date = calendar.date(byAdding: .day, value: -1, to: date) ?? date
-            let weekday = calendar.component(.weekday, from: date)
-            if weekday == 1 { date = calendar.date(byAdding: .day, value: -2, to: date) ?? date }
-            else if weekday == 7 { date = calendar.date(byAdding: .day, value: -1, to: date) ?? date }
-        }
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "ko_KR")
-        fmt.dateFormat = "yyyy년 M월 d일 EEEE"
-        return fmt.string(from: date)
+    private var asOfDateString: String {
+        // 수익 기준일(priceAsOfDate). 없으면 호출 시각으로 폴백
+        let formatted = formatPriceAsOfDate(vm.portfolio?.summary?.priceAsOfDate)
+        return formatted.isEmpty ? (vm.portfolio?.updatedAt ?? "") : formatted
     }
 
     private func statItem(title: String, value: String, rate: Double? = nil, color: Color = .primary) -> some View {

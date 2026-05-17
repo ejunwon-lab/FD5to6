@@ -76,3 +76,13 @@
 - **원인 2**: 상품 선물 `CL=F`, `GC=F`는 GOOGLEFINANCE 미지원
 - **원인 3**: KIS 해외지수 API 미검증으로 SPX/NDX 등 실패 가능
 - **해결**: ES/NQ → Yahoo Finance API로 변경. CL/GC → `NYMEX:CL1!`, `COMEX:GC1!`로 변경. SPX/NDX/DJI/SOX → gfSymbol fallback 추가
+
+---
+
+## 2026-05-17
+
+### 대시보드 변동 라벨이 "최근"이어야 할 때 "오늘"로 표시 (iOS/웹)
+- **증상**: 비거래일(일요일)에 대시보드가 "오늘 수익"으로 표시. 잠깐 정상("최근")이다가 다시 "오늘"로 바뀜. 금액도 금요일 수익이 아닌 0에 가깝게 나옴
+- **원인**: `updateNewPriceHistory()`(NewSystem.js)가 거래일 여부를 확인하지 않고 *현재가_이력*에 오늘 날짜 행을 추가 → 주말에 업데이트 버튼을 누르면 비거래일 날짜 행이 누적됨. 그 결과 `priceAsOfDate`(마지막 행 날짜)가 비거래일 날짜가 되어 `decideChangeLabel`이 "오늘" 반환. `_mCalcExtras`의 변동 계산도 `주말가−금요일가≈0`으로 오염 ("작동하다 바뀜" = 캐시(정상)→fresh fetch(오염))
+- **해결**: (A) `updateNewPriceHistory`에 `_mIsTradingDay()` 가드 추가 — 비거래일엔 행 미기록. (B) `priceAsOfDate`는 마지막 *거래일* 행을 역방향 스캔, `_mCalcExtras`는 비거래일 행 필터링 (`_isTradingDateStr` 헬퍼 추가). (C) 클라이언트 `decideChangeLabel`(changeLabel.ts/ChangeLabel.swift)이 비거래일이면 priceAsOfDate와 무관하게 "최근" 우선 판정
+- **교훈**: 이력 시트에 거래일 데이터만 들어간다는 전제로 라벨/변동 로직이 설계됨. 시트에 쓰는 쪽에서 거래일 가드를 빠뜨리면 읽는 쪽 로직이 전부 어긋남. 데이터 소스 가드 + 읽기 측 강건화 양쪽 모두 필요

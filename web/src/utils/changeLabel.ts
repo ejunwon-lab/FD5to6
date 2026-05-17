@@ -1,7 +1,7 @@
 // "오늘 변동" 라벨 결정 헬퍼
-// 규칙:
+// 규칙 (위에서부터 우선):
+//   today가 비거래일 (주말/공휴일)              → "최근"  ← 먼저 판정
 //   priceAsOfDate === today (KST)              → "오늘"
-//   today가 비거래일 (주말/공휴일)              → "최근"
 //   priceAsOfDate === today - 1 (달력상 어제)   → "전일"
 //   그 외                                        → "최근"
 
@@ -43,14 +43,25 @@ export type ChangeLabel = '오늘' | '전일' | '최근'
 export function decideChangeLabel(priceAsOfDate?: string | null): ChangeLabel {
   if (!priceAsOfDate) return '최근'
   const today = todayKstDate()
+  // 오늘이 비거래일이면 어떤 priceAsOfDate든 "오늘"일 수 없음 → "최근" 우선 판정
+  if (isWeekendOrHoliday(today)) return '최근'
   const pad = (n: number) => String(n).padStart(2, '0')
   const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
   if (priceAsOfDate === todayStr) return '오늘'
-  if (isWeekendOrHoliday(today)) return '최근'
   // 달력상 어제
   const ystdy = new Date(today)
   ystdy.setDate(ystdy.getDate() - 1)
   const ystdyStr = `${ystdy.getFullYear()}-${pad(ystdy.getMonth() + 1)}-${pad(ystdy.getDate())}`
   if (priceAsOfDate === ystdyStr) return '전일'
   return '최근'
+}
+
+const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토']
+
+// 수익 기준일 표시용: "2026-05-15" → "2026년 5월 15일 금요일"
+export function formatPriceAsOfDate(priceAsOfDate?: string | null): string {
+  if (!priceAsOfDate || !/^\d{4}-\d{2}-\d{2}$/.test(priceAsOfDate)) return ''
+  const [y, m, d] = priceAsOfDate.split('-').map(Number)
+  const wd = new Date(y, m - 1, d).getDay()
+  return `${y}년 ${m}월 ${d}일 ${WEEKDAY_KO[wd]}요일`
 }
