@@ -734,8 +734,23 @@ function updateNewPriceHistory(ss) {
     }
   }
 
-  const priceRow = existingCodes.map(code => trackerPriceMap[code] || '');
   const writeRow = todayRow || (sheet.getLastRow() + 1);
+
+  // KIS 조회 실패 종목은 빈 셀(→ 평가금액 0원) 대신 직전 거래일 가격을 유지 (carry-forward)
+  let prevPrices = [];
+  const prevRow = todayRow ? (todayRow - 1) : sheet.getLastRow();
+  if (prevRow >= 2) {
+    prevPrices = sheet.getRange(prevRow, 2, 1, existingCodes.length).getValues()[0];
+  }
+  const carried = [];
+  const priceRow = existingCodes.map((code, i) => {
+    const fresh = Number(trackerPriceMap[code]) || 0;
+    if (fresh > 0) return fresh;
+    const prev = prevPrices[i];
+    if (prev !== '' && prev != null && Number(prev) > 0) { carried.push(code); return prev; }
+    return '';
+  });
+
   sheet.getRange(writeRow, 1).setValue(todayDT);
   if (priceRow.length > 0) {
     sheet.getRange(writeRow, 2, 1, priceRow.length).setValues([priceRow])
@@ -743,6 +758,14 @@ function updateNewPriceHistory(ss) {
   }
 
   Logger.log('updateNewPriceHistory 완료: ' + Object.keys(trackerPriceMap).length + '개 종목 업데이트');
+  if (carried.length > 0) {
+    Logger.log('⚠️ KIS 조회 실패 → 직전가 유지 ' + carried.length + '종목 [' + carried.join(', ') + ']');
+    try {
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        'KIS 조회 실패 ' + carried.length + '종목 — 직전가 유지: ' + carried.join(', '),
+        '⚠️ 가격 누락', 8);
+    } catch (e) {}
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -918,6 +941,35 @@ function _fetchPricesFromKIS(codes) {
       Logger.log('해외 가격 조회 실패(' + code + '): ' + e);
     }
   });
+
+  // ── 재시도 1회 — 조회 실패(누락) 종목만 ──
+  const missing = codes.filter(c => !(priceMap[c] > 0));
+  if (missing.length > 0) {
+    Logger.log('_fetchPricesFromKIS 재시도: ' + missing.length + '종목 [' + missing.join(', ') + ']');
+    Utilities.sleep(500);
+    const md = missing.filter(c => !/^[A-Z]+$/.test(c));
+    const mo = missing.filter(c =>  /^[A-Z]+$/.test(c));
+    if (md.length > 0) {
+      const batch2 = KIS_API.getKisPricesBatch(md);
+      Object.keys(batch2).forEach(c => {
+        const p = Number(batch2[c]) || 0;
+        if (p > 0) priceMap[c] = p;
+      });
+    }
+    mo.forEach(code => {
+      try {
+        const info = KIS_API.getOverseasStockInfoAuto(code);
+        const foreign = (info && info.price) ? Number(info.price) : 0;
+        if (foreign > 0) {
+          const rate = (info.exchange === 'LSE') ? fx.gbp : fx.usd;
+          if (rate > 0) priceMap[code] = Math.round(foreign * rate);
+        }
+        Utilities.sleep(150);
+      } catch (e) {
+        Logger.log('해외 가격 재시도 실패(' + code + '): ' + e);
+      }
+    });
+  }
 
   return priceMap;
 }

@@ -50,6 +50,7 @@ function updateAllNew() {
   } catch (e) {
     ss.toast('오류: ' + e.message, '❌', 5);
     Logger.log('updateAllNew 오류: ' + e);
+    _writeDashboardStatus(ss, false, e.message);   // 대시보드 2행에 실패 기록 (트리거 실행 시 가시성)
   }
 }
 
