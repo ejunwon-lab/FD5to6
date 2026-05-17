@@ -253,6 +253,7 @@ function buildDashboard() {
     }
   });
 
+  const posStart = r;
   sortedPos.forEach((row, i) => {
     const pnl  = Number(row[11]) || 0;
     const rate = Number(row[12]) || 0;
@@ -264,21 +265,23 @@ function buildDashboard() {
     const w1   = ex.w1Pnl,          m1L  = ex.m1Pnl;
     const m1P  = ex.m1Pct, m3P = ex.m3Pct, m6P = ex.m6Pct, y1P = ex.y1Pct;
 
+    // 셀에 실제 숫자값을 씀 (표시 서식은 루프 후 setNumberFormat으로 일괄 적용).
+    // 값 없음(null)은 빈 셀('')로 — 숫자 컬럼 오염 방지.
     dash.getRange(r, 1, 1, DB.COLS).setValues([[
       row[1], row[2], _shortBroker(row[3]) + ' / ' + _shortAcct(row[4]),
-      _dbNum(row[6]), _dbNum(row[7]), _dbNum(row[9]),
-      _dbNum(buy),
-      _dbNum(Number(row[10]) || 0),    // 평가금액 (신규)
-      _dbPnl(pnl), _dbRate(rate), row[5],
-      tCh  == null ? '─' : _dbPnl(tCh),
-      tPct == null ? '─' : _dbRate(tPct),
-      tPnl == null ? '─' : _dbPnl(tPnl),
-      w1   == null ? '─' : _dbPnl(w1),
-      m1L  == null ? '─' : _dbPnl(m1L),
-      m1P  == null ? '─' : _dbRate(m1P),
-      m3P  == null ? '─' : _dbRate(m3P),
-      m6P  == null ? '─' : _dbRate(m6P),
-      y1P  == null ? '─' : _dbRate(y1P)
+      Number(row[6]) || 0, Number(row[7]) || 0, Number(row[9]) || 0,
+      buy,
+      Number(row[10]) || 0,            // 평가금액
+      pnl, rate, row[5],
+      tCh  == null ? '' : tCh,
+      tPct == null ? '' : tPct,
+      tPnl == null ? '' : tPnl,
+      w1   == null ? '' : w1,
+      m1L  == null ? '' : m1L,
+      m1P  == null ? '' : m1P,
+      m3P  == null ? '' : m3P,
+      m6P  == null ? '' : m6P,
+      y1P  == null ? '' : y1P
     ]]);
     dash.getRange(r, 1, 1, DB.COLS).setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
     dash.getRange(r, 1, 1, 3).setHorizontalAlignment('center');
@@ -315,9 +318,9 @@ function buildDashboard() {
     });
     dash.getRange(r, 1, 1, DB.COLS).setValues([[
       '합계', '', '', '', '', '',
-      _dbNum(sumBuy), _dbNum(sumCur), _dbPnl(sumPnl),
+      sumBuy, sumCur, sumPnl,
       '', '', '', '',
-      _dbPnl(sumTodayPnl), _dbPnl(sumW1Pnl), _dbPnl(sumM1Pnl),
+      sumTodayPnl, sumW1Pnl, sumM1Pnl,
       '', '', '', ''
     ]]).setFontWeight('bold').setBackground(DB.BG_TOTAL);
     dash.getRange(r, 1).setHorizontalAlignment('center');
@@ -327,6 +330,20 @@ function buildDashboard() {
     _dbColorCell(dash, r, 14, sumTodayPnl);
     _dbColorCell(dash, r, 15, sumW1Pnl);
     _dbColorCell(dash, r, 16, sumM1Pnl);
+
+    // ── 보유종목 표 숫자 컬럼: 실제 숫자값 + 표시 서식 ──
+    //   금액류: "+1,234 / -1,234"  |  %류: 값은 12.34 그대로, "+12.34%" 표시
+    const _nRows  = r - posStart + 1;
+    const FMT_INT = '#,##0';
+    const FMT_PNL = '"+"#,##0;"-"#,##0';
+    const FMT_PCT = '"+"0.00"%";"-"0.00"%"';
+    dash.getRange(posStart, 4,  _nRows, 5).setNumberFormat(FMT_INT);  // 수량~평가금액
+    dash.getRange(posStart, 9,  _nRows, 1).setNumberFormat(FMT_PNL);  // 손익
+    dash.getRange(posStart, 10, _nRows, 1).setNumberFormat(FMT_PCT);  // 수익률
+    dash.getRange(posStart, 12, _nRows, 1).setNumberFormat(FMT_PNL);  // 당일 등락액
+    dash.getRange(posStart, 13, _nRows, 1).setNumberFormat(FMT_PCT);  // 당일 등락률
+    dash.getRange(posStart, 14, _nRows, 3).setNumberFormat(FMT_PNL);  // 당일·1주·1달 손익
+    dash.getRange(posStart, 17, _nRows, 4).setNumberFormat(FMT_PCT);  // 1M~1Y
     r++;
   }
   r++;
@@ -352,6 +369,7 @@ function buildDashboard() {
     '삼성증권|종합': 2, '삼성증권|ISA': 3, '삼성증권|퇴직연금_개인IRP(범용)': 4,
   };
 
+  const acctStart = r;
   Object.values(acctMap)
     .sort((a, b) => {
       const ka = ACCT_ORDER[a.broker + '|' + a.acct] ?? 99;
@@ -364,7 +382,7 @@ function buildDashboard() {
       const wt   = totalCur > 0 ? a.cur / totalCur * 100 : 0;
       const rng  = dash.getRange(r, 1, 1, 8);
       rng.setValues([[_shortBroker(a.broker), _shortAcct(a.acct), a.cnt,
-        _dbNum(a.buy), _dbNum(a.cur), _dbPnl(pnl), _dbRate(rate), _dbRate(wt)]]);
+        a.buy, a.cur, pnl, rate, wt]]);
       rng.setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
       dash.getRange(r, 1, 1, 2).setHorizontalAlignment('center');
       dash.getRange(r, 3, 1, 6).setHorizontalAlignment('right');
@@ -373,12 +391,18 @@ function buildDashboard() {
     });
 
   dash.getRange(r, 1, 1, 8)
-    .setValues([['합계', '', posRows.length, _dbNum(totalBuy), _dbNum(totalCur),
-      _dbPnl(opProfit), _dbRate(opRate), '100%']])
+    .setValues([['합계', '', posRows.length, totalBuy, totalCur,
+      opProfit, opRate, 100]])
     .setFontWeight('bold').setBackground(DB.BG_TOTAL);
   dash.getRange(r, 1, 1, 2).setHorizontalAlignment('center');
   dash.getRange(r, 3, 1, 6).setHorizontalAlignment('right');
   _dbColorCell(dash, r, 6, opProfit); _dbColorCell(dash, r, 7, opRate);
+  {
+    const _n = r - acctStart + 1;
+    dash.getRange(acctStart, 3, _n, 3).setNumberFormat(_FMT_INT);  // 종목수·매입·평가
+    dash.getRange(acctStart, 6, _n, 1).setNumberFormat(_FMT_PNL);  // 손익
+    dash.getRange(acctStart, 7, _n, 2).setNumberFormat(_FMT_PCT);  // 수익률·비중
+  }
   r += 2;
 
   // ══════════════════════════════════
@@ -397,6 +421,7 @@ function buildDashboard() {
     catMap[cat].cur += Number(row[10]) || 0;
   });
 
+  const catStart = r;
   ['국내주식','국내ETF','해외주식','해외ETF','펀드','예금','보험','기타']
     .filter(c => catMap[c])
     .forEach((cat, i) => {
@@ -405,7 +430,7 @@ function buildDashboard() {
       const rate = c.buy > 0 ? pnl / c.buy * 100 : 0;
       const wt   = totalCur > 0 ? c.cur / totalCur * 100 : 0;
       dash.getRange(r, 1, 1, 7).setValues([[cat, c.cnt,
-        _dbNum(c.buy), _dbNum(c.cur), _dbPnl(pnl), _dbRate(rate), _dbRate(wt)]]);
+        c.buy, c.cur, pnl, rate, wt]]);
       dash.getRange(r, 1, 1, 7).setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
       dash.getRange(r, 1).setHorizontalAlignment('center');
       dash.getRange(r, 2, 1, 6).setHorizontalAlignment('right');
@@ -414,12 +439,18 @@ function buildDashboard() {
     });
 
   dash.getRange(r, 1, 1, 7)
-    .setValues([['합계', posRows.length, _dbNum(totalBuy), _dbNum(totalCur),
-      _dbPnl(opProfit), _dbRate(opRate), '100%']])
+    .setValues([['합계', posRows.length, totalBuy, totalCur,
+      opProfit, opRate, 100]])
     .setFontWeight('bold').setBackground(DB.BG_TOTAL);
   dash.getRange(r, 1).setHorizontalAlignment('center');
   dash.getRange(r, 2, 1, 6).setHorizontalAlignment('right');
   _dbColorCell(dash, r, 5, opProfit); _dbColorCell(dash, r, 6, opRate);
+  {
+    const _n = r - catStart + 1;
+    dash.getRange(catStart, 2, _n, 3).setNumberFormat(_FMT_INT);  // 종목수·매입·평가
+    dash.getRange(catStart, 5, _n, 1).setNumberFormat(_FMT_PNL);  // 손익
+    dash.getRange(catStart, 6, _n, 2).setNumberFormat(_FMT_PCT);  // 수익률·비중
+  }
   r += 2;
 
   // ══════════════════════════════════
@@ -439,10 +470,11 @@ function buildDashboard() {
       if (p > 0) mMap[m].win++;
     });
 
+    const monStart = r;
     Object.keys(mMap).sort().forEach((m, i) => {
       const d  = mMap[m];
       const wr = d.cnt > 0 ? d.win / d.cnt * 100 : 0;
-      dash.getRange(r, 1, 1, 6).setValues([[m, d.cnt, d.win, d.cnt - d.win, _dbPnl(d.pnl), _dbRate(wr)]]);
+      dash.getRange(r, 1, 1, 6).setValues([[m, d.cnt, d.win, d.cnt - d.win, d.pnl, wr]]);
       dash.getRange(r, 1, 1, 6).setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
       dash.getRange(r, 1).setHorizontalAlignment('center');
       dash.getRange(r, 2, 1, 5).setHorizontalAlignment('right');
@@ -452,11 +484,17 @@ function buildDashboard() {
 
     dash.getRange(r, 1, 1, 6)
       .setValues([['합계', pnlRows.length, winCount, pnlRows.length - winCount,
-        _dbPnl(cfProfit), _dbRate(winRate)]])
+        cfProfit, winRate]])
       .setFontWeight('bold').setBackground(DB.BG_TOTAL);
     dash.getRange(r, 1).setHorizontalAlignment('center');
     dash.getRange(r, 2, 1, 5).setHorizontalAlignment('right');
     _dbColorCell(dash, r, 5, cfProfit);
+    {
+      const _n = r - monStart + 1;
+      dash.getRange(monStart, 2, _n, 3).setNumberFormat(_FMT_INT);  // 매도·수익·손실 건수
+      dash.getRange(monStart, 5, _n, 1).setNumberFormat(_FMT_PNL);  // 실현손익
+      dash.getRange(monStart, 6, _n, 1).setNumberFormat(_FMT_PCT);  // 승률
+    }
     r += 2;
 
     // Top 5 / Bottom 5
@@ -469,23 +507,31 @@ function buildDashboard() {
     const top5   = sorted.slice(0, 5);
     const bot5   = sorted.slice(-5).reverse();
 
+    const tbStart = r;
     for (let i = 0; i < 5; i++) {
       const t = top5[i], b = bot5[i];
       if (t) {
         dash.getRange(r, 1, 1, 4)
-          .setValues([[t[2], String(t[0]).slice(0, 10), _dbPnl(Number(t[12])), _dbRate(Number(t[13]))]])
+          .setValues([[t[2], String(t[0]).slice(0, 10), Number(t[12]) || 0, Number(t[13]) || 0]])
           .setBackground('#fde8e8');
         dash.getRange(r, 3, 1, 2).setHorizontalAlignment('right');
         dash.getRange(r, 3).setFontColor(DB.FG_POS).setFontWeight('bold');
       }
       if (b) {
         dash.getRange(r, 5, 1, 4)
-          .setValues([[b[2], String(b[0]).slice(0, 10), _dbPnl(Number(b[12])), _dbRate(Number(b[13]))]])
+          .setValues([[b[2], String(b[0]).slice(0, 10), Number(b[12]) || 0, Number(b[13]) || 0]])
           .setBackground('#e8f0fe');
         dash.getRange(r, 7, 1, 2).setHorizontalAlignment('right');
         dash.getRange(r, 7).setFontColor(DB.FG_NEG).setFontWeight('bold');
       }
       r++;
+    }
+    {
+      const _n = r - tbStart;
+      dash.getRange(tbStart, 3, _n, 1).setNumberFormat(_FMT_PNL);  // 수익 Top 실현손익
+      dash.getRange(tbStart, 4, _n, 1).setNumberFormat(_FMT_PCT);  // 수익 Top 수익률
+      dash.getRange(tbStart, 7, _n, 1).setNumberFormat(_FMT_PNL);  // 손실 Top 실현손익
+      dash.getRange(tbStart, 8, _n, 1).setNumberFormat(_FMT_PCT);  // 손실 Top 수익률
     }
   }
 
@@ -528,6 +574,11 @@ function _shortAcct(s) {
 function _dbNum(n)  { return (Number(n) || 0).toLocaleString('ko-KR'); }
 function _dbPnl(n)  { const v = Number(n) || 0; return (v >= 0 ? '+' : '') + Math.round(v).toLocaleString('ko-KR'); }
 function _dbRate(n) { const v = Number(n) || 0; return (v >= 0 ? '+' : '') + v.toFixed(2) + '%'; }
+
+// 대시보드 표 숫자 셀 표시 서식 (셀 값은 실제 숫자, 표시만 부호·콤마·%)
+const _FMT_INT = '#,##0';
+const _FMT_PNL = '"+"#,##0;"-"#,##0';
+const _FMT_PCT = '"+"0.00"%";"-"0.00"%"';
 
 // "1년 2개월 3일" 류를 일수로 환산
 function _dbParseHoldingDays(s) {

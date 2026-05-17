@@ -1,82 +1,144 @@
 # Code Map
-last updated: 2026-05-03
 
-코드 구조가 필요할 때 읽는 파일. CLAUDE.md에는 포함하지 않음.
+last updated: 2026-05-17
 
----
+코드 구조를 파악할 때 **파일을 열기 전에 먼저 읽는 지도**.
+함수명·역할·시트 스키마·데이터 흐름만 기록한다. **줄 번호는 적지 않는다** (가장 빨리 낡음).
+실제 수정 직전에는 해당 함수를 직접 읽어 확인한다 — 지도는 "어디 있나"를 알려줄 뿐 검증을 대신하지 않는다.
 
-## iOS — Sources/
-
-### Core/
-- **MockData.swift** — Preview·테스트용 고정 샘플 데이터 (`MockData.portfolioResponse`, `MockData.indicatorsResponse`, `MockData.trendHistoryResponse`)
-- **PortfolioViewModel.swift** — 전체 상태 관리 (ObservableObject)
-  - `fetchPortfolio()` 데이터 읽기
-  - `triggerUpdate()` 현재가+환율만
-  - `updateHoldingsFast()` 현재가+등락+52주 (카드탭·⚡ 동일)
-  - `updateHoldingsFull()` 1M/3M/1Y 포함 전체
-  - `updateAll()` 통합 (✦)
-  - `fetchIndicators()` 참고지표 (독립, 대시보드와 무관)
-- **ScriptAPIService.swift** — GAS API 호출 레이어
-- **CacheService.swift** — 포트폴리오·지표 캐시
-
-### Models/
-- **PortfolioModels.swift** — Holding, Summary, GroupStat, ReferenceIndicator 등
-
-### Features/Dashboard/
-- **DashboardView.swift**
-  - `dashboardHeader` — 우측 상단 버튼 3개 (⚡=updateHoldingsFast, ⊞=updateHoldingsFull, ✦=updateAll)
-  - `summaryCard` — 합계수익 + 오늘/전일수익 카드 (카드탭 → updateHoldingsFast)
-  - `fxCard` — 환율 + 마지막 갱신
-  - `showPrevDayProfit` — 장전/비거래일 판단
-- **ProfitHistoryView.swift** — 스와이프 다운 기간별 수익 차트
-
-### Features/Holdings/
-- **HoldingsView.swift**
-  - `filterBar` — 계좌 필터 칩 (HStack, 스크롤 없음)
-  - `sortBar` — 정렬 버튼 (ScrollView)
-  - `accountDisplayName` — 계좌 표시명 맵 (퇴직연금_개인IRP→퇴직연금_미래 등)
-- **HoldingCard.swift**
-  - `standardCard` / `allInfoCard` — sortKey에 따라 전환
-  - `detailGrid` — 펼쳤을 때 상세 (1M/3M/1Y, 계좌: broker앞2자_accountType)
-
-### Features/Analysis/
-- **AnalysisView.swift**
-  - `matrixSection` — 투자 효율 매트릭스 (4분면)
-  - `annualizedSection` — 연 환산 수익률 차트 (Y축: 종목명·기간 / 수익률 컬러)
-  - `position52Section` — 52주 포지션 바
-  - `accountAnalysisSection` — 계좌별 분석 5탭 (현황/수익률/비중/오늘/종목)
-  - `allocationSection` — 분류별 자본 배분 도넛
-
-### Features/Indicators/
-- **IndicatorsView.swift** — 참고지표 (카테고리별 섹션)
+> **갱신 규칙**: 함수를 추가/삭제하거나 역할·시그니처·시트 스키마가 바뀌면 이 파일의 해당 항목도 같은 커밋에서 갱신한다.
 
 ---
 
-## GAS — apps-script/
+## 시스템 구성
 
-### MobileAPI.js — iOS 앱 진입점
-- `mobileGetPortfolio()` 읽기만 (~3초)
-- `mobileTriggerUpdate()` 현재가+환율 갱신
-- `mobileUpdateHoldingsFast()` → updateStockStatusQuick (현재가+등락+52주)
-- `mobileUpdateHoldingsFull()` → updateStockStatusAuto (1M/3M/1Y 포함)
-- `mobileUpdateAll()` → runFullUpdate (전체)
-- `mobileGetReferenceIndicators()` 참고지표 (독립)
-- `mobileGetProfitHistory()` 추이 히스토리
-- `_buildPortfolioJSON()` 포트폴리오 JSON 빌드
-- `_logToTrendSheetLite()` 추이 요약 갱신 (히스토리 추가 없음)
+- **활성 시스템 = v2**: `apps-script-v2/` (GAS) + `web/` (React PWA) + `ios2/` (SwiftUI)
+- **레거시(비활성, 건드리지 않음)**: `apps-script/` (구 GAS v1), `ios/` (구 iOS)
 
-### Main.js — 실행 로직·메뉴
-- `runFullUpdate()` 통합 업데이트
-- `updateAllFinanceData()` 현재가+환율 갱신
-- `setupDailyTrigger()` 매일 8:30 runFullUpdate 트리거
-- `setupHoldingsTriggers()` 매일 8:30·17:30 종목현황 트리거
-- `scheduledHoldingsUpdate()` 트리거 실행 함수 (updateStockStatusAuto + TrendLite)
+**데이터 흐름**
+```
+거래_입력폼 ─addTransactionFromForm→ 거래_원장
+거래_원장 ─updatePositionFromLedger→ 보유현황 / 실현손익
+KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종목 Wide)
+보유현황 + 현재가_이력 + 거래_원장 ─buildDashboard→ 대시보드 시트
+보유현황 + 현재가_이력 + 거래_원장 ─newMobileGetPortfolio→ JSON → web/ios2
+```
 
-### KIS_StockStatus.js
-- `updateStockStatusQuick()` 빠른 현황 (현재가+등락+52주)
-- `updateStockStatusAuto()` 전체 현황 (1M/3M/1Y 포함)
+---
 
-### Config.js — 설정값, Named Range, 헤더 텍스트 맵
-### KIS_API.js — KIS API 호출 (토큰, 주식/지수/선물 조회)
-### Trend.js — 추이 기록 (logToTrendSheet, Section A/B/C)
-### Analysis.js — 성과 분석 (updatePerformanceAnalysis)
+## GAS 시트 스키마 (apps-script-v2)
+
+시트명 상수는 `NS` (NewSystem.js). 0-based 인덱스 = `getValues()` 배열 기준.
+
+### *거래_원장* (NS.LEDGER) — 불변 거래 이력
+`[0]날짜 [1]구분(매수/매도) [2]종목코드 [3]종목명 [4]분류 [5]증권사 [6]계좌 [7]수량 [8]단가 [9]금액 [10]수수료 [11]메모`
+
+### *보유현황* (NS.POSITION) — 원장 기반 자동 계산
+`[0]종목코드 [1]종목명 [2]분류 [3]증권사 [4]계좌 [5]보유기간 [6]보유수량 [7]평균단가 [8]매입금액 [9]현재단가 [10]평가금액 [11]손익 [12]수익률(%) [13]수동평가금액 [14]비고`
+
+### *실현손익* (NS.REALIZED_PNL) — 매도 시 누적
+`[0]매도일 [1]종목코드 [2]종목명 [3]분류 [4]증권사 [5]계좌 [6]매도수량 [7]매도단가 [8]매도금액 [9]평균매입단가 [10]매입원가 [11]수수료 [12]실현손익 [13]수익률(%)`
+
+### *현재가_이력* (NS.PRICE_HISTORY) — 날짜×종목 Wide 포맷
+- 1행 = 헤더: `[A]"날짜"` + `[B…]종목코드`
+- 2행~ = 데이터: `[A]날짜` + `[B…]그 날짜의 종목별 현재단가`
+- **거래일 행만 존재해야 함** — 비거래일 행이 끼면 변동/라벨 계산이 오염됨
+
+### *거래_입력폼* (NS.FORM) — 입력은 C열, 행은 `NS.FR` 상수
+`FR = {DATE:3, TYPE:4, CODE:5, NAME:6, CAT:7, BROKER:8, ACCT:9, QTY:10, PRICE:11, AMT:12, FEE:13, MEMO:14, SUBMIT:16}`
+
+### *설정* (NS.SETTINGS) — 환율: USD=(2,2), GBP=(3,2)
+
+### *추이 기록* (NS.TREND) — 시계열 요약 (복잡)
+주요 셀: `AD2`=합계수익 최신, `U열`=날짜, `AE/AF`=전일 거래일 변동액/률
+
+### *참고지표_히스토리* — `[0]날짜 [1]시간 [2…]지표값`
+
+### 기타 상수 (NS)
+- `KIS_SKIP = ['펀드','예금','보험','기타']` — KIS 가격 조회 제외 분류
+- `BROKERS`, `ACCOUNTS`, `CATEGORIES`, `LC`(원장 1-based 컬럼맵)
+
+---
+
+## GAS — apps-script-v2/
+
+### Main.js — 메뉴·트리거
+- `onOpen` — 📊 뉴시스템 메뉴 생성
+- `onEdit` — 입력폼 제출·대시보드 정렬 드롭다운 분기
+- `updateAllNew` — 전체 업데이트: 가격→보유현황→대시보드 (메뉴 🔄)
+- `menuUpdatePricesOnly` — 현재가만
+- `scheduledDailyUpdate` / `setupDailyTrigger` / `deleteDailyTrigger` — 17:30 자동 트리거
+
+### NewSystem.js — 셋업·원장·보유현황·가격수집
+- `NS` — 전 시트명/컬럼맵/상수 (위 스키마 참조)
+- `setupNewSystem` + `_setup*Sheet` — 최초 시트 7종 생성
+- `addTransactionFromForm` — 입력폼 → *거래_원장* 1행 추가
+- `updatePositionFromLedger` — *거래_원장* → *보유현황* 전체 재계산
+- `updateNewPriceHistory(ss)` — KIS 시세 → *현재가_이력* 행 upsert (**비거래일엔 미기록**)
+- `updateFxRates` — 환율 → *설정*
+- `_fetchPricesFromKIS(codes)` — KIS 가격 일괄 조회
+- `_normCode(c)` — 종목코드 정규화 (6자리 패딩, 영숫자 `0047A0`·해외 `AAPL` 허용)
+- `_holdingPeriod(dateStr)` — 보유기간 문자열 ("11개월 26일")
+- `importHistoricalTrades` — 과거 거래 시드 입력
+- `migrateOverseasUsdToKrw` / `_fetchHistoricalFx` / `_findFxForDate` — 일회성 (제거 예정)
+
+### MobileAPI.js — iOS/웹 진입점 (모두 JSON 문자열 반환)
+- `newMobileGetPortfolio` — 포트폴리오 전체 JSON (holdings·summary·byCategory·byAccount)
+- `newMobileUpdateCurrentPrice` / `newMobileUpdateHistory` / `newMobileUpdateAll` — 갱신 트리거
+- `newMobileGetStockDetail(code)` — 종목 상세 (가격 시계열 포함)
+- `newMobileGetMonthlyRealized` — 월별 실현손익
+- `newMobileGetProfitHistory` — 추이 히스토리
+- `newMobileGetIndicators` — 참고지표
+- `_mCalcExtras(priceHist, posRows, ledger)` — *현재가_이력*에서 종목별 change/m1/m3/m6/y1 계산 (비거래일 행 필터링)
+- `_mMapHolding` — 보유현황 행 → holding 객체
+- `_mGetBuyDates` / `_mGetFxRates` / `_mFindPrevDayProfitChange`
+- `_mGroupBy` — 분류별/계좌별 집계
+- `_isKoreanHoliday(date)` / `_isTradingDateStr(s)` / `_mIsMarketDay` / `_mIsTradingDay` — 거래일 판정
+- `_newGetYahooFinanceQuote` / `_newFill*` — 참고지표 fallback
+
+### Dashboard.js — *대시보드* 시트 렌더
+- `buildDashboard` — *대시보드* 시트 전체 그리기 (요약카드·보유종목표·계좌별·분류별·월별·Top5)
+- `DB` — 색상·`COLS:20`·정렬 프로퍼티 키 상수
+- `_calcExtraColumns(priceHist, posRows, ledger)` — 보유종목표용 당일/1주/1달 손익 계산
+  - `txByKey` = 원장을 `종목코드‖증권사‖계좌` 단위로 집계
+  - `pnlAt` = 정확한 기간 손익 (오늘 평가금액 − N일전 평가금액 − 기간 내 순매수금액)
+- `_calcTodayProfit` — 당일 손익 합계
+- `_handleDashSortChange(e)` — 정렬 드롭다운 처리
+- `_dbSectionTitle` / `_dbHeader` / `_dbColorCell` — 렌더 헬퍼
+- `_dbNum` / `_dbPnl` / `_dbRate` — 문자열 포맷 (현재는 **요약 카드에서만** 사용)
+- `_FMT_INT` / `_FMT_PNL` / `_FMT_PCT` — 표 숫자 셀 표시 서식 상수
+
+### Trend.js — `logToTrendSheet(ss)` *추이 기록* 갱신 + 헬퍼
+
+### KIS_API.js — `KIS_API` 객체: 토큰 발급, 국내·해외 주식/지수/선물 시세 조회
+
+### Secret.js — KIS appkey/secret. **원격(Google)에만 존재. 절대 건드리지 않음.**
+배포는 반드시 `python3 apps-script-v2/push_safe.py` (clasp push 금지).
+
+---
+
+## Web — web/src/ (React + Vite PWA)
+
+- `App.tsx` — 탭 라우팅, portfolio/history 전역 fetch·상태
+- `main.tsx` — 엔트리
+- `api/gasApi.ts` — GAS `scripts.run` 호출 (newMobile* 함수 래핑)
+- `auth/AuthContext.tsx` — Google OAuth (GIS)
+- `models/types.ts` — `PortfolioResponse`·`Summary`·`Holding`·`TrendEntry` 등 타입
+- `utils/changeLabel.ts` — `decideChangeLabel`(오늘/전일/최근), `formatPriceAsOfDate`
+- `utils/format.ts` — `krwCompact`·`pctFormatted` 등 숫자 포맷
+- `components/dashboard/` — `DashboardPage`(합계/오늘수익/환율), `ProfitHistoryChart`
+- `components/holdings/` — `HoldingsPage`, `HoldingCard`, `StockDetailModal`
+- `components/analysis/AnalysisPage` · `components/indicators/IndicatorsPage`
+- `components/ui/` — `Card`, `LoadingSpinner`, `TabBar`
+- 배포: git push → GitHub Actions → https://ejunwon-lab.github.io/FD5to6/
+
+## iOS — ios2/Sources/ (SwiftUI, XcodeGen)
+
+- `App/` — `NewFD7App`(엔트리), `MainTabView`(4탭), `SignInView`
+- `Core/` — `AuthManager`(구글 로그인), `PortfolioViewModel`(상태), `ScriptAPIService`(GAS 호출), `CacheService`, `BackgroundNetworkSession`, `MockData`(Preview용)
+- `Models/PortfolioModels.swift` — `Holding`·`Summary`·`GroupStat` 등
+- `Shared/` — `ChangeLabel`(decideChangeLabel·formatPriceAsOfDate), `Extensions`
+- `Features/Dashboard/` — `DashboardView`, `ProfitHistoryView`
+- `Features/Holdings/` — `HoldingsView`, `HoldingCard`, `StockDetailView`
+- `Features/Analysis/AnalysisView` · `Features/Indicators/IndicatorsView`
+- 빌드: Xcode (VS Code SourceKit 에러는 대부분 false positive)
