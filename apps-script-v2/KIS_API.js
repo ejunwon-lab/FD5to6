@@ -395,17 +395,6 @@ const KIS_API = {
     }
   },
   /**
-   * 해외 주식 자동 거래소 찾기 (NAS -> NYS -> AMS 순서)
-   */
-  getOverseasStockInfoAuto: function(code) {
-    const exchanges = ['NAS', 'NYS', 'AMS'];
-    for (const ex of exchanges) {
-      const info = this.getOverseasStockInfo(code, ex);
-      if (info) return info;
-    }
-    return null;
-  },
-  /**
    * 주식 과거 가격 조회 (일봉 데이터)
    * @param {string} code 종목코드
    * @param {string} date 조회 날짜 (YYYYMMDD)
