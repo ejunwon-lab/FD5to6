@@ -4,8 +4,6 @@
 .LSOverride
 
 # iOS / Xcode
-ios/build/
-ios/DerivedData/
 *.ipa
 *.dSYM.zip
 *.dSYM
@@ -13,10 +11,7 @@ xcuserdata/
 *.xcuserstate
 
 # Apps Script
-apps-script/sheets/
-apps-script/triggers/
-apps-script/.cache/
-apps-script/Secret.js
+apps-script-v2/Secret.js
 
 # Python
 __pycache__/

@@ -8,18 +8,18 @@ JUN & SOO의 주식 포트폴리오 관리 시스템.
 ## 디렉토리 구조
 ```
 FD5to6/
-├── apps-script/       # GAS 소스 (.js 파일들)
-│   ├── push_safe.py   # Secret.js 보호 GAS 배포 스크립트
-│   └── *.js           # KIS_API, KIS_StockStatus, Config 등
-├── ios/               # SwiftUI iOS 앱
-│   └── Sources/
-│       ├── App/       # MainTabView
-│       ├── Features/  # Dashboard, Holdings, Analysis
-│       ├── Models/    # PortfolioModels
-│       └── Shared/    # Extensions, Colors
-├── memory/            # Claude 메모리 파일 백업 (GitHub 동기화용)
-└── docs/
+├── apps-script-v2/    # GAS (Diag·Main·Dashboard·MobileAPI·NewSystem·KIS_API·Trend·Holidays·StockMetrics)
+│   └── push_safe.py   # Secret.js 보호 배포 + node --check 사전 검증
+├── web/               # React PWA (TypeScript + Vite, vitest)
+│   └── src/           # App·components·utils·models
+├── ios2/              # SwiftUI iOS (XcodeGen, NewFD7)
+│   └── Sources/       # App·Core·Models·Shared·Features
+├── scripts/           # save.sh·run.sh (저장!·실행@ 자동화)
+├── memory/            # Claude 메모리 백업 (GitHub 동기화용)
+├── docs/              # code-map·api-reference·errors·decisions·pending·features·sessions/
+└── config/            # global-claude.md
 ```
+> 레거시 `apps-script/`·`ios/`는 2026-05-19 제거. git 히스토리에 보존.
 
 ## 새 컴퓨터 세팅
 클론 후 아래 순서대로 실행:

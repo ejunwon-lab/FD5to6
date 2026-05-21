@@ -1,14 +1,13 @@
 ---
-name: GAS Secret.js 절대 수정 금지
-description: GAS 배포 시 Secret.js를 절대 건드리지 않는다
+name: GAS Secret.js 절대 손대지 않음
+description: Secret.js는 무슨 일이 있어도 읽기·수정·생성·재전송 금지 — 사용자만 관리
 type: feedback
 originSessionId: 2a9a6e85-cab9-4398-9594-b124121defcf
 ---
-Secret.js는 절대 수정하거나 재전송하지 않는다.
+`Secret.js`는 **무슨 일이 있어도** Claude가 건드리지 않는다 — 열기·읽기·수정·생성·push 전부 금지. 그 안의 값(KIS 키 등)은 **오직 사용자가** GAS 에디터에서 직접 관리한다.
 
-**Why:** KIS API 키 등 민감 정보 포함. `.claspignore`에 등록되어 있어 `clasp push` 대상에서 제외됨. 그런데 `clasp push`는 원격 전체를 로컬로 교체하므로, Secret.js가 push 목록에 없으면 **원격에서 자동 삭제**된다.
+**Why:** KIS API 키 등 민감 정보. 로컬에 없고 원격 GAS에만 존재. 사용자가 명시적으로 못 박은 규칙 (2026-05-18).
 
 **How to apply:**
-- `clasp push`를 자동으로 실행하지 않는다. 사용자가 명시적으로 요청해야만 실행.
-- push 전 반드시 "Secret.js가 원격에서 삭제됩니다 — 진행할까요?" 확인.
-- GAS 파일 수정 후 배포는 사용자가 GAS 에디터에서 직접 하도록 안내하는 것이 안전.
+- Secret.js를 절대 Write/Edit/Read 하지 않는다.
+- `clasp push` 직접 실행 금지. 배포는 `python3 apps-script-v2/push_safe.py` (Secret.js를 원격에서 보존).
