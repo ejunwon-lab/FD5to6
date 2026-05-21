@@ -10,7 +10,7 @@ GAS push (새 시스템 전용) — Secret.js 보호 배포 스크립트
      (새 시트 → 확장 프로그램 → Apps Script → 프로젝트 설정 → 스크립트 ID)
   2. python3 apps-script-v2/push_safe.py
 """
-import json, sys, time
+import json, subprocess, sys, time
 from pathlib import Path
 import requests
 
@@ -44,6 +44,37 @@ def get_token() -> str:
     return token["access_token"]
 
 
+def syntax_check(script_dir: Path) -> bool:
+    """*.js 문법(node --check) + appsscript.json 유효성 검사. 통과 시 True."""
+    try:
+        subprocess.run(['node', '--version'], capture_output=True, check=True)
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        print("⚠ node 없음 — 문법 검사 건너뜀 (Node.js 설치 권장)")
+        return True
+
+    errors = []
+    js_files = sorted(script_dir.glob("*.js"))
+    for js in js_files:
+        r = subprocess.run(['node', '--check', str(js)], capture_output=True, text=True)
+        if r.returncode != 0:
+            errors.append(f"  ✗ {js.name}\n{r.stderr.strip()}")
+
+    manifest = script_dir / "appsscript.json"
+    if manifest.exists():
+        try:
+            json.loads(manifest.read_text())
+        except json.JSONDecodeError as e:
+            errors.append(f"  ✗ appsscript.json: {e}")
+
+    if errors:
+        print("❌ 문법 오류 — push 중단:")
+        for err in errors:
+            print(err)
+        return False
+    print(f"✓ 문법 검사 통과 ({len(js_files)}개 .js + appsscript.json)")
+    return True
+
+
 def api(method: str, url: str, token: str, body=None):
     headers = {"Authorization": f"Bearer {token}"}
     r = requests.request(method, url, headers=headers, json=body)
@@ -61,6 +92,8 @@ def main():
         sys.exit(1)
 
     script_dir = Path(__file__).parent
+    if not syntax_check(script_dir):
+        sys.exit(1)
     token = get_token()
     base  = f"https://script.googleapis.com/v1/projects/{SCRIPT_ID}"
 
