@@ -20,6 +20,10 @@ function onOpen() {
     .addSeparator()
     .addItem('⏰ 매일 17:30 자동 트리거 등록', 'setupDailyTrigger')
     .addItem('🗑️ 자동 트리거 해제', 'deleteDailyTrigger')
+    .addSeparator()
+    .addItem('📱 Telegram — 20분 푸시 ON', 'tgSetupPushTrigger')
+    .addItem('🔕 Telegram — 푸시 OFF', 'tgDeletePushTrigger')
+    .addItem('📤 Telegram — 즉시 발송 (테스트)', 'tgTestSend')
     .addToUi();
 
   // 시트 열 때 *대시보드* 자동 활성화
@@ -35,6 +39,11 @@ function onOpen() {
 function onEdit(e) {
   _handleFormOnEdit(e);
   _handleDashSortChange(e);
+}
+
+// Web App POST endpoint — 현재는 Telegram webhook 전용
+function doPost(e) {
+  return handleTelegramWebhook(e);
 }
 
 // ══════════════════════════════════════════

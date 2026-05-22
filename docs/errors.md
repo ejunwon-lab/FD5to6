@@ -2,6 +2,26 @@
 
 ---
 
+## 2026-05-23
+
+### Telegram webhook 무한 루프 — 무거운 갱신 + update_id 중복 미처리
+- **증상**: Telegram 봇에 "갱신" 1번 보냈는데 봇이 손익 메시지 + "갱신중..." 무한 반복. 사용자가 "그만" 보내도 멈추지 않음
+- **원인 1**: `tgRefreshAndPush`가 `newMobileUpdateAll()` 호출 → KIS 가격 + 보유현황 + 대시보드 + 추이 전체 갱신 → 30초+ 소요 → Telegram이 webhook 응답 못 받고 같은 `update_id`로 retry → GAS doPost가 또 처리 → 무한 루프
+- **원인 2**: doPost가 `update_id`를 검사하지 않아 retry된 update를 새 메시지로 처리
+- **원인 3 (별도 함정)**: Web App deployment는 *배포 시점의 코드*를 영구히 실행. `clasp push` 후 새 deployment를 만들거나 "배포 관리 → 신규 버전"으로 갱신해야 새 코드 반영. 시간 트리거(`tgPushPnL`)는 head 코드를 직접 실행하므로 무관
+- **해결**:
+  1. `update_id` 중복 제거 — PropertiesService에 마지막 처리한 ID 저장, 같으면 즉시 ok 반환
+  2. `LockService.tryLock(1000)` — 동시 처리 차단
+  3. 갱신 작업 경량화 — `updateNewPriceHistory` + `updatePositionFromLedger`만 (대시보드 렌더·`logToTrendSheet` 생략)
+  4. `setWebhook` 옵션에 `max_connections:1`·`drop_pending_updates:true`
+  5. 코드 수정 후 **"배포 관리 → 신규 버전"** 실행 (이 단계 누락이 1차 수정이 안 먹은 직접 원인)
+- **교훈**:
+  - GAS doPost가 외부 webhook을 받으면 retry 가능성 항상 고려 → update_id/event_id 같은 멱등 키 필수
+  - Web App 코드 수정은 `clasp push`만으론 반영 안 됨. deployment 버전 갱신 또는 신규 deployment 필요. **head 코드(시간 트리거·`scripts.run`)와 deployment 코드(`/exec`)는 별개**
+  - 외부에서 호출하는 webhook 핸들러는 응답 빠르게(<10초) 만들고, 무거운 작업은 트리거로 분리하거나 락으로 직렬화
+
+---
+
 ## 2026-04-27
 
 ### iOS 콜드 런치 "더 이상 사용할 수 없음" — 번들 ID 변경 후 구 앱 잔존

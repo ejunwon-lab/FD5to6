@@ -18,3 +18,4 @@
 - [GAS 배포 양쪽 동시 진행](feedback_deploy_both.md) — KIS_API.js 수정 시 구/신 시스템 양쪽 배포, 추가 승인 없이 진행
 - [대시보드가 유일한 UI](project_dashboard_primary.md) — 사용자는 대시보드만 봄. 모든 정보는 대시보드에 표시해야 함
 - [변경 보고 시 검증 섹션 필수](feedback_verify_changes.md) — "## 검증" 섹션(자동 결과 + 사용자 확인 4요소) 없는 보고는 미완료. CLAUDE.md "변경 검증 절차" 참조
+- [옵션 다 거부되면 프레임을 의심](feedback_reframe_before_options.md) — 같은 전제 안 변형 찾지 말고 한 단계 위로 올라가 프레임 재구성. 합리화 금지
