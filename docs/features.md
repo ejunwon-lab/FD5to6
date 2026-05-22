@@ -1,6 +1,6 @@
 # 기능 현황
 
-last updated: 2026-05-14
+last updated: 2026-05-23
 
 ## ✅ 완료
 
@@ -31,6 +31,12 @@ last updated: 2026-05-14
 - Yahoo Finance 연동 (선물 데이터)
 - GOOGLEFINANCE fallback (VIX, TNX, DXY, 금, WTI)
 - Named Range 기반 동적 셀 참조
+
+### Telegram 봇 (애플워치 손익 알림)
+- 워치 → Telegram 봇 → GAS webhook 우회 구조 (시크릿은 GAS Properties에만, 클라이언트에 0개)
+- 양방향: "갱신" 메시지 → 가격+보유현황 갱신 후 손익 회신 (워치 답글 가능)
+- 자동 푸시: 거래일 09:00~16:00, 매시 :00/:20/:40 근처 (3개 트리거)
+- 보안: webhook URL secret query + chat_id 화이트리스트 이중 검증, `update_id` 중복 제거, `LockService` 동시 처리 차단
 
 ## 🔄 미검증 (구현은 됐으나 실제 동작 확인 필요)
 
