@@ -43,10 +43,10 @@ export function IndicatorsPage() {
   }, [indicators])
 
   return (
-    <div className="overflow-y-auto p-3 grid gap-2.5">
+    <div className="overflow-y-auto p-2 sm:p-3 grid gap-2.5">
       {grouped.map(([cat, items]) => (
         <Panel key={cat} title={CATEGORY_LABELS[cat] ?? cat} meta={`${items.length} symbols`}>
-          <div className="grid grid-cols-3 gap-px bg-line">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-line">
             {items.map((i) => (
               <BigIndicator key={i.symbol} ind={i} />
             ))}

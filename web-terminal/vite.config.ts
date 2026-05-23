@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
+// GitHub Pages: https://ejunwon-lab.github.io/FD5to6/terminal/
 export default defineConfig({
   plugins: [react()],
+  base: '/FD5to6/terminal/',
 })
