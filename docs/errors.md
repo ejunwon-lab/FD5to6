@@ -4,6 +4,27 @@
 
 ## 2026-05-23
 
+### Telegram webhook 간헐 실패 — Telegram이 GAS 302 redirect를 안 따라감 (Cloudflare Worker proxy로 해결)
+- **증상**: webhook URL·access·doPost 모두 정상인데 "ㄱㄱ" 메시지에 *간헐적으로만* 응답. `getWebhookInfo`에 `last_error: Wrong response from the webhook: 302 Moved Temporarily`. pending_update_count 누적
+- **원인**: GAS Web App POST는 항상 `googleusercontent.com/macros/echo?user_content_key=...`로 302 redirect 응답. Telegram의 webhook 전송 클라이언트가 이 redirect를 *때때로* 안 따라감 → 302를 final response로 간주해 에러 기록 → backoff
+- **확정 진단**:
+  - Python urllib·Node fetch·CF Workers fetch (WHATWG fetch spec 준수) → POST → 302 follow → 200 + 'forbidden'/'ok'
+  - curl `-L --post302` → 405 `allow: HEAD, GET` (curl이 redirect target에 다시 POST 보내는데 그 endpoint는 GET만 허용 — **이게 진단 1시간+ 헛돌이의 원인**)
+- **해결**: Cloudflare Worker proxy 도입
+  - Telegram → Worker(secret_token 헤더 검증) → GAS /exec(redirect:'follow') → 200 → Telegram에 직결
+  - Worker 코드 30줄, 무료 티어로 충분, 비용 0
+  - 셋업: `apps-script-v2/cloudflare-worker/README.md`
+- **추가 함정 — Cloudflare secret deploy gotcha**:
+  - Settings에서 secret 추가하면 **새 version만 만들고 active deployment는 옛 버전 유지**. UI에 "deploy required" 알림 없음
+  - 진단: Deployments 탭 → Version History에서 "Add secret: ..." version에 파란 막대(active) 없음 → 수동 promote 필요
+  - 해결: 최신 version 우측 `···` → "Deploy this version"
+- **교훈**:
+  - **GAS Web App 디버깅에 curl 결과 단독 신뢰 금지**. Python urllib·Node fetch·등 spec 준수 클라이언트로 교차 검증 ([[feedback_gas_curl_diagnosis]])
+  - Telegram webhook + GAS Web App 조합은 *간헐적으로 깨짐* — 신뢰성 필요하면 Cloudflare Worker 같은 proxy 필요
+  - Cloudflare Workers: secret 변경 후 반드시 Deployments 탭에서 최신 version active 확인
+
+---
+
 ### Telegram webhook 302/405 — appsscript.json `webapp.access: MYSELF`가 익명 POST 차단
 - **증상**: webhook 등록은 성공("Webhook was set")하지만 Telegram에서 "갱신" 보내도 응답 없음. `getWebhookInfo`에 `last_error: Wrong response from the webhook: 302 Moved Temporarily` + `pending_update_count` 누적
 - **검증**:
