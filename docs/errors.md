@@ -4,6 +4,28 @@
 
 ## 2026-05-23
 
+### Telegram webhook 302/405 — appsscript.json `webapp.access: MYSELF`가 익명 POST 차단
+- **증상**: webhook 등록은 성공("Webhook was set")하지만 Telegram에서 "갱신" 보내도 응답 없음. `getWebhookInfo`에 `last_error: Wrong response from the webhook: 302 Moved Temporarily` + `pending_update_count` 누적
+- **검증**:
+  - GET 익명 호출(시크릿 브라우저)은 정상 → "doGet 함수 없음" 페이지 (deployment 살아있음)
+  - POST는 302 → googleusercontent.com/macros/echo → 405 `allow: HEAD, GET` (POST 차단)
+  - **결정적 진단**: curl의 `--post302`는 redirect 처리에서 405를 보이지만, Python urllib(RFC 준수 redirect-following)로 같은 URL POST 치면 **200 + 'forbidden'** — doPost가 실제로 실행됨을 확인. 즉 deployment에 따라 다름
+- **원인**: `appsscript.json`의 `"webapp": {"access": "MYSELF"}` — GAS Web App 배포 시 manifest의 access 값이 deployment에 캡쳐됨. UI에서 "모든 사용자"로 설정해도 deployment 메타데이터의 access는 manifest 값을 따라가는 비대칭 동작 (GET은 풀리지만 POST 라우팅은 manifest 우선)
+- **해결**:
+  1. `appsscript.json` → `"webapp": {"access": "ANYONE_ANONYMOUS", "executeAs": "USER_DEPLOYING"}` 로 변경
+  2. push (manifest 갱신)
+  3. **새 deployment 생성** ("새 배포" — 기존 편집 X). 기존 deployment는 만들어진 시점의 access 값에 묶여있어 변경 안 됨
+  4. 새 URL을 Properties `TG_WEBAPP_URL`로 교체 후 `tgInstallWebhook` 재실행
+- **부수 방어선** (이번에 함께 도입):
+  - `tgInstallWebhook`이 자동 감지된 URL이 /dev면 거부, /exec만 사용 (`ScriptApp.getService().getUrl()`이 에디터 컨텍스트에서 /dev 반환하는 별개 함정)
+  - `tgEnsureWebhookHealthy` — `getWebhookInfo`로 상태 점검 → 비정상 시 자동 재등록 (5분 throttle), 30분 트리거 + 모든 진입점 안전망
+- **교훈**:
+  - GAS Web App **익명 POST 필수** 시 `appsscript.json`의 `access: ANYONE_ANONYMOUS` 명시. UI 설정과 manifest 값이 어긋나면 POST만 미묘하게 차단됨
+  - **GAS Web App 디버깅 시 curl은 신뢰 금지**. `--post302`나 default redirect 변환이 RFC와 다르게 동작해 405를 만들어내 진짜 원인을 가림. Python urllib·requests 같은 표준 클라이언트로 교차 검증
+  - "head 코드와 deployment 코드 별개" 원칙이 *manifest*에도 적용됨 — manifest를 push해도 기존 deployment의 권한·실행 사용자 메타데이터는 안 바뀜. **새 deployment 생성 필수**
+
+---
+
 ### Telegram webhook 무한 루프 — 무거운 갱신 + update_id 중복 미처리
 - **증상**: Telegram 봇에 "갱신" 1번 보냈는데 봇이 손익 메시지 + "갱신중..." 무한 반복. 사용자가 "그만" 보내도 멈추지 않음
 - **원인 1**: `tgRefreshAndPush`가 `newMobileUpdateAll()` 호출 → KIS 가격 + 보유현황 + 대시보드 + 추이 전체 갱신 → 30초+ 소요 → Telegram이 webhook 응답 못 받고 같은 `update_id`로 retry → GAS doPost가 또 처리 → 무한 루프

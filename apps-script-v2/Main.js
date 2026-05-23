@@ -23,7 +23,6 @@ function onOpen() {
     .addSeparator()
     .addItem('📱 Telegram — 20분 푸시 ON', 'tgSetupPushTrigger')
     .addItem('🔕 Telegram — 푸시 OFF', 'tgDeletePushTrigger')
-    .addItem('📤 Telegram — 즉시 발송 (테스트)', 'tgTestSend')
     .addToUi();
 
   // 시트 열 때 *대시보드* 자동 활성화
