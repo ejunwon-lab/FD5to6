@@ -1,0 +1,144 @@
+// Google Apps Script 직접 호출 — script.googleapis.com/v1/scripts/{SCRIPT_ID}:run
+// 사용자 OAuth 토큰으로 인증. devMode: true (head 코드 실행).
+
+const SCRIPT_ID = '1DC8llpWYz2ZvzsqVCaz60qomATwxP_CBzuHBitCf0uQT5NbBF-n7IHdZ'
+const BASE_URL = 'https://script.googleapis.com/v1/scripts'
+
+export interface Summary {
+  totalBuy: number
+  totalCurrent: number
+  totalProfit: number
+  profitRate: number
+  trendTotalProfit: number
+  totalProfitRate: number
+  dayChangAmount: number
+  dayChangePct: string
+  prevDayChangAmount: number
+  prevDayChangePct: string
+  priceAsOfDate?: string | null
+}
+
+export interface ApiHolding {
+  code: string
+  name: string
+  category: string
+  broker: string
+  accountType: string
+  quantity: number
+  buyPrice: number
+  currentPrice: number
+  opBuy: number
+  opCurrent: number
+  opProfit: number
+  profitRate: number
+  change: number
+  changePct: string
+  buyDate?: string
+}
+
+export interface PortfolioResponse {
+  success: boolean
+  error?: string
+  updatedAt?: string
+  usdRate?: number
+  summary?: Summary
+  holdings?: ApiHolding[]
+}
+
+export interface ApiIndicator {
+  key: string
+  name: string
+  category: string
+  value: number
+  change: number
+  changePct: number
+}
+
+export interface IndicatorsResponse {
+  success: boolean
+  error?: string
+  indicators?: ApiIndicator[]
+}
+
+export interface TrendEntry {
+  date: string
+  totalProfit: number
+}
+
+export interface TrendHistoryResponse {
+  success: boolean
+  error?: string
+  entries?: TrendEntry[]
+}
+
+export interface MonthlyRealizedItem {
+  month: string         // YYYY-MM
+  code: string
+  name: string
+  quantity: number
+  profit: number
+  returnPct?: number
+}
+
+export interface MonthlyRealizedResponse {
+  success: boolean
+  error?: string
+  entries?: MonthlyRealizedItem[]
+}
+
+export interface StockTransaction {
+  date: string
+  type: '매수' | '매도'
+  broker: string
+  accountType: string
+  quantity: number
+  price: number
+  amount: number
+}
+
+export interface StockDetailResponse {
+  success: boolean
+  error?: string
+  code?: string
+  name?: string
+  transactions?: StockTransaction[]
+  priceHistory?: { date: string; price: number }[]
+}
+
+async function callGAS<T>(functionName: string, token: string, parameters?: unknown[]): Promise<T> {
+  const res = await fetch(`${BASE_URL}/${SCRIPT_ID}:run`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ function: functionName, devMode: true, parameters: parameters || [] }),
+  })
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`)
+  }
+
+  const raw = await res.json()
+  if (raw.error) {
+    throw new Error(raw.error.message ?? 'GAS 실행 오류')
+  }
+
+  const result = raw.response?.result
+  if (result === undefined || result === null) {
+    throw new Error('GAS 응답 없음')
+  }
+
+  return (typeof result === 'string' ? JSON.parse(result) : result) as T
+}
+
+export const gasApi = {
+  getPortfolio:      (token: string) => callGAS<PortfolioResponse>('newMobileGetPortfolio', token),
+  getIndicators:     (token: string) => callGAS<IndicatorsResponse>('newMobileGetIndicators', token),
+  getProfitHistory:  (token: string) => callGAS<TrendHistoryResponse>('newMobileGetProfitHistory', token),
+  getMonthlyRealized:(token: string) => callGAS<MonthlyRealizedResponse>('newMobileGetMonthlyRealized', token),
+  getStockDetail:    (token: string, code: string) =>
+    callGAS<StockDetailResponse>('newMobileGetStockDetail', token, [code]),
+  updateAll:         (token: string) => callGAS<PortfolioResponse>('newMobileUpdateAll', token),
+}
