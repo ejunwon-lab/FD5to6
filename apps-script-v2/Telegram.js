@@ -32,42 +32,70 @@ const TG = {
   PROP_WEBAPP_URL:   'TG_WEBAPP_URL',     // GAS /exec URL (fallback)
   PROP_WORKER_URL:   'TG_WORKER_URL',     // Cloudflare Worker URL (있으면 우선)
   PROP_LAST_UPDATE:  'TG_LAST_UPDATE_ID',
-  PROP_LAST_RECOVER: 'TG_LAST_RECOVER_TS',
-  HEAL_HANDLER:      'tgEnsureWebhookHealthy',
-  HEAL_MINUTES:      30,
   API:               'https://api.telegram.org/bot',
   PUSH_HANDLER:      'tgPushPnL',
   PUSH_MINUTES_AT:   [0, 20, 40], // 매시 :00 / :20 / :40 근처에 실행
   CMD_KEYWORDS:      ['갱신', '업데이트', 'ㄱㄱ', 'update', 'refresh', '/update', '/start', '/pnl'],
-  RECOVER_THROTTLE_S: 300, // 5분 안에 두 번 재등록 안 함
 };
 
 function _tgProps() { return PropertiesService.getScriptProperties(); }
 function _tgToken() { return _tgProps().getProperty(TG.PROP_TOKEN); }
-function _tgChatId() { return _tgProps().getProperty(TG.PROP_CHAT_ID); }
 function _tgSecret() { return _tgProps().getProperty(TG.PROP_SECRET); }
 function _tgWorkerUrl() { return _tgProps().getProperty(TG.PROP_WORKER_URL); }
 
-/** Telegram sendMessage 호출 (텍스트만) */
-function tgSendMessage(text) {
+/** 등록된 chat_id 배열 — TG_CHAT_ID는 콤마 구분 리스트 (단일 값도 호환) */
+function _tgChatIds() {
+  const v = _tgProps().getProperty(TG.PROP_CHAT_ID) || '';
+  return v.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+/** 등록된 첫 번째 chat_id (backward compat) */
+function _tgChatId() {
+  const ids = _tgChatIds();
+  return ids[0] || '';
+}
+
+/**
+ * Telegram sendMessage 호출.
+ * - 인자 없으면 등록된 모든 chat에 브로드캐스트
+ * - opts.chatId 주면 그 chat에만 (whitelist 무시 — /whoami 응답에 사용)
+ */
+function tgSendMessage(text, opts) {
   const token = _tgToken();
-  const chatId = _tgChatId();
-  if (!token || !chatId) {
-    Logger.log('Telegram: 토큰 또는 chat_id 미설정 — tgSetBotToken/tgCaptureMyChatId 먼저 실행');
+  if (!token) {
+    Logger.log('Telegram: 토큰 미설정 — tgSetBotToken 먼저 실행');
     return null;
   }
-  const res = UrlFetchApp.fetch(TG.API + token + '/sendMessage', {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify({
-      chat_id: chatId,
-      text: text,
-      parse_mode: 'Markdown',
-      disable_notification: false,
-    }),
-    muteHttpExceptions: true,
-  });
-  return res.getContentText();
+  const ids = (opts && opts.chatId) ? [String(opts.chatId)] : _tgChatIds();
+  if (ids.length === 0) {
+    Logger.log('Telegram: chat_id 미설정 — tgAddChatId 또는 tgCaptureMyChatId 먼저 실행');
+    return null;
+  }
+  const results = [];
+  for (const chatId of ids) {
+    try {
+      const res = UrlFetchApp.fetch(TG.API + token + '/sendMessage', {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify({
+          chat_id: chatId,
+          text: text,
+          parse_mode: 'Markdown',
+          disable_notification: false,
+        }),
+        muteHttpExceptions: true,
+      });
+      const code = res.getResponseCode();
+      if (code !== 200) {
+        Logger.log('sendMessage to ' + chatId + ' HTTP ' + code + ': ' + res.getContentText().slice(0, 300));
+      }
+      results.push({ chatId, status: code });
+    } catch (e) {
+      Logger.log('sendMessage to ' + chatId + ' 예외: ' + e.message);
+      results.push({ chatId, error: e.message });
+    }
+  }
+  return JSON.stringify(results);
 }
 
 /** 손익 메시지 포맷 (대시보드 동일 수치) */
@@ -103,7 +131,11 @@ function _tgFormatPnL() {
   ].join('\n');
 }
 
-/** 자동 푸시 (20분 트리거에서 호출) — 거래일 09:00~16:00만, 갱신 없이 현재 시트 값으로 푸시 */
+/**
+ * 자동 푸시 (트리거에서 호출) — 거래일 09:00~16:00만.
+ * 항상 KIS 가격 갱신 + 보유현황 재계산 후 발송 (최신 손익 보장).
+ * 사용자 ㄱㄱ 처리 중이면 lock 못 잡고 skip — 사용자 갱신이 곧 알림 발송하므로 중복 안 옴.
+ */
 function tgPushPnL() {
   try {
     // 1. 거래일이 아니면 푸시 생략 (주말·공휴일 = *휴장일* 시트 기준)
@@ -121,60 +153,23 @@ function tgPushPnL() {
       Logger.log('tgPushPnL: 장외 시간 (' + hour + ':' + minute + ') — 푸시 생략');
       return;
     }
-    // 3. webhook 자가 복구 (장중에는 매번 점검 — 깨졌으면 자동 재등록)
-    tgEnsureWebhookHealthy();
-    tgSendMessage(_tgFormatPnL());
+    // 3. 락 — 사용자 갱신과 겹치면 skip (사용자 갱신이 곧 알림 발송함)
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(1000)) {
+      Logger.log('tgPushPnL: 다른 갱신 처리 중 — skip');
+      return;
+    }
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      updateNewPriceHistory(ss);
+      updatePositionFromLedger();
+      tgSendMessage(_tgFormatPnL());
+    } finally {
+      lock.releaseLock();
+    }
   } catch (e) {
     Logger.log('tgPushPnL 오류: ' + e.message);
     try { tgSendMessage('⚠️ 푸시 실패: ' + e.message); } catch (_) {}
-  }
-}
-
-/**
- * webhook 자가 복구 — getWebhookInfo로 상태 점검, 비정상이면 자동 재등록.
- * 별도 시간 트리거(30분마다) + 모든 진입점(tgPushPnL·tgRefreshAndPush·tgTestSend)에서 호출.
- * 5분 throttle로 과호출 방지.
- */
-function tgEnsureWebhookHealthy() {
-  const token = _tgToken();
-  if (!token) return;
-  try {
-    const res = UrlFetchApp.fetch(TG.API + token + '/getWebhookInfo', { muteHttpExceptions: true });
-    const info = JSON.parse(res.getContentText());
-    if (!info.ok) return;
-    const r = info.result || {};
-    const nowSec = Math.floor(Date.now() / 1000);
-    const hasRecentError = r.last_error_date && (nowSec - r.last_error_date) < 3600;
-    const hasPending = (r.pending_update_count || 0) > 0;
-    const noUrl = !r.url;
-    if (!hasRecentError && !hasPending && !noUrl) {
-      return; // 정상
-    }
-    // throttle — 5분 안에 두 번 재등록 안 함
-    const props = _tgProps();
-    const lastRecover = Number(props.getProperty(TG.PROP_LAST_RECOVER) || 0);
-    if (nowSec - lastRecover < TG.RECOVER_THROTTLE_S) {
-      Logger.log('tgEnsureWebhookHealthy: throttle 중 (5분 내 이미 복구 시도)');
-      return;
-    }
-    props.setProperty(TG.PROP_LAST_RECOVER, String(nowSec));
-    Logger.log('tgEnsureWebhookHealthy: 비정상 감지 → 자동 재등록');
-    Logger.log('  url: ' + (r.url || '(없음)'));
-    Logger.log('  pending: ' + (r.pending_update_count || 0));
-    Logger.log('  last_error: ' + (r.last_error_message || '(없음)'));
-    // mode 자동 선택 — Worker 설정돼 있으면 Worker URL, 없으면 /exec 직접 모드
-    if (_tgWorkerUrl()) {
-      tgRegisterWebhook(/*webAppUrl*/ null, /*dropPending=*/ false);
-    } else {
-      const url = props.getProperty(TG.PROP_WEBAPP_URL);
-      if (!url || url.indexOf('/exec') !== url.length - 5) {
-        Logger.log('  ❌ Properties의 TG_WEBAPP_URL이 /exec 아님 — 수동 등록 필요');
-        return;
-      }
-      tgRegisterWebhook(url, /*dropPending=*/ false);
-    }
-  } catch (e) {
-    Logger.log('tgEnsureWebhookHealthy 오류: ' + e.message);
   }
 }
 
@@ -185,8 +180,6 @@ function tgRefreshAndPush() {
     updateNewPriceHistory(ss);
     updatePositionFromLedger();
     tgSendMessage(_tgFormatPnL());
-    // 응답 후 안전망 — webhook 상태 점검 (throttle 내장)
-    try { tgEnsureWebhookHealthy(); } catch (_) {}
   } catch (e) {
     Logger.log('tgRefreshAndPush 오류: ' + e.message);
     try { tgSendMessage('⚠️ 갱신 실패: ' + e.message); } catch (_) {}
@@ -223,15 +216,26 @@ function handleTelegramWebhook(e) {
     const message = body.message || body.edited_message;
     if (!message) return ContentService.createTextOutput('ok');
 
-    // 3. chat_id 화이트리스트
-    const expectedChatId = _tgChatId();
     const gotChatId = String(message.chat && message.chat.id);
-    if (gotChatId !== expectedChatId) {
-      Logger.log('알 수 없는 chat_id: ' + gotChatId);
+    const text = String(message.text || '').trim().toLowerCase();
+
+    // 3a. /whoami — 누구나 사용 가능 (whitelist 무시). 신규 사용자가 자기 chat ID 알아내는 경로
+    // Markdown 호환 위해 underscore 포함 표기 회피 (chat_id → chat ID)
+    if (text.indexOf('/whoami') === 0) {
+      tgSendMessage(
+        '귀하의 chat ID:\n`' + gotChatId + '`\n\n관리자에게 위 숫자를 전달해 등록 요청하세요.',
+        { chatId: gotChatId }
+      );
       return ContentService.createTextOutput('ok');
     }
 
-    const text = String(message.text || '').trim().toLowerCase();
+    // 3b. chat_id 화이트리스트 (배열 — 브로드캐스트 지원)
+    const allowedIds = _tgChatIds();
+    if (allowedIds.indexOf(gotChatId) === -1) {
+      Logger.log('알 수 없는 chat_id: ' + gotChatId + ' (메시지: ' + text + ')');
+      return ContentService.createTextOutput('ok');
+    }
+
     const matched = TG.CMD_KEYWORDS.some(k => text.indexOf(k.toLowerCase()) !== -1);
 
     if (matched) {
@@ -360,6 +364,52 @@ function tgRegisterWebhook(webAppUrl, dropPending) {
   Logger.log('✅ webhook 등록 응답: ' + res.getContentText());
 }
 
+/** 브로드캐스트 — 새 chat_id 추가 (가족·파트너 등) */
+function tgAddChatId(chatId) {
+  const id = String(chatId || '').trim();
+  if (!/^-?\d+$/.test(id)) {
+    Logger.log('❌ chat_id는 숫자여야 합니다 (음수 가능). 받은 값: ' + chatId);
+    return;
+  }
+  const cur = _tgChatIds();
+  if (cur.indexOf(id) !== -1) {
+    Logger.log('이미 등록된 chat_id: ' + id);
+    Logger.log('  현재 등록: ' + cur.join(', '));
+    return;
+  }
+  cur.push(id);
+  _tgProps().setProperty(TG.PROP_CHAT_ID, cur.join(','));
+  Logger.log('✅ chat_id 추가: ' + id + ' (총 ' + cur.length + '명)');
+  Logger.log('  현재 등록: ' + cur.join(', '));
+  // 새로 추가된 사람에게 환영 메시지
+  try {
+    tgSendMessage('✅ 등록 완료. 이제 "갱신" 또는 "ㄱㄱ" 명령으로 손익 조회 가능합니다.', { chatId: id });
+  } catch (e) {
+    Logger.log('환영 메시지 전송 실패: ' + e.message);
+  }
+}
+
+/** 브로드캐스트 — chat_id 제거 */
+function tgRemoveChatId(chatId) {
+  const id = String(chatId || '').trim();
+  const cur = _tgChatIds();
+  const next = cur.filter(x => x !== id);
+  if (cur.length === next.length) {
+    Logger.log('등록되지 않은 chat_id: ' + id);
+    Logger.log('  현재 등록: ' + cur.join(', '));
+    return;
+  }
+  _tgProps().setProperty(TG.PROP_CHAT_ID, next.join(','));
+  Logger.log('✅ chat_id 제거: ' + id + ' (남은 ' + next.length + '명)');
+  Logger.log('  현재 등록: ' + (next.join(', ') || '(없음)'));
+}
+
+/** 등록된 chat_id 전체 목록 출력 */
+function tgListChatIds() {
+  const ids = _tgChatIds();
+  Logger.log('등록된 chat_ids (' + ids.length + '명): ' + (ids.join(', ') || '(없음)'));
+}
+
 /** Worker URL 등록 helper — TG_WORKER_URL 저장 (다음 tgInstallWebhook 시 Worker 모드 활성화) */
 function tgSetWorkerUrl(workerUrl) {
   if (!workerUrl || !/^https:\/\/[^\/]+\.workers\.dev(\/.*)?$/i.test(workerUrl)) {
@@ -398,7 +448,6 @@ function tgInstallWebhook() {
   if (workerUrl) {
     Logger.log('Worker 모드로 등록 시도');
     tgRegisterWebhook(/*webAppUrl*/ null);
-    tgSetupHealTrigger();
     return;
   }
 
@@ -428,31 +477,8 @@ function tgInstallWebhook() {
   }
   Logger.log('  직접 GAS 모드로 등록 시도 (Worker 권장 — 02-cloudflare-worker/README.md 참조)');
   tgRegisterWebhook(url);
-  tgSetupHealTrigger();
 }
 
-/** 자가 복구 트리거 등록 (30분마다 tgEnsureWebhookHealthy 실행) — 이미 있으면 skip */
-function tgSetupHealTrigger() {
-  const existing = ScriptApp.getProjectTriggers()
-    .filter(t => t.getHandlerFunction() === TG.HEAL_HANDLER);
-  if (existing.length > 0) {
-    Logger.log('  자가 복구 트리거 이미 존재 (개수: ' + existing.length + ')');
-    return;
-  }
-  ScriptApp.newTrigger(TG.HEAL_HANDLER)
-    .timeBased()
-    .everyMinutes(TG.HEAL_MINUTES)
-    .create();
-  Logger.log('  ✅ 자가 복구 트리거 등록 (' + TG.HEAL_MINUTES + '분마다)');
-}
-
-/** 자가 복구 트리거 해제 */
-function tgDeleteHealTrigger() {
-  ScriptApp.getProjectTriggers()
-    .filter(t => t.getHandlerFunction() === TG.HEAL_HANDLER)
-    .forEach(t => ScriptApp.deleteTrigger(t));
-  Logger.log('✅ 자가 복구 트리거 해제 완료');
-}
 
 /** webhook 해제 (디버깅용) */
 function tgDeleteWebhook() {
@@ -497,10 +523,9 @@ function tgDeletePushTrigger() {
   Logger.log('✅ 자동 푸시 트리거 해제 완료');
 }
 
-/** 즉시 테스트 발송 (현재 시트 값으로) — 끝에 webhook 자가 점검 (안전망) */
+/** 즉시 테스트 발송 (현재 시트 값으로) */
 function tgTestSend() {
   const text = _tgFormatPnL();
   Logger.log(text);
   tgSendMessage(text);
-  try { tgEnsureWebhookHealthy(); } catch (_) {}
 }

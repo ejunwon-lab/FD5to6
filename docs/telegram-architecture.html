@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>텔레그램 봇은 어떻게 작동할까?</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", sans-serif;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    background: linear-gradient(180deg, #fef9e7 0%, #f0f7ff 100%);
+    line-height: 1.55;
+    color: #2c3e50;
+  }
+  h1 {
+    text-align: center;
+    font-size: 36px;
+    margin-bottom: 8px;
+    color: #1a73e8;
+  }
+  .subtitle {
+    text-align: center;
+    color: #5f6368;
+    margin-bottom: 50px;
+    font-size: 17px;
+  }
+  h2 {
+    font-size: 24px;
+    margin-top: 60px;
+    padding: 14px 22px;
+    background: linear-gradient(90deg, #ffd54f, #ff8a65);
+    color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(255, 138, 101, 0.2);
+  }
+  h2.green { background: linear-gradient(90deg, #66bb6a, #43a047); box-shadow: 0 4px 12px rgba(102, 187, 106, 0.2); }
+  h2.blue { background: linear-gradient(90deg, #42a5f5, #1e88e5); box-shadow: 0 4px 12px rgba(66, 165, 245, 0.2); }
+  h2.purple { background: linear-gradient(90deg, #ab47bc, #8e24aa); box-shadow: 0 4px 12px rgba(171, 71, 188, 0.2); }
+  .cast {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    margin: 24px 0 16px;
+  }
+  .character {
+    background: white;
+    padding: 22px 12px 18px;
+    border-radius: 14px;
+    text-align: center;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+    border: 2px solid #fff;
+    transition: transform 0.2s;
+  }
+  .character:hover { transform: translateY(-3px); }
+  .emoji { font-size: 56px; line-height: 1; }
+  .role { font-weight: 700; margin: 12px 0 6px; font-size: 16px; color: #1a73e8; }
+  .desc { font-size: 13px; color: #5f6368; line-height: 1.4; }
+  .step {
+    display: flex;
+    align-items: center;
+    margin: 14px 0;
+    padding: 18px 22px;
+    background: white;
+    border-radius: 14px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+    border-left: 5px solid #ff8a65;
+  }
+  .step.green { border-left-color: #66bb6a; }
+  .step.blue { border-left-color: #42a5f5; }
+  .step.purple { border-left-color: #ab47bc; }
+  .step-num {
+    font-size: 38px;
+    font-weight: 800;
+    color: #ff8a65;
+    margin-right: 18px;
+    flex-shrink: 0;
+    min-width: 48px;
+  }
+  .step.green .step-num { color: #66bb6a; }
+  .step.blue .step-num { color: #42a5f5; }
+  .step.purple .step-num { color: #ab47bc; }
+  .step-icon {
+    font-size: 44px;
+    margin-right: 18px;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .step-text { flex: 1; font-size: 16px; }
+  .step-text strong { color: #1a73e8; font-weight: 700; }
+  .arrow {
+    text-align: center;
+    font-size: 28px;
+    color: #bdbdbd;
+    margin: -2px 0;
+    line-height: 1;
+  }
+  .safety {
+    background: white;
+    border-left: 6px solid #ffc107;
+    padding: 18px 22px;
+    margin: 16px 0;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  }
+  .safety h3 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    color: #1a73e8;
+  }
+  .safety p { margin: 0; font-size: 15px; color: #455a64; }
+  .danger {
+    border-left-color: #ef5350;
+    background: #ffebee;
+  }
+  .danger h3 { color: #c62828; }
+  .ok {
+    border-left-color: #66bb6a;
+    background: #e8f5e9;
+  }
+  .ok h3 { color: #2e7d32; }
+  .note {
+    text-align: center;
+    margin-top: 60px;
+    padding: 20px;
+    color: #5f6368;
+    font-size: 14px;
+    border-top: 1px solid #e0e0e0;
+  }
+  @media (max-width: 640px) {
+    .cast { grid-template-columns: repeat(2, 1fr); }
+    h1 { font-size: 28px; }
+    h2 { font-size: 20px; }
+    .step { flex-direction: column; text-align: center; }
+    .step-num, .step-icon { margin-right: 0; margin-bottom: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>📱 텔레그램 봇은 어떻게 일할까?</h1>
+<p class="subtitle">휴대폰으로 "ㄱㄱ" 한 마디 보내면 손익이 짠 하고 나타나는 비밀</p>
+
+<h2 class="purple">🎭 등장인물 5명</h2>
+
+<div class="cast">
+  <div class="character">
+    <div class="emoji">📱</div>
+    <div class="role">나</div>
+    <div class="desc">휴대폰으로<br>"ㄱㄱ"을<br>보내는 사람</div>
+  </div>
+  <div class="character">
+    <div class="emoji">💌</div>
+    <div class="role">텔레그램</div>
+    <div class="desc">메시지를<br>전달하는<br>똑똑한 우체부</div>
+  </div>
+  <div class="character">
+    <div class="emoji">☁️</div>
+    <div class="role">클라우드</div>
+    <div class="desc">편지를<br>안전하게<br>전달해 주는<br>중간 다리</div>
+  </div>
+  <div class="character">
+    <div class="emoji">🤖</div>
+    <div class="role">구글 봇</div>
+    <div class="desc">노트를 읽고<br>답장을<br>만드는 일꾼</div>
+  </div>
+  <div class="character">
+    <div class="emoji">📊</div>
+    <div class="role">시트</div>
+    <div class="desc">주식 값이<br>적힌<br>큰 노트북</div>
+  </div>
+</div>
+
+<h2 class="green">🟢 시나리오 1 — "ㄱㄱ" 보내면 어떻게 될까?</h2>
+
+<div class="step green">
+  <div class="step-num">1</div>
+  <div class="step-icon">📱</div>
+  <div class="step-text"><strong>나:</strong> 텔레그램 앱에서 봇한테 <strong>"ㄱㄱ"</strong> 보냄.</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="step green">
+  <div class="step-num">2</div>
+  <div class="step-icon">💌</div>
+  <div class="step-text"><strong>텔레그램 (우체부):</strong> "누가 우리 봇한테 편지 보냈네!" → 편지에 도장(비밀번호)을 찍어서 <strong>클라우드 중간 다리</strong>에 전달.</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="step green">
+  <div class="step-num">3</div>
+  <div class="step-icon">☁️</div>
+  <div class="step-text"><strong>클라우드:</strong> "어디 보자, 도장이 맞나?" 확인 → 진짜면 받음. 가짜면 그냥 버림. → "구글 봇한테 가는 가장 빠른 길 알아!" 그 길로 편지 전달.</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="step green">
+  <div class="step-num">4</div>
+  <div class="step-icon">🤖</div>
+  <div class="step-text"><strong>구글 봇:</strong> 편지 받음 → "주인 명단(화이트리스트)에 있는 사람 맞나?" 확인 → OK! → "어, 'ㄱㄱ'이라고 적혀 있네. 일 시작!"</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="step green">
+  <div class="step-num">5</div>
+  <div class="step-icon">📊</div>
+  <div class="step-text"><strong>구글 봇 → 시트 노트:</strong> "최신 주식 값으로 업데이트!" → 그리고 "내 합계 손익이랑 오늘 손익이 얼마지?" 계산.</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="step green">
+  <div class="step-num">6</div>
+  <div class="step-icon">💌</div>
+  <div class="step-text"><strong>구글 봇 → 텔레그램:</strong> 답장 편지를 직접 전달함 — <em>"💼 합계: +[금액]원, 오늘: +[금액]원"</em>. "등록된 사람들 모두에게 보내줘!"</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="step green">
+  <div class="step-num">7</div>
+  <div class="step-icon">📱</div>
+  <div class="step-text"><strong>나·가족:</strong> 띵! 모든 휴대폰에 손익 메시지 도착. 완료! 🎉</div>
+</div>
+
+<h2 class="blue">🟡 시나리오 2 — 가만히 있어도 자동으로 알려줘</h2>
+
+<div class="step blue">
+  <div class="step-num">1</div>
+  <div class="step-icon">⏰</div>
+  <div class="step-text">구글에 미리 <strong>알람을 맞춰놨음</strong> — 매시 정각·20분·40분 (오전 9시 ~ 오후 4시, 주식 장 열린 평일만)</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="step blue">
+  <div class="step-num">2</div>
+  <div class="step-icon">🤖</div>
+  <div class="step-text">알람이 울리면 <strong>구글 봇이 일어남</strong> → "지금 주식 장 열렸나?" 확인.</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="step blue">
+  <div class="step-num">3</div>
+  <div class="step-icon">📊</div>
+  <div class="step-text"><strong>최신 주식값으로 시트 업데이트!</strong> 그리고 합계 손익·오늘 손익 다시 계산. 항상 가장 최근 값으로.</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="step blue">
+  <div class="step-num">4</div>
+  <div class="step-icon">💌</div>
+  <div class="step-text">텔레그램에 부탁 → <strong>등록된 모든 사람</strong>에게 최신 손익 메시지 띵!</div>
+</div>
+
+<h2 class="purple">🔵 시나리오 3 — 새 가족이 봇에 합류</h2>
+
+<div class="step purple">
+  <div class="step-num">1</div>
+  <div class="step-icon">📱</div>
+  <div class="step-text">새 사람이 봇에게 <strong>"/whoami"</strong> 보냄</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="step purple">
+  <div class="step-num">2</div>
+  <div class="step-icon">🤖</div>
+  <div class="step-text">구글 봇: "이 사람 ID는 12345678이구나" → 그 사람에게만 <strong>"당신의 ID는 12345678입니다"</strong> 답장</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="step purple">
+  <div class="step-num">3</div>
+  <div class="step-icon">🧑‍💻</div>
+  <div class="step-text">관리자가 그 ID를 받아서 <strong>명단(화이트리스트)에 추가</strong></div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="step purple">
+  <div class="step-num">4</div>
+  <div class="step-icon">💌</div>
+  <div class="step-text">자동으로 환영 메시지 도착 — <strong>이제 새 사람도 봇한테 "ㄱㄱ" 보낼 수 있음!</strong></div>
+</div>
+
+<h2>🛡️ 4가지 안전장치</h2>
+
+<div class="safety">
+  <h3>🔒 비밀번호 두 개</h3>
+  <p>편지에는 도장(비밀번호)이 있어야 받음. 클라우드가 한 번 검사, 구글 봇이 한 번 더 검사. 두 번 통과해야 처리됨. 도둑은 못 들어옴.</p>
+</div>
+
+<div class="safety">
+  <h3>📋 명단 (화이트리스트)</h3>
+  <p>봇은 명단에 적힌 사람한테만 답장함. 처음 보는 사람은 그냥 무시. 단, "/whoami" 명령은 모르는 사람도 OK — 자기 ID를 알아내는 데만 쓰여서 안전.</p>
+</div>
+
+<div class="safety">
+  <h3>⏸️ 한 번에 하나만</h3>
+  <p>"ㄱㄱ ㄱㄱ ㄱㄱ" 빠르게 여러 번 보내면 첫 번째만 일하고, 나머지는 "잠시만요" 답장. 봇이 헷갈리지 않게 줄을 세움.</p>
+</div>
+
+<div class="safety">
+  <h3>🔁 같은 편지 두 번 받으면 무시</h3>
+  <p>네트워크가 이상해서 같은 메시지가 두 번 와도, 두 번째는 슬쩍 버림. 손익 답장이 중복으로 안 옴.</p>
+</div>
+
+<h2>🌧️ 문제가 생긴다면?</h2>
+
+<div class="safety">
+  <h3>☁️ 클라우드가 잠시 다운</h3>
+  <p>편지 전달 못 함. 다시 살아나면 자동으로 처리. 평소엔 거의 안 일어남 (99.99% 작동).</p>
+</div>
+
+<div class="safety">
+  <h3>🤖 구글 봇이 일하는 데 시간 좀 걸림</h3>
+  <p>가끔 시트 갱신이 오래 걸리면 텔레그램이 "답이 늦네?" 하고 다시 편지 보냄. 봇은 "어, 이거 이미 받은 거네!" 하고 무시. 중복 답장 안 옴.</p>
+</div>
+
+<div class="safety ok">
+  <h3>✅ 평소엔?</h3>
+  <p>아무 문제 없음. 모두 잘 동작하고 있음.</p>
+</div>
+
+<h2>🧠 어른들이 알아두면 좋은 것</h2>
+
+<div class="safety danger">
+  <h3>⚙️ 코드 수정 시 새 deployment 만들기 필수</h3>
+  <p><code>handleTelegramWebhook</code> 함수를 고치면 GAS의 "배포 → 배포 관리 → 새 버전" 한 번 실행해야 적용됨. 안 하면 옛 코드가 계속 돌아감.</p>
+</div>
+
+<div class="safety danger">
+  <h3>☁️ Cloudflare env 변경 시 Deploy 수동 클릭</h3>
+  <p>SECRET·GAS_URL 같은 환경변수 바꾸면 Cloudflare 대시보드 "Deployments" 탭에서 최신 version을 "Deploy this version" 눌러야 반영됨.</p>
+</div>
+
+<div class="safety danger">
+  <h3>🔗 GAS deployment URL이 바뀌면</h3>
+  <p>새 deployment를 만들었거나 URL이 변경되면 Cloudflare Worker의 <code>GAS_URL</code> env 값도 같이 갱신해야 함.</p>
+</div>
+
+<p class="note">
+  Last updated: 2026-05-23 · Telegram bot for FD5to6 portfolio
+</p>
+
+</body>
+</html>
