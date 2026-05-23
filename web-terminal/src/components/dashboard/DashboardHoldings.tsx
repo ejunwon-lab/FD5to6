@@ -125,8 +125,10 @@ export function DashboardHoldings({ holdings }: Props) {
         </div>
       </div>
 
+      {/* 가로 스크롤 wrapper — 모바일 대응 */}
+      <div className="overflow-x-auto">
       {/* Header row */}
-      <div className="grid items-center text-2xs uppercase tracking-widest text-ink-faint border-b border-line px-3 py-1.5"
+      <div className="grid items-center text-2xs uppercase tracking-widest text-ink-faint border-b border-line px-3 py-1.5 min-w-[1100px]"
            style={{ gridTemplateColumns: '1.8fr 1.4fr 60px 90px 1.1fr 1.3fr 1.4fr 60px 90px' }}>
         <span>Symbol</span>
         <span>Account · Broker</span>
@@ -140,7 +142,7 @@ export function DashboardHoldings({ holdings }: Props) {
       </div>
 
       {/* Rows */}
-      <div className="divide-y divide-line-dim">
+      <div className="divide-y divide-line-dim min-w-[1100px]">
         {filtered.map((h) => {
           const heldDays = h.buyDate ? Math.max(0, Math.floor((Date.now() - new Date(h.buyDate).getTime()) / 86_400_000)) : null
           const dayUp = h.dayChange >= 0
@@ -204,7 +206,7 @@ export function DashboardHoldings({ holdings }: Props) {
 
       {/* Footer totals (필터 적용 시 강조) */}
       {selectedAccount !== '전체' && (
-        <div className="border-t border-line px-3 py-2 grid text-xs"
+        <div className="border-t border-line px-3 py-2 grid text-xs min-w-[1100px]"
              style={{ gridTemplateColumns: '1.8fr 1.4fr 60px 90px 1.1fr 1.3fr 1.4fr 60px 90px' }}>
           <span className="text-ink-faint uppercase tracking-widest text-2xs">소계 · {ACCOUNT_DISPLAY[selectedAccount] ?? selectedAccount}</span>
           <span></span><span></span><span></span>
@@ -218,6 +220,7 @@ export function DashboardHoldings({ holdings }: Props) {
           <span></span><span></span>
         </div>
       )}
+      </div>
     </Panel>
   )
 }

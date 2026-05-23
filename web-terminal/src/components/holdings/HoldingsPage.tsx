@@ -42,9 +42,9 @@ export function HoldingsPage() {
   }, [all])
 
   return (
-    <div className="overflow-y-auto p-3 grid gap-2.5">
+    <div className="overflow-y-auto p-2 sm:p-3 grid gap-2.5">
       {/* Stat strip */}
-      <div className="grid grid-cols-5 gap-px bg-line border border-line">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-line border border-line">
         <Stat label="Positions" value={`${stats.count}`} sub={`${stats.gainCount} gain · ${stats.lossCount} loss`} />
         <Stat label="Total Value" value={`₩${(stats.total / 1e6).toFixed(2)}M`} sub={`${(stats.total).toLocaleString()} KRW`} />
         <Stat label="Best" value={stats.top?.symbol ?? '—'} sub={stats.top ? `${stats.top.returnPct >= 0 ? '+' : ''}${stats.top.returnPct.toFixed(1)}%` : ''} tone="up" />
@@ -73,7 +73,8 @@ export function HoldingsPage() {
 
       {/* Full table */}
       <Panel title={`Holdings · ${filtered.length} of ${all.length}`} meta="CLICK COLUMN TO SORT" className="">
-        <table className="w-full text-xs">
+        <div className="overflow-x-auto">
+        <table className="w-full text-xs min-w-[820px]">
           <thead>
             <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line">
               <Th>Rank</Th>
@@ -115,6 +116,7 @@ export function HoldingsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </Panel>
     </div>
   )

@@ -36,9 +36,9 @@ export function ActivityPage() {
   const filtered = selectedMonth === 'ALL' ? data : data.filter((e) => e.month === selectedMonth)
 
   return (
-    <div className="overflow-y-auto p-3 grid gap-2.5">
+    <div className="overflow-y-auto p-2 sm:p-3 grid gap-2.5">
       {/* Summary strip */}
-      <div className="grid grid-cols-5 gap-px bg-line border border-line">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-line border border-line">
         <Stat label="Realized P&L" value={`${stats.total >= 0 ? '+' : ''}₩${stats.total.toLocaleString()}`} sub="all-time" tone={stats.total >= 0 ? 'up' : 'down'} />
         <Stat label="Win Trades" value={`${stats.winCount}`} sub={`+₩${stats.winSum.toLocaleString()}`} tone="up" />
         <Stat label="Loss Trades" value={`${stats.lossCount}`} sub={`₩${stats.lossSum.toLocaleString()}`} tone="down" />
@@ -101,7 +101,8 @@ export function ActivityPage() {
 
       {/* Detail table */}
       <Panel title={`Realized Trades · ${filtered.length} closes`} meta={selectedMonth === 'ALL' ? 'ALL TIME' : selectedMonth}>
-        <table className="w-full text-xs">
+        <div className="overflow-x-auto">
+        <table className="w-full text-xs min-w-[680px]">
           <thead>
             <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line">
               <th className="px-3 pt-2 pb-1.5 text-left font-medium">Month</th>
@@ -132,6 +133,7 @@ export function ActivityPage() {
             )}
           </tbody>
         </table>
+        </div>
       </Panel>
     </div>
   )

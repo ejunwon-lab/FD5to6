@@ -38,11 +38,11 @@ export function KpiStrip({ summary }: Props) {
     },
   ]
   return (
-    <div className="col-span-full grid grid-cols-5 gap-px bg-line border border-line">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-line border border-line">
       {cells.map((c) => (
-        <div key={c.label} className="bg-bg-elev px-3.5 py-3.5">
+        <div key={c.label} className="bg-bg-elev px-3 sm:px-3.5 py-3 sm:py-3.5">
           <div className="text-xxs text-ink-faint tracking-widest2 uppercase mb-1.5">{c.label}</div>
-          <div className={`text-[22px] font-medium tracking-tight tabular mb-0.5 ${c.highlight ? 'text-gain' : 'text-ink'}`}>
+          <div className={`text-[18px] sm:text-[22px] font-medium tracking-tight tabular mb-0.5 ${c.highlight ? 'text-gain' : 'text-ink'}`}>
             {c.value}
           </div>
           <div className={`text-xs tabular ${

@@ -14,10 +14,9 @@ export function AnalysisPage() {
   const stats = useMemo(() => computeStats(holdings, equity), [holdings, equity])
 
   return (
-    <div className="overflow-y-auto p-3 grid gap-2.5"
-      style={{ gridTemplateColumns: '1fr 1fr', gridTemplateRows: 'auto auto auto' }}>
+    <div className="overflow-y-auto p-2 sm:p-3 grid gap-2.5 grid-cols-1 lg:grid-cols-2">
       {/* Risk metrics strip */}
-      <div className="col-span-2 grid grid-cols-6 gap-px bg-line border border-line">
+      <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-line border border-line">
         <Stat label="Total Return" value={`${stats.totalReturn >= 0 ? '+' : ''}${stats.totalReturnPct.toFixed(2)}%`} tone={stats.totalReturn >= 0 ? 'up' : 'down'} sub={`₩${stats.totalReturn.toLocaleString()}`} />
         <Stat label="Sharpe (90d)" value={stats.sharpe.toFixed(2)} sub="annualized" tone="cyan" />
         <Stat label="Max Drawdown" value={`-${stats.maxDD.toFixed(1)}%`} sub={`${stats.maxDDDays}d ago`} tone="down" />

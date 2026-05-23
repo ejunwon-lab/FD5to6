@@ -28,21 +28,20 @@ export function DashboardPage() {
         onSignIn={signIn}
         onRefresh={refresh}
       />
-      <main className="p-3 grid gap-2.5"
-        style={{ gridTemplateColumns: '1fr 2fr', gridAutoRows: 'min-content' }}>
+      <main className="p-2 sm:p-3 grid gap-2.5 grid-cols-1 lg:grid-cols-[1fr_2fr]" style={{ gridAutoRows: 'min-content' }}>
         {/* Row 1: KPI Strip (full width) */}
-        <div className="col-span-2">
+        <div className="lg:col-span-2">
           <KpiStrip summary={showSummary} />
         </div>
         {/* Row 2: Market Indices (KOSPI/KOSDAQ) | Equity Chart */}
         <MarketIndices indicators={showIndicators} />
         <EquityChart equityCurve={showEquity} meta={liveReady ? `LIVE · ${equityCurve.length} pts` : 'SAMPLE DATA'} />
         {/* Row 3: Holdings (full, with account chips + sort) */}
-        <div className="col-span-2">
+        <div className="lg:col-span-2">
           <DashboardHoldings holdings={showHoldings} />
         </div>
         {/* Row 4: Activity Feed (full) */}
-        <div className="col-span-2">
+        <div className="lg:col-span-2">
           <ActivityFeed />
         </div>
       </main>

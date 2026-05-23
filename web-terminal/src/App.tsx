@@ -11,9 +11,9 @@ import { ActivityPage } from './components/activity/ActivityPage'
 
 function PlaceholderPage({ title }: { title: string }) {
   return (
-    <main className="flex items-center justify-center overflow-hidden">
+    <main className="flex items-center justify-center overflow-hidden p-6">
       <div className="text-center">
-        <div className="font-display text-amber text-2xl tracking-widest mb-3 uppercase">{title}</div>
+        <div className="font-display text-amber text-xl sm:text-2xl tracking-widest mb-3 uppercase">{title}</div>
         <div className="text-ink-faint text-xs uppercase tracking-widest">Phase 3 — Coming next</div>
       </div>
     </main>
@@ -22,6 +22,7 @@ function PlaceholderPage({ title }: { title: string }) {
 
 function App() {
   const [active, setActive] = useState<NavKey>('dashboard')
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const page = (() => {
     switch (active) {
       case 'dashboard':   return <DashboardPage />
@@ -35,10 +36,10 @@ function App() {
   })()
   return (
     <div className="h-screen flex flex-col">
-      <TopBar />
+      <TopBar onMenuClick={() => setDrawerOpen(true)} />
       <Ticker />
-      <div className="flex-1 grid overflow-hidden" style={{ gridTemplateColumns: '200px 1fr' }}>
-        <Sidebar active={active} onSelect={setActive} />
+      <div className="flex-1 grid overflow-hidden grid-cols-1 lg:grid-cols-[200px_1fr]">
+        <Sidebar active={active} onSelect={setActive} drawerOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
         {page}
       </div>
       <Footer />

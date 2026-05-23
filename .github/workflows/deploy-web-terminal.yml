@@ -1,0 +1,43 @@
+name: Deploy Web Terminal to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web-terminal/**'
+      - '.github/workflows/deploy-web-terminal.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web-terminal/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: web-terminal
+
+      - name: Build
+        run: npm run build
+        working-directory: web-terminal
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+
+      - name: Deploy to GitHub Pages (terminal subdirectory)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: web-terminal/dist
+          destination_dir: terminal
+          keep_files: true  # web/ 배포물 보존
+          commit_message: 'deploy: update web-terminal'
