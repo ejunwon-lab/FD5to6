@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>PORT.JUN — Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d12;
+    --bg-elev: #11151c;
+    --bg-hover: #161b24;
+    --border: #1f2630;
+    --border-bright: #2d3748;
+    --text: #d4d8e0;
+    --text-dim: #6b7280;
+    --text-faint: #4a5568;
+    --amber: #ffa500;
+    --cyan: #00d4ff;
+    --gain: #00ff7f;
+    --loss: #ff3366;
+    --warn: #ffcc00;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    height: 100vh;
+    overflow: hidden;
+  }
+  /* Scanline overlay for terminal vibe */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 212, 255, 0.015) 0px,
+      rgba(0, 212, 255, 0.015) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+  .topbar {
+    height: 32px;
+    background: #06090e;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    gap: 24px;
+  }
+  .topbar .brand {
+    font-family: 'Major Mono Display', monospace;
+    font-size: 14px;
+    letter-spacing: 0.18em;
+    color: var(--amber);
+  }
+  .topbar .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .topbar .pill.live::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--gain);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--gain);
+    animation: pulse 1.4s infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0.4; } }
+  .topbar .right { margin-left: auto; display: flex; gap: 16px; color: var(--text-dim); }
+  .topbar .time { color: var(--cyan); }
+
+  /* Ticker scroll */
+  .ticker {
+    height: 26px;
+    background: #0d1218;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    position: relative;
+  }
+  .ticker-track {
+    display: flex;
+    animation: scroll 60s linear infinite;
+    gap: 30px;
+    white-space: nowrap;
+    padding-left: 100%;
+  }
+  @keyframes scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-100%); }
+  }
+  .ticker-item { font-size: 11px; }
+  .ticker-item .sym { color: var(--amber); margin-right: 8px; }
+  .ticker-item .up { color: var(--gain); }
+  .ticker-item .dn { color: var(--loss); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    height: calc(100vh - 32px - 26px - 28px);
+  }
+  /* Sidebar */
+  .sidebar {
+    background: #0c0f15;
+    border-right: 1px solid var(--border);
+    padding: 14px 0;
+  }
+  .sidebar h3 {
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.2em;
+    padding: 14px 16px 6px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 16px;
+    color: var(--text-dim);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    font-size: 12px;
+  }
+  .nav-item:hover { background: var(--bg-hover); color: var(--text); }
+  .nav-item.active {
+    background: var(--bg-elev);
+    border-left-color: var(--amber);
+    color: var(--text);
+  }
+  .nav-item .key {
+    color: var(--text-faint);
+    font-size: 10px;
+  }
+  .nav-item .badge {
+    background: var(--amber);
+    color: var(--bg);
+    padding: 0 5px;
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 2px;
+  }
+
+  /* Main grid */
+  .main {
+    overflow-y: auto;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 10px;
+  }
+
+  /* Panels */
+  .panel {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .panel-header .title {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .panel-header .meta { color: var(--text-faint); }
+
+  /* KPI strip */
+  .kpi-strip {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+  .kpi {
+    background: var(--bg-elev);
+    padding: 14px 14px 12px;
+  }
+  .kpi .label {
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .kpi .value {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 2px;
+  }
+  .kpi .delta {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .delta.up { color: var(--gain); }
+  .delta.dn { color: var(--loss); }
+  .delta::before {
+    display: inline-block;
+    margin-right: 2px;
+  }
+  .delta.up::before { content: '▲'; }
+  .delta.dn::before { content: '▼'; }
+
+  /* Chart panel */
+  .chart-panel { grid-column: 1; }
+  .chart-area {
+    padding: 14px 18px 6px;
+    height: 280px;
+    position: relative;
+  }
+  .chart-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .chart-controls button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 3px 9px;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .chart-controls button.active {
+    background: var(--amber);
+    color: var(--bg);
+    border-color: var(--amber);
+  }
+  .chart-grid {
+    position: absolute;
+    inset: 50px 18px 18px;
+    border-left: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(31, 38, 48, 0.5) 40px, rgba(31, 38, 48, 0.5) 41px),
+      repeating-linear-gradient(90deg, transparent, transparent 80px, rgba(31, 38, 48, 0.5) 80px, rgba(31, 38, 48, 0.5) 81px);
+  }
+  .chart-svg {
+    position: absolute;
+    inset: 50px 18px 18px;
+    width: calc(100% - 36px);
+    height: calc(100% - 68px);
+  }
+  .chart-axis-y {
+    position: absolute;
+    left: 0; top: 50px; bottom: 18px;
+    width: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-size: 10px;
+    color: var(--text-faint);
+    padding-right: 6px;
+  }
+  .chart-axis-x {
+    position: absolute;
+    left: 60px; right: 18px;
+    bottom: 0;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-faint);
+    padding-top: 4px;
+  }
+
+  /* Holdings table */
+  .holdings-panel { grid-column: 2; grid-row: 2 / 4; }
+  .holdings-table {
+    font-size: 11px;
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .holdings-table th {
+    text-align: left;
+    padding: 8px 12px 6px;
+    color: var(--text-faint);
+    font-weight: 500;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .holdings-table th.num { text-align: right; }
+  .holdings-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #161b24;
+    font-variant-numeric: tabular-nums;
+  }
+  .holdings-table td.num { text-align: right; }
+  .holdings-table .ticker { color: var(--amber); font-weight: 500; }
+  .holdings-table .name { color: var(--text-dim); font-size: 10px; }
+  .holdings-table .market { color: var(--cyan); font-size: 9px; letter-spacing: 0.1em; }
+  .holdings-table tr:hover td { background: var(--bg-hover); }
+
+  /* Indicators panel */
+  .indicators-panel { grid-column: 1; }
+  .indicators-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+  }
+  .indicator {
+    background: var(--bg-elev);
+    padding: 12px 14px;
+  }
+  .indicator .sym {
+    font-size: 11px;
+    color: var(--amber);
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  .indicator .val {
+    font-size: 16px;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 2px;
+  }
+  .indicator .chg {
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .spark {
+    width: 100%;
+    height: 24px;
+    margin-top: 6px;
+  }
+
+  /* Activity panel */
+  .activity-panel { grid-column: 2; }
+  .activity-list {
+    padding: 4px 0;
+  }
+  .activity-item {
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    padding: 7px 12px;
+    font-size: 11px;
+    gap: 10px;
+    align-items: baseline;
+    border-bottom: 1px solid #161b24;
+  }
+  .activity-time { color: var(--text-faint); font-size: 10px; }
+  .activity-action { color: var(--text-dim); }
+  .activity-action .tag {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    margin-right: 6px;
+    text-transform: uppercase;
+  }
+  .activity-action .tag.buy { background: rgba(0, 255, 127, 0.15); color: var(--gain); }
+  .activity-action .tag.sell { background: rgba(255, 51, 102, 0.15); color: var(--loss); }
+  .activity-action .tag.div { background: rgba(0, 212, 255, 0.15); color: var(--cyan); }
+  .activity-val {
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  /* Bottom function bar */
+  .footer {
+    height: 28px;
+    background: #06090e;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    font-size: 10px;
+    color: var(--text-faint);
+    gap: 22px;
+  }
+  .footer .fkey {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .footer .fkey .k {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--amber);
+    padding: 1px 6px;
+    font-weight: 600;
+    font-size: 9px;
+  }
+  .footer .prompt {
+    margin-left: auto;
+    color: var(--gain);
+  }
+  .footer .cursor {
+    display: inline-block;
+    width: 6px;
+    height: 11px;
+    background: var(--gain);
+    vertical-align: middle;
+    margin-left: 2px;
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">port.jun</div>
+  <span class="pill live">CONNECTED · KIS</span>
+  <span class="pill">KRX OPEN</span>
+  <span class="pill">NYSE PRE</span>
+  <div class="right">
+    <span>USR · JUNWON</span>
+    <span class="time" id="clock">14:32:08 KST</span>
+  </div>
+</div>
+
+<div class="ticker">
+  <div class="ticker-track">
+    <span class="ticker-item"><span class="sym">005930</span> 70,400 <span class="up">+1.30%</span></span>
+    <span class="ticker-item"><span class="sym">NVDA</span> 875.32 <span class="up">+3.41%</span></span>
+    <span class="ticker-item"><span class="sym">AAPL</span> 184.92 <span class="up">+0.85%</span></span>
+    <span class="ticker-item"><span class="sym">KOSPI</span> 2,541.32 <span class="up">+0.45%</span></span>
+    <span class="ticker-item"><span class="sym">S&P500</span> 5,234.18 <span class="up">+0.82%</span></span>
+    <span class="ticker-item"><span class="sym">USDKRW</span> 1,342.50 <span class="dn">-0.18%</span></span>
+    <span class="ticker-item"><span class="sym">035720</span> 50,400 <span class="dn">-1.95%</span></span>
+    <span class="ticker-item"><span class="sym">TSLA</span> 235.10 <span class="dn">-2.14%</span></span>
+    <span class="ticker-item"><span class="sym">BTC</span> 67,234 <span class="up">+2.41%</span></span>
+    <span class="ticker-item"><span class="sym">MSFT</span> 414.20 <span class="up">+1.06%</span></span>
+    <span class="ticker-item"><span class="sym">000660</span> 142,500 <span class="up">+2.15%</span></span>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h3>Workspace</h3>
+    <a class="nav-item active" href="#"><span>Dashboard</span><span class="key">F1</span></a>
+    <a class="nav-item" href="#"><span>Holdings</span><span class="key">F2</span></a>
+    <a class="nav-item" href="#"><span>Analysis</span><span class="key">F3</span></a>
+    <a class="nav-item" href="#"><span>Indicators</span><span class="key">F4</span></a>
+    <a class="nav-item" href="#"><span>Trade Log</span><span class="key">F5</span></a>
+    <h3>Data</h3>
+    <a class="nav-item" href="#"><span>Price History</span><span class="key">F6</span></a>
+    <a class="nav-item" href="#"><span>Realized P&amp;L</span><span class="key">F7</span></a>
+    <a class="nav-item" href="#"><span>Dividends</span><span class="badge">3</span></a>
+    <h3>System</h3>
+    <a class="nav-item" href="#"><span>KIS Status</span><span class="key">●</span></a>
+    <a class="nav-item" href="#"><span>Settings</span><span class="key">F9</span></a>
+  </aside>
+
+  <main class="main">
+    <!-- KPI Strip -->
+    <div class="kpi-strip">
+      <div class="kpi">
+        <div class="label">Net Worth</div>
+        <div class="value">₩47,832,500</div>
+        <div class="delta up">+₩523,800 (1.10%)</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Total Return</div>
+        <div class="value">+₩4,832,500</div>
+        <div class="delta up">+11.25% all-time</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Today P&amp;L</div>
+        <div class="value" style="color: var(--gain)">+₩523,800</div>
+        <div class="delta up">+1.10% session</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Positions</div>
+        <div class="value">8 / 12</div>
+        <div class="delta" style="color: var(--text-dim)">6 GAIN · 2 LOSS</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Cash Reserve</div>
+        <div class="value">₩2,140,000</div>
+        <div class="delta" style="color: var(--cyan)">4.5% allocation</div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <section class="panel chart-panel">
+      <div class="panel-header">
+        <span class="title">Equity Curve · Last 30 Sessions</span>
+        <span class="meta">DRAWDOWN -3.2% · SHARPE 1.82 · WIN 68%</span>
+      </div>
+      <div class="chart-area">
+        <div class="chart-controls">
+          <button>1D</button>
+          <button>1W</button>
+          <button class="active">1M</button>
+          <button>3M</button>
+          <button>YTD</button>
+          <button>ALL</button>
+        </div>
+        <div class="chart-axis-y">
+          <span>48.5M</span>
+          <span>47.0M</span>
+          <span>45.5M</span>
+          <span>44.0M</span>
+          <span>42.5M</span>
+        </div>
+        <div class="chart-grid"></div>
+        <svg class="chart-svg" viewBox="0 0 800 200" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#00ff7f" stop-opacity="0.25"/>
+              <stop offset="100%" stop-color="#00ff7f" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M 0 160 L 30 145 L 60 152 L 90 130 L 120 138 L 150 115 L 180 122 L 210 95 L 240 108 L 270 88 L 300 102 L 330 75 L 360 82 L 390 62 L 420 70 L 450 48 L 480 55 L 510 38 L 540 45 L 570 28 L 600 32 L 630 22 L 660 18 L 690 25 L 720 12 L 750 18 L 780 8 L 800 15 L 800 200 L 0 200 Z"
+                fill="url(#g1)"/>
+          <path d="M 0 160 L 30 145 L 60 152 L 90 130 L 120 138 L 150 115 L 180 122 L 210 95 L 240 108 L 270 88 L 300 102 L 330 75 L 360 82 L 390 62 L 420 70 L 450 48 L 480 55 L 510 38 L 540 45 L 570 28 L 600 32 L 630 22 L 660 18 L 690 25 L 720 12 L 750 18 L 780 8 L 800 15"
+                fill="none" stroke="#00ff7f" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <div class="chart-axis-x">
+          <span>04-22</span><span>04-29</span><span>05-06</span><span>05-13</span><span>05-20</span><span>TODAY</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Holdings Table -->
+    <section class="panel holdings-panel">
+      <div class="panel-header">
+        <span class="title">Holdings · 8 positions</span>
+        <span class="meta">SORT: VAL ↓</span>
+      </div>
+      <table class="holdings-table">
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th class="num">Value (₩)</th>
+            <th class="num">Δ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="ticker">NVDA</span><div class="name">NVIDIA · <span class="market">US</span></div></td><td class="num">12,400,000</td><td class="num" style="color: var(--gain)">+28.5%</td></tr>
+          <tr><td><span class="ticker">005930</span><div class="name">삼성전자 · <span class="market">KR</span></div></td><td class="num">8,200,000</td><td class="num" style="color: var(--gain)">+5.2%</td></tr>
+          <tr><td><span class="ticker">MSFT</span><div class="name">Microsoft · <span class="market">US</span></div></td><td class="num">7,300,000</td><td class="num" style="color: var(--gain)">+18.7%</td></tr>
+          <tr><td><span class="ticker">000660</span><div class="name">SK하이닉스 · <span class="market">KR</span></div></td><td class="num">6,750,000</td><td class="num" style="color: var(--gain)">+12.8%</td></tr>
+          <tr><td><span class="ticker">AAPL</span><div class="name">Apple · <span class="market">US</span></div></td><td class="num">5,200,000</td><td class="num" style="color: var(--gain)">+3.2%</td></tr>
+          <tr><td><span class="ticker">TSLA</span><div class="name">Tesla · <span class="market">US</span></div></td><td class="num">3,100,000</td><td class="num" style="color: var(--loss)">-2.1%</td></tr>
+          <tr><td><span class="ticker">035720</span><div class="name">카카오 · <span class="market">KR</span></div></td><td class="num">2,500,000</td><td class="num" style="color: var(--loss)">-8.3%</td></tr>
+          <tr><td><span class="ticker">005380</span><div class="name">현대차 · <span class="market">KR</span></div></td><td class="num">2,382,500</td><td class="num" style="color: var(--gain)">+6.4%</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Indicators -->
+    <section class="panel indicators-panel">
+      <div class="panel-header">
+        <span class="title">Macro · Real-time</span>
+        <span class="meta">DELAY ≤15s</span>
+      </div>
+      <div class="indicators-grid">
+        <div class="indicator">
+          <div class="sym">KOSPI</div>
+          <div class="val">2,541.32</div>
+          <div class="chg" style="color: var(--gain)">+11.34 (+0.45%)</div>
+          <svg class="spark" viewBox="0 0 100 24" preserveAspectRatio="none"><path d="M 0 18 L 12 16 L 24 19 L 36 14 L 48 12 L 60 9 L 72 13 L 84 7 L 100 5" stroke="#00ff7f" stroke-width="1.5" fill="none" vector-effect="non-scaling-stroke"/></svg>
+        </div>
+        <div class="indicator">
+          <div class="sym">S&amp;P 500</div>
+          <div class="val">5,234.18</div>
+          <div class="chg" style="color: var(--gain)">+42.55 (+0.82%)</div>
+          <svg class="spark" viewBox="0 0 100 24" preserveAspectRatio="none"><path d="M 0 20 L 12 18 L 24 21 L 36 15 L 48 13 L 60 10 L 72 8 L 84 11 L 100 4" stroke="#00ff7f" stroke-width="1.5" fill="none" vector-effect="non-scaling-stroke"/></svg>
+        </div>
+        <div class="indicator">
+          <div class="sym">USD/KRW</div>
+          <div class="val">1,342.50</div>
+          <div class="chg" style="color: var(--loss)">-2.40 (-0.18%)</div>
+          <svg class="spark" viewBox="0 0 100 24" preserveAspectRatio="none"><path d="M 0 6 L 12 9 L 24 11 L 36 13 L 48 12 L 60 15 L 72 14 L 84 17 L 100 18" stroke="#ff3366" stroke-width="1.5" fill="none" vector-effect="non-scaling-stroke"/></svg>
+        </div>
+        <div class="indicator">
+          <div class="sym">BTC/USD</div>
+          <div class="val">67,234</div>
+          <div class="chg" style="color: var(--gain)">+1,583 (+2.41%)</div>
+          <svg class="spark" viewBox="0 0 100 24" preserveAspectRatio="none"><path d="M 0 19 L 12 17 L 24 14 L 36 16 L 48 11 L 60 13 L 72 8 L 84 10 L 100 5" stroke="#00ff7f" stroke-width="1.5" fill="none" vector-effect="non-scaling-stroke"/></svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Activity -->
+    <section class="panel activity-panel">
+      <div class="panel-header">
+        <span class="title">Recent Activity</span>
+        <span class="meta">LAST 7D</span>
+      </div>
+      <div class="activity-list">
+        <div class="activity-item">
+          <span class="activity-time">14:18</span>
+          <span class="activity-action"><span class="tag buy">BUY</span>NVDA · 2 shares @ 872.50</span>
+          <span class="activity-val">$1,745</span>
+        </div>
+        <div class="activity-item">
+          <span class="activity-time">05-22</span>
+          <span class="activity-action"><span class="tag div">DIV</span>MSFT · quarterly</span>
+          <span class="activity-val">$9.00</span>
+        </div>
+        <div class="activity-item">
+          <span class="activity-time">05-21</span>
+          <span class="activity-action"><span class="tag sell">SELL</span>035720 · 10 shares</span>
+          <span class="activity-val">₩498,000</span>
+        </div>
+        <div class="activity-item">
+          <span class="activity-time">05-20</span>
+          <span class="activity-action"><span class="tag buy">BUY</span>000660 · 5 shares</span>
+          <span class="activity-val">₩697,500</span>
+        </div>
+        <div class="activity-item">
+          <span class="activity-time">05-19</span>
+          <span class="activity-action"><span class="tag div">DIV</span>AAPL · quarterly</span>
+          <span class="activity-val">$3.60</span>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="footer">
+  <span class="fkey"><span class="k">F1</span>HELP</span>
+  <span class="fkey"><span class="k">F2</span>QUOTE</span>
+  <span class="fkey"><span class="k">F3</span>NEWS</span>
+  <span class="fkey"><span class="k">F4</span>CHART</span>
+  <span class="fkey"><span class="k">F5</span>REFRESH</span>
+  <span class="fkey"><span class="k">/</span>SEARCH</span>
+  <span class="prompt">&gt; ready<span class="cursor"></span></span>
+</div>
+
+<script>
+  // Live clock
+  function tick() {
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    document.getElementById('clock').textContent = `${hh}:${mm}:${ss} KST`;
+  }
+  tick();
+  setInterval(tick, 1000);
+</script>
+
+</body>
+</html>

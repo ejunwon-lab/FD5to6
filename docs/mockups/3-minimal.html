@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>port · minimal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #0a0a0a;
+    --muted: #737373;
+    --faint: #a3a3a3;
+    --rule: #e5e5e5;
+    --rule-strong: #d4d4d4;
+    --surface: #fafafa;
+    --accent: #84cc16; /* used very sparingly — only for live status */
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.005em;
+  }
+  .mono { font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    min-height: 100vh;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    border-right: 1px solid var(--rule);
+    padding: 32px 24px;
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  .brand {
+    font-weight: 600;
+    font-size: 17px;
+    letter-spacing: -0.03em;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .brand::after {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(132, 204, 22, 0.18);
+  }
+  .brand-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 40px;
+  }
+  .nav-group { margin-bottom: 32px; }
+  .nav-group h5 {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    color: var(--faint);
+    margin-bottom: 12px;
+    font-weight: 500;
+  }
+  .nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    margin: 0 -10px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    border-radius: 6px;
+    line-height: 1.4;
+  }
+  .nav-link:hover {
+    background: var(--surface);
+    color: var(--fg);
+  }
+  .nav-link.active {
+    background: var(--fg);
+    color: var(--bg);
+  }
+  .nav-link .k {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    opacity: 0.6;
+  }
+  .nav-link .badge {
+    background: var(--rule);
+    color: var(--fg);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-family: 'Geist Mono', monospace;
+  }
+
+  /* Main */
+  .main {
+    padding: 48px 56px;
+    max-width: 1200px;
+  }
+  .meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 56px;
+  }
+  .meta-row .crumb { font-family: 'Geist Mono', monospace; }
+  .meta-row .right { display: flex; gap: 24px; align-items: center; }
+  .meta-row .right .live {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .meta-row .right .live::before {
+    content: '';
+    width: 5px; height: 5px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  /* Hero — the centerpiece, massive typography */
+  .hero {
+    margin-bottom: 88px;
+  }
+  .hero-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--faint);
+    margin-bottom: 22px;
+  }
+  .hero-number {
+    font-family: 'Geist Mono', monospace;
+    font-weight: 200;
+    font-size: 136px;
+    line-height: 0.92;
+    letter-spacing: -0.05em;
+    margin-bottom: 28px;
+  }
+  .hero-number .unit {
+    font-size: 64px;
+    color: var(--faint);
+    vertical-align: 0.18em;
+  }
+  .hero-meta {
+    display: flex;
+    gap: 56px;
+    border-top: 1px solid var(--rule);
+    padding-top: 24px;
+  }
+  .hero-meta .item .l {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--faint);
+    margin-bottom: 6px;
+  }
+  .hero-meta .item .v {
+    font-family: 'Geist Mono', monospace;
+    font-size: 18px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+  .hero-meta .item .v.up::before { content: '↗ '; font-weight: 300; }
+  .hero-meta .item .v.dn::before { content: '↘ '; font-weight: 300; }
+  .hero-meta .item .v.up { font-weight: 500; }
+  .hero-meta .item .v.dn { font-weight: 500; }
+
+  /* Section title pattern */
+  .section {
+    margin-bottom: 80px;
+  }
+  .section-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .section-title h2 {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+  }
+  .section-title h2 .index {
+    font-family: 'Geist Mono', monospace;
+    font-weight: 400;
+    color: var(--faint);
+    margin-right: 16px;
+  }
+  .section-title .meta {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* KPI strip — minimalist */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .kpi-strip .kpi {
+    padding: 4px 24px 4px 0;
+    border-right: 1px solid var(--rule);
+  }
+  .kpi-strip .kpi:last-child { border: none; }
+  .kpi-strip .kpi:not(:first-child) { padding-left: 24px; }
+  .kpi .l {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--faint);
+    margin-bottom: 12px;
+  }
+  .kpi .v {
+    font-family: 'Geist Mono', monospace;
+    font-weight: 400;
+    font-size: 28px;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+  .kpi .sub {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* Chart */
+  .chart-section .chart-wrap {
+    height: 360px;
+    position: relative;
+    margin-top: 12px;
+  }
+  .chart-wrap svg {
+    width: 100%;
+    height: 100%;
+  }
+  .chart-axis-left {
+    position: absolute;
+    left: 0; top: 0; bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--faint);
+  }
+  .chart-axis-bottom {
+    position: absolute;
+    left: 50px; right: 0; bottom: 0;
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--faint);
+    padding-top: 8px;
+  }
+  .chart-pills {
+    display: inline-flex;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .chart-pills button {
+    background: transparent;
+    border: none;
+    padding: 4px 12px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    border-right: 1px solid var(--rule);
+  }
+  .chart-pills button:last-child { border: none; }
+  .chart-pills button.active {
+    background: var(--fg);
+    color: var(--bg);
+  }
+
+  /* Holdings — flat list, minimal */
+  .holdings { }
+  .holding {
+    display: grid;
+    grid-template-columns: 28px 1fr 1fr 1fr 1fr 80px;
+    gap: 24px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: center;
+  }
+  .holding.header {
+    padding: 0 0 12px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--faint);
+    border-bottom: 1px solid var(--fg);
+  }
+  .holding.header span { text-align: left; }
+  .holding.header span.right { text-align: right; }
+  .holding .idx {
+    font-family: 'Geist Mono', monospace;
+    color: var(--faint);
+    font-size: 12px;
+  }
+  .holding .sym {
+    font-family: 'Geist Mono', monospace;
+    font-weight: 500;
+    font-size: 14px;
+  }
+  .holding .nm {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .holding .nm .mkt {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: var(--faint);
+    margin-left: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .holding .val {
+    font-family: 'Geist Mono', monospace;
+    font-size: 14px;
+    text-align: right;
+    font-weight: 400;
+  }
+  .holding .ret {
+    font-family: 'Geist Mono', monospace;
+    font-size: 14px;
+    text-align: right;
+    font-weight: 500;
+  }
+  .holding .ret.up::before { content: '+ '; font-weight: 300; }
+  .holding .ret.dn::before { content: '− '; font-weight: 300; }
+  .holding .wt {
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    text-align: right;
+    position: relative;
+  }
+  .holding .wt .bar {
+    display: block;
+    height: 1px;
+    background: var(--fg);
+    margin-top: 6px;
+    margin-left: auto;
+  }
+
+  /* Indicators — 4 col grid, minimal */
+  .indicators {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--rule);
+    border-left: 1px solid var(--rule);
+  }
+  .indicator {
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 28px 24px;
+  }
+  .indicator .nm {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 14px;
+  }
+  .indicator .v {
+    font-family: 'Geist Mono', monospace;
+    font-weight: 200;
+    font-size: 38px;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .indicator .c {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .indicator .c.up { color: var(--fg); }
+  .indicator .c.dn { color: var(--fg); }
+  .indicator .c.up::before { content: '↗ '; color: var(--fg); }
+  .indicator .c.dn::before { content: '↘ '; color: var(--fg); }
+  .indicator svg {
+    width: 100%;
+    height: 32px;
+    margin-top: 14px;
+  }
+
+  /* Insights — text-driven */
+  .insights {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+  }
+  .insight {
+    padding: 32px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .insight .tag {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--faint);
+    margin-bottom: 12px;
+  }
+  .insight h3 {
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.35;
+    margin-bottom: 14px;
+  }
+  .insight p {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.55;
+    max-width: 50ch;
+  }
+  .insight .num {
+    font-family: 'Geist Mono', monospace;
+    color: var(--fg);
+    font-weight: 500;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--faint);
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">port</div>
+    <div class="brand-sub">live · ws-01</div>
+
+    <div class="nav-group">
+      <h5>Overview</h5>
+      <a href="#" class="nav-link active"><span>Dashboard</span><span class="k">D</span></a>
+      <a href="#" class="nav-link"><span>Holdings</span><span class="k">H</span></a>
+      <a href="#" class="nav-link"><span>Performance</span><span class="k">P</span></a>
+    </div>
+
+    <div class="nav-group">
+      <h5>Analysis</h5>
+      <a href="#" class="nav-link"><span>Trends</span><span class="k">T</span></a>
+      <a href="#" class="nav-link"><span>Allocation</span><span class="k">A</span></a>
+      <a href="#" class="nav-link"><span>Realized P&amp;L</span><span class="k">R</span></a>
+      <a href="#" class="nav-link"><span>Risk model</span><span class="k">M</span></a>
+    </div>
+
+    <div class="nav-group">
+      <h5>Markets</h5>
+      <a href="#" class="nav-link"><span>Indicators</span><span class="k">I</span></a>
+      <a href="#" class="nav-link"><span>Watchlist</span><span class="badge">12</span></a>
+      <a href="#" class="nav-link"><span>Calendar</span></a>
+    </div>
+
+    <div class="nav-group">
+      <h5>System</h5>
+      <a href="#" class="nav-link"><span>Activity</span></a>
+      <a href="#" class="nav-link"><span>Settings</span></a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="meta-row">
+      <span class="crumb">dashboard / overview</span>
+      <div class="right">
+        <span class="mono">2026·05·23 · 14:32:08 KST</span>
+        <span class="live mono">live</span>
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-label">Total Portfolio Value</div>
+      <div class="hero-number"><span class="unit">₩</span>47,832,500</div>
+      <div class="hero-meta">
+        <div class="item">
+          <div class="l">Today</div>
+          <div class="v up">523,800 · +1.10%</div>
+        </div>
+        <div class="item">
+          <div class="l">All-time</div>
+          <div class="v up">4,832,500 · +11.25%</div>
+        </div>
+        <div class="item">
+          <div class="l">Positions</div>
+          <div class="v">8 / 12</div>
+        </div>
+        <div class="item">
+          <div class="l">Cash</div>
+          <div class="v">2,140,000 · 4.5%</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Equity curve -->
+    <section class="section chart-section">
+      <div class="section-title">
+        <h2><span class="index">01</span>Equity curve</h2>
+        <span class="meta">
+          <span class="chart-pills">
+            <button>1W</button>
+            <button class="active">1M</button>
+            <button>3M</button>
+            <button>YTD</button>
+            <button>ALL</button>
+          </span>
+        </span>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-axis-left">
+          <span>48.5M</span>
+          <span>47.0M</span>
+          <span>45.5M</span>
+          <span>44.0M</span>
+          <span>42.5M</span>
+        </div>
+        <svg viewBox="0 0 1000 360" preserveAspectRatio="none" style="margin-left: 50px; width: calc(100% - 50px);">
+          <!-- subtle gridlines -->
+          <line x1="0" y1="0" x2="1000" y2="0" stroke="#e5e5e5" stroke-width="1" vector-effect="non-scaling-stroke"/>
+          <line x1="0" y1="90" x2="1000" y2="90" stroke="#f5f5f5" stroke-width="1" vector-effect="non-scaling-stroke"/>
+          <line x1="0" y1="180" x2="1000" y2="180" stroke="#f5f5f5" stroke-width="1" vector-effect="non-scaling-stroke"/>
+          <line x1="0" y1="270" x2="1000" y2="270" stroke="#f5f5f5" stroke-width="1" vector-effect="non-scaling-stroke"/>
+          <line x1="0" y1="336" x2="1000" y2="336" stroke="#e5e5e5" stroke-width="1" vector-effect="non-scaling-stroke"/>
+          <!-- starkly drawn line -->
+          <path d="M 0 280 L 35 270 L 70 285 L 105 250 L 140 260 L 175 230 L 210 240 L 245 200 L 280 215 L 315 185 L 350 200 L 385 165 L 420 175 L 455 140 L 490 150 L 525 115 L 560 125 L 595 95 L 630 105 L 665 75 L 700 85 L 735 60 L 770 55 L 805 65 L 840 40 L 875 50 L 910 30 L 945 38 L 980 25 L 1000 32"
+                fill="none" stroke="#0a0a0a" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
+          <!-- end marker -->
+          <circle cx="1000" cy="32" r="3" fill="#84cc16"/>
+        </svg>
+        <div class="chart-axis-bottom">
+          <span>04·22</span><span>04·29</span><span>05·06</span><span>05·13</span><span>05·20</span><span>today</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPI -->
+    <section class="section">
+      <div class="section-title">
+        <h2><span class="index">02</span>Vital metrics</h2>
+        <span class="meta">14:32:08 · refreshed</span>
+      </div>
+      <div class="kpi-strip">
+        <div class="kpi">
+          <div class="l">Total Return</div>
+          <div class="v">+ 4.83M</div>
+          <div class="sub">+11.25%</div>
+        </div>
+        <div class="kpi">
+          <div class="l">Daily P&amp;L</div>
+          <div class="v">+ 523.8K</div>
+          <div class="sub">+1.10%</div>
+        </div>
+        <div class="kpi">
+          <div class="l">Sharpe Ratio</div>
+          <div class="v">1.82</div>
+          <div class="sub">trailing 90d</div>
+        </div>
+        <div class="kpi">
+          <div class="l">Max Drawdown</div>
+          <div class="v">− 3.2%</div>
+          <div class="sub">28 days ago</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Holdings -->
+    <section class="section">
+      <div class="section-title">
+        <h2><span class="index">03</span>Holdings</h2>
+        <span class="meta">sorted · value desc</span>
+      </div>
+      <div class="holdings">
+        <div class="holding header">
+          <span>#</span>
+          <span>Symbol</span>
+          <span>Name</span>
+          <span class="right" style="text-align:right">Value</span>
+          <span class="right" style="text-align:right">Return</span>
+          <span class="right" style="text-align:right">Weight</span>
+        </div>
+        <div class="holding">
+          <span class="idx">01</span>
+          <span class="sym">NVDA</span>
+          <span class="nm">NVIDIA Corp.<span class="mkt">us</span></span>
+          <span class="val">12,400,000</span>
+          <span class="ret up">28.5%</span>
+          <span class="wt">25.9%<span class="bar" style="width:25.9%"></span></span>
+        </div>
+        <div class="holding">
+          <span class="idx">02</span>
+          <span class="sym">005930</span>
+          <span class="nm">삼성전자<span class="mkt">kr</span></span>
+          <span class="val">8,200,000</span>
+          <span class="ret up">5.2%</span>
+          <span class="wt">17.1%<span class="bar" style="width:17.1%"></span></span>
+        </div>
+        <div class="holding">
+          <span class="idx">03</span>
+          <span class="sym">MSFT</span>
+          <span class="nm">Microsoft Corp.<span class="mkt">us</span></span>
+          <span class="val">7,300,000</span>
+          <span class="ret up">18.7%</span>
+          <span class="wt">15.3%<span class="bar" style="width:15.3%"></span></span>
+        </div>
+        <div class="holding">
+          <span class="idx">04</span>
+          <span class="sym">000660</span>
+          <span class="nm">SK하이닉스<span class="mkt">kr</span></span>
+          <span class="val">6,750,000</span>
+          <span class="ret up">12.8%</span>
+          <span class="wt">14.1%<span class="bar" style="width:14.1%"></span></span>
+        </div>
+        <div class="holding">
+          <span class="idx">05</span>
+          <span class="sym">AAPL</span>
+          <span class="nm">Apple Inc.<span class="mkt">us</span></span>
+          <span class="val">5,200,000</span>
+          <span class="ret up">3.2%</span>
+          <span class="wt">10.9%<span class="bar" style="width:10.9%"></span></span>
+        </div>
+        <div class="holding">
+          <span class="idx">06</span>
+          <span class="sym">TSLA</span>
+          <span class="nm">Tesla Inc.<span class="mkt">us</span></span>
+          <span class="val">3,100,000</span>
+          <span class="ret dn">2.1%</span>
+          <span class="wt">6.5%<span class="bar" style="width:6.5%"></span></span>
+        </div>
+        <div class="holding">
+          <span class="idx">07</span>
+          <span class="sym">035720</span>
+          <span class="nm">카카오<span class="mkt">kr</span></span>
+          <span class="val">2,500,000</span>
+          <span class="ret dn">8.3%</span>
+          <span class="wt">5.2%<span class="bar" style="width:5.2%"></span></span>
+        </div>
+        <div class="holding">
+          <span class="idx">08</span>
+          <span class="sym">005380</span>
+          <span class="nm">현대차<span class="mkt">kr</span></span>
+          <span class="val">2,382,500</span>
+          <span class="ret up">6.4%</span>
+          <span class="wt">5.0%<span class="bar" style="width:5.0%"></span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Indicators -->
+    <section class="section">
+      <div class="section-title">
+        <h2><span class="index">04</span>Macro indicators</h2>
+        <span class="meta">delay ≤15s</span>
+      </div>
+      <div class="indicators">
+        <div class="indicator">
+          <div class="nm">kospi</div>
+          <div class="v">2,541.32</div>
+          <div class="c up">11.34 · 0.45%</div>
+          <svg viewBox="0 0 100 32" preserveAspectRatio="none"><path d="M 0 24 L 12 22 L 24 26 L 36 18 L 48 16 L 60 12 L 72 17 L 84 9 L 100 6" fill="none" stroke="#0a0a0a" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>
+        </div>
+        <div class="indicator">
+          <div class="nm">s&amp;p 500</div>
+          <div class="v">5,234.18</div>
+          <div class="c up">42.55 · 0.82%</div>
+          <svg viewBox="0 0 100 32" preserveAspectRatio="none"><path d="M 0 26 L 12 24 L 24 27 L 36 18 L 48 15 L 60 12 L 72 10 L 84 13 L 100 5" fill="none" stroke="#0a0a0a" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>
+        </div>
+        <div class="indicator">
+          <div class="nm">usd / krw</div>
+          <div class="v">1,342.50</div>
+          <div class="c dn">2.40 · 0.18%</div>
+          <svg viewBox="0 0 100 32" preserveAspectRatio="none"><path d="M 0 8 L 12 10 L 24 13 L 36 15 L 48 14 L 60 18 L 72 17 L 84 20 L 100 23" fill="none" stroke="#0a0a0a" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>
+        </div>
+        <div class="indicator">
+          <div class="nm">btc · usd</div>
+          <div class="v">67,234</div>
+          <div class="c up">1,583 · 2.41%</div>
+          <svg viewBox="0 0 100 32" preserveAspectRatio="none"><path d="M 0 25 L 12 22 L 24 18 L 36 21 L 48 14 L 60 16 L 72 10 L 84 13 L 100 6" fill="none" stroke="#0a0a0a" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Insights -->
+    <section class="section">
+      <div class="section-title">
+        <h2><span class="index">05</span>Observations</h2>
+        <span class="meta">computed daily</span>
+      </div>
+      <div class="insights">
+        <div class="insight">
+          <div class="tag">concentration</div>
+          <h3>Technology weight is at <span class="num">52.3%</span> of portfolio</h3>
+          <p>Above your declared target of 40%. Reducing exposure by trimming NVDA or rebalancing into KR financials would restore allocation discipline. Threshold last breached <span class="num">14</span> sessions ago.</p>
+        </div>
+        <div class="insight">
+          <div class="tag">benchmark</div>
+          <h3>Beating KOSPI by <span class="num">+0.65pp</span> this week</h3>
+          <p>Year-to-date excess return holds at <span class="num">+3.8pp</span>. Driven primarily by NVDA, SK하이닉스. Defensive holdings (현대차) underperformed but reduced volatility.</p>
+        </div>
+        <div class="insight">
+          <div class="tag">tax window</div>
+          <h3>Loss harvesting opens in <span class="num">23 days</span></h3>
+          <p>035720 (-8.3%) and TSLA (-2.1%) are below cost basis. Combined realizable loss: <span class="num">₩298,000</span>. Wash-sale rules allow re-entry after 30 days.</p>
+        </div>
+        <div class="insight">
+          <div class="tag">cash flow</div>
+          <h3>Q2 dividends projected <span class="num">₩42,800</span></h3>
+          <p>AAPL ex-dividend May 10, MSFT June 14. Dollar-denominated payouts subject to current rate of 1,342.50. Run-rate yield: <span class="num">0.36%</span> on equity.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer">
+      <span>port · v0.0.1 · gas-backed</span>
+      <span>next refresh in 8m</span>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>
