@@ -1,27 +1,36 @@
 /**
  * Telegram.js — Telegram 봇 연동
  *
- * 구조: 워치 → Telegram → GAS doPost (webhook)
- *   - 시크릿(봇 토큰·webhook secret·chat_id)은 GAS PropertiesService에만 저장
- *   - 클라이언트(워치/iPhone)에 시크릿 0개
- *   - webhook URL에 secret query string + chat_id 화이트리스트 이중 검증
+ * 구조 (권장 — Worker mode):
+ *   워치 → Telegram → Cloudflare Worker → GAS doPost
+ *   - Worker가 GAS의 302 redirect를 spec 준수 fetch로 정상 처리 → Telegram 200 직결
+ *   - secret은 X-Telegram-Bot-Api-Secret-Token 헤더 (URL 아닌 header)
+ *   - 셋업: apps-script-v2/cloudflare-worker/README.md 참조
+ *
+ * 구조 (fallback — 직접 GAS):
+ *   워치 → Telegram → GAS doPost (webhook) [302 redirect 간헐 실패 가능성]
+ *   - secret은 URL query (?secret=XXX)
+ *
+ * 시크릿(봇 토큰·webhook secret·chat_id)은 GAS PropertiesService에만 저장. 클라이언트에 0.
+ * 이중 검증: secret (Worker header or URL query) + chat_id 화이트리스트
  *
  * 사용 절차 (1회):
  *   1. BotFather에서 봇 생성 → 토큰
- *   2. GAS 에디터에서 tgSetBotToken('1234:ABC...') 실행
+ *   2. tgSetBotToken('1234:ABC...') 실행
  *   3. 봇과 채팅 시작, 메시지 1회 전송 (예: /start)
  *   4. tgCaptureMyChatId() 실행 — 최근 메시지에서 chat_id 자동 추출
- *   5. push_safe.py로 배포
- *   6. Web App 새 배포 (Anyone 액세스) → URL 복사
- *   7. tgRegisterWebhook('https://script.google.com/.../exec') 실행
- *   8. tgSetupPushTrigger() 실행 — 20분 자동 푸시 트리거
+ *   5. push_safe.py로 배포 + Web App 배포(Anyone) → URL을 TG_WEBAPP_URL Property에 저장
+ *   6. (권장) Cloudflare Worker 셋업 → tgSetWorkerUrl('https://*.workers.dev') 실행
+ *   7. tgInstallWebhook 실행 — Worker URL 있으면 Worker mode로 자동 등록
+ *   8. tgSetupPushTrigger() 실행 — 자동 푸시 트리거 (매시 :00/:20/:40 근처)
  */
 
 const TG = {
   PROP_TOKEN:        'TG_BOT_TOKEN',
   PROP_CHAT_ID:      'TG_CHAT_ID',
   PROP_SECRET:       'TG_WEBHOOK_SECRET',
-  PROP_WEBAPP_URL:   'TG_WEBAPP_URL',
+  PROP_WEBAPP_URL:   'TG_WEBAPP_URL',     // GAS /exec URL (fallback)
+  PROP_WORKER_URL:   'TG_WORKER_URL',     // Cloudflare Worker URL (있으면 우선)
   PROP_LAST_UPDATE:  'TG_LAST_UPDATE_ID',
   PROP_LAST_RECOVER: 'TG_LAST_RECOVER_TS',
   HEAL_HANDLER:      'tgEnsureWebhookHealthy',
@@ -37,6 +46,7 @@ function _tgProps() { return PropertiesService.getScriptProperties(); }
 function _tgToken() { return _tgProps().getProperty(TG.PROP_TOKEN); }
 function _tgChatId() { return _tgProps().getProperty(TG.PROP_CHAT_ID); }
 function _tgSecret() { return _tgProps().getProperty(TG.PROP_SECRET); }
+function _tgWorkerUrl() { return _tgProps().getProperty(TG.PROP_WORKER_URL); }
 
 /** Telegram sendMessage 호출 (텍스트만) */
 function tgSendMessage(text) {
@@ -152,13 +162,17 @@ function tgEnsureWebhookHealthy() {
     Logger.log('  url: ' + (r.url || '(없음)'));
     Logger.log('  pending: ' + (r.pending_update_count || 0));
     Logger.log('  last_error: ' + (r.last_error_message || '(없음)'));
-    // Properties의 /exec URL 사용 (자동 감지 X — /dev 반환 위험)
-    const url = props.getProperty(TG.PROP_WEBAPP_URL);
-    if (!url || url.indexOf('/exec') !== url.length - 5) {
-      Logger.log('  ❌ Properties의 TG_WEBAPP_URL이 /exec 아님 — 수동 등록 필요');
-      return;
+    // mode 자동 선택 — Worker 설정돼 있으면 Worker URL, 없으면 /exec 직접 모드
+    if (_tgWorkerUrl()) {
+      tgRegisterWebhook(/*webAppUrl*/ null, /*dropPending=*/ false);
+    } else {
+      const url = props.getProperty(TG.PROP_WEBAPP_URL);
+      if (!url || url.indexOf('/exec') !== url.length - 5) {
+        Logger.log('  ❌ Properties의 TG_WEBAPP_URL이 /exec 아님 — 수동 등록 필요');
+        return;
+      }
+      tgRegisterWebhook(url, /*dropPending=*/ false);
     }
-    tgRegisterWebhook(url, /*dropPending=*/ false);
   } catch (e) {
     Logger.log('tgEnsureWebhookHealthy 오류: ' + e.message);
   }
@@ -296,7 +310,11 @@ function tgCaptureMyChatId() {
   tgSendMessage('✅ Telegram 봇 연동 완료. 이제 "갱신" 메시지로 손익 조회 가능합니다.');
 }
 
-/** Web App URL을 Telegram webhook으로 등록 — dropPending 인자(기본 true)로 큐 처리 여부 제어 */
+/**
+ * webhook 등록 — Worker mode(권장) 우선, fallback으로 직접 GAS 모드.
+ * - Worker mode: TG_WORKER_URL 설정돼 있으면 Worker URL을 Telegram에 등록 + secret은 secret_token 헤더로
+ * - 직접 모드: GAS /exec URL을 등록 + secret은 URL query로 (302 redirect 간헐 실패 위험)
+ */
 function tgRegisterWebhook(webAppUrl, dropPending) {
   const token = _tgToken();
   const secret = _tgSecret();
@@ -304,27 +322,87 @@ function tgRegisterWebhook(webAppUrl, dropPending) {
     Logger.log('❌ 토큰 또는 secret 미설정');
     return;
   }
-  if (!webAppUrl || webAppUrl.indexOf('script.google.com') === -1) {
-    Logger.log('❌ Web App URL이 올바르지 않습니다 (https://script.google.com/.../exec 형태)');
-    return;
+
+  const workerUrl = _tgWorkerUrl();
+  let payload;
+  if (workerUrl) {
+    // Worker 모드 — secret은 secret_token 헤더로 (Telegram이 X-Telegram-Bot-Api-Secret-Token 헤더 전송)
+    payload = {
+      url: workerUrl,
+      secret_token: secret,
+      allowed_updates: ['message'],
+      drop_pending_updates: dropPending !== false,
+    };
+    Logger.log('  mode: Worker (Cloudflare) — secret은 header');
+    Logger.log('  URL: ' + workerUrl);
+  } else {
+    // 직접 GAS 모드 (fallback) — secret을 URL query로
+    if (!webAppUrl || webAppUrl.indexOf('script.google.com') === -1) {
+      Logger.log('❌ Web App URL이 올바르지 않습니다 (https://script.google.com/.../exec 형태)');
+      return;
+    }
+    const fullUrl = webAppUrl + (webAppUrl.indexOf('?') === -1 ? '?' : '&') + 'secret=' + secret;
+    payload = {
+      url: fullUrl,
+      allowed_updates: ['message'],
+      drop_pending_updates: dropPending !== false,
+    };
+    Logger.log('  mode: 직접 GAS (Worker 미설정) — secret은 URL query');
+    Logger.log('  URL: ' + webAppUrl);
   }
-  const fullUrl = webAppUrl + (webAppUrl.indexOf('?') === -1 ? '?' : '&') + 'secret=' + secret;
+
   const res = UrlFetchApp.fetch(TG.API + token + '/setWebhook', {
     method: 'post',
     contentType: 'application/json',
-    payload: JSON.stringify({
-      url: fullUrl,
-      allowed_updates: ['message'],
-      drop_pending_updates: dropPending !== false, // 기본 true (수동 등록), 자가 복구 시 false (큐 보존)
-      max_connections: 1, // GAS 동시 처리 1개로 제한 (안정성)
-    }),
+    payload: JSON.stringify(payload),
     muteHttpExceptions: true,
   });
   Logger.log('✅ webhook 등록 응답: ' + res.getContentText());
 }
 
-/** webhook 등록 — Properties의 /exec URL만 사용 (자동 감지는 /dev를 반환하므로 위험) */
+/** Worker URL 등록 helper — TG_WORKER_URL 저장 (다음 tgInstallWebhook 시 Worker 모드 활성화) */
+function tgSetWorkerUrl(workerUrl) {
+  if (!workerUrl || !/^https:\/\/[^\/]+\.workers\.dev(\/.*)?$/i.test(workerUrl)) {
+    Logger.log('❌ Worker URL은 https://*.workers.dev/* 형태여야 합니다');
+    Logger.log('  입력값: ' + workerUrl);
+    return;
+  }
+  _tgProps().setProperty(TG.PROP_WORKER_URL, workerUrl.trim());
+  Logger.log('✅ TG_WORKER_URL 저장: ' + workerUrl.trim());
+  Logger.log('  다음 단계: tgInstallWebhook 실행 → Worker 모드로 등록');
+}
+
+/** Worker URL 해제 — 직접 GAS 모드로 복귀 (트러블슈팅용) */
+function tgClearWorkerUrl() {
+  _tgProps().deleteProperty(TG.PROP_WORKER_URL);
+  Logger.log('✅ Worker URL 해제 — 다음 tgInstallWebhook는 직접 GAS 모드');
+}
+
+/** TG_WEBHOOK_SECRET 값 확인 (Cloudflare Worker env에 같은 값 입력 시 사용) */
+function tgShowSecret() {
+  const s = _tgSecret();
+  if (!s) {
+    Logger.log('❌ TG_WEBHOOK_SECRET 미설정 — tgSetBotToken 또는 tgCaptureMyChatId 먼저 실행');
+    return;
+  }
+  Logger.log('TG_WEBHOOK_SECRET: ' + s);
+  Logger.log('  → Cloudflare Worker의 SECRET env 변수에 위 값 그대로 입력');
+}
+
+/**
+ * webhook 등록 — Worker URL이 있으면 Worker 모드, 없으면 /exec 직접 모드.
+ * tgRegisterWebhook 내부에서 mode 자동 선택, 이 함수는 fallback용 /exec URL 확보만 담당.
+ */
 function tgInstallWebhook() {
+  const workerUrl = _tgWorkerUrl();
+  if (workerUrl) {
+    Logger.log('Worker 모드로 등록 시도');
+    tgRegisterWebhook(/*webAppUrl*/ null);
+    tgSetupHealTrigger();
+    return;
+  }
+
+  // Worker 미설정 — 직접 GAS 모드. /exec URL 확보
   const propUrl = _tgProps().getProperty(TG.PROP_WEBAPP_URL);
   const autoUrl = ScriptApp.getService().getUrl();
   // 자동 감지된 URL이 /exec로 끝나는 경우만 사용 가능 (대부분 /dev라 무시)
@@ -348,7 +426,7 @@ function tgInstallWebhook() {
   if (autoUrl && !autoIsExec) {
     Logger.log('  (자동 감지 URL은 /dev — 무시, Properties의 /exec 사용)');
   }
-  Logger.log('  webhook URL: ' + url);
+  Logger.log('  직접 GAS 모드로 등록 시도 (Worker 권장 — 02-cloudflare-worker/README.md 참조)');
   tgRegisterWebhook(url);
   tgSetupHealTrigger();
 }

@@ -21,3 +21,5 @@
 - [옵션 다 거부되면 프레임을 의심](feedback_reframe_before_options.md) — 같은 전제 안 변형 찾지 말고 한 단계 위로 올라가 프레임 재구성. 합리화 금지
 - [GAS curl 진단 금지](feedback_gas_curl_diagnosis.md) — GAS Web App POST 디버깅에서 curl 결과만 신뢰 금지, Python urllib 등으로 교차 검증
 - [GAS Web App 익명 POST 권한](feedback_gas_webapp_anyone_anonymous.md) — appsscript.json `webapp.access: ANYONE_ANONYMOUS` 명시 + 새 deployment 필수
+- [Cloudflare Worker secret deploy](feedback_cloudflare_worker_deploy.md) — secret 추가 시 새 version만 생성, Deployments 탭에서 수동 promote 필요
+- [가설을 확신처럼 제시 금지](feedback_no_overconfident_claims.md) — 검증 안 된 결론으로 사용자 행동 반복 요구 금지, 진단 가설은 가설로 명시
