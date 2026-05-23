@@ -23,10 +23,14 @@ const TG = {
   PROP_SECRET:       'TG_WEBHOOK_SECRET',
   PROP_WEBAPP_URL:   'TG_WEBAPP_URL',
   PROP_LAST_UPDATE:  'TG_LAST_UPDATE_ID',
+  PROP_LAST_RECOVER: 'TG_LAST_RECOVER_TS',
+  HEAL_HANDLER:      'tgEnsureWebhookHealthy',
+  HEAL_MINUTES:      30,
   API:               'https://api.telegram.org/bot',
   PUSH_HANDLER:      'tgPushPnL',
   PUSH_MINUTES_AT:   [0, 20, 40], // 매시 :00 / :20 / :40 근처에 실행
-  CMD_KEYWORDS:      ['갱신', '업데이트', 'update', 'refresh', '/update', '/start', '/pnl'],
+  CMD_KEYWORDS:      ['갱신', '업데이트', 'ㄱㄱ', 'update', 'refresh', '/update', '/start', '/pnl'],
+  RECOVER_THROTTLE_S: 300, // 5분 안에 두 번 재등록 안 함
 };
 
 function _tgProps() { return PropertiesService.getScriptProperties(); }
@@ -107,10 +111,56 @@ function tgPushPnL() {
       Logger.log('tgPushPnL: 장외 시간 (' + hour + ':' + minute + ') — 푸시 생략');
       return;
     }
+    // 3. webhook 자가 복구 (장중에는 매번 점검 — 깨졌으면 자동 재등록)
+    tgEnsureWebhookHealthy();
     tgSendMessage(_tgFormatPnL());
   } catch (e) {
     Logger.log('tgPushPnL 오류: ' + e.message);
     try { tgSendMessage('⚠️ 푸시 실패: ' + e.message); } catch (_) {}
+  }
+}
+
+/**
+ * webhook 자가 복구 — getWebhookInfo로 상태 점검, 비정상이면 자동 재등록.
+ * 별도 시간 트리거(30분마다) + 모든 진입점(tgPushPnL·tgRefreshAndPush·tgTestSend)에서 호출.
+ * 5분 throttle로 과호출 방지.
+ */
+function tgEnsureWebhookHealthy() {
+  const token = _tgToken();
+  if (!token) return;
+  try {
+    const res = UrlFetchApp.fetch(TG.API + token + '/getWebhookInfo', { muteHttpExceptions: true });
+    const info = JSON.parse(res.getContentText());
+    if (!info.ok) return;
+    const r = info.result || {};
+    const nowSec = Math.floor(Date.now() / 1000);
+    const hasRecentError = r.last_error_date && (nowSec - r.last_error_date) < 3600;
+    const hasPending = (r.pending_update_count || 0) > 0;
+    const noUrl = !r.url;
+    if (!hasRecentError && !hasPending && !noUrl) {
+      return; // 정상
+    }
+    // throttle — 5분 안에 두 번 재등록 안 함
+    const props = _tgProps();
+    const lastRecover = Number(props.getProperty(TG.PROP_LAST_RECOVER) || 0);
+    if (nowSec - lastRecover < TG.RECOVER_THROTTLE_S) {
+      Logger.log('tgEnsureWebhookHealthy: throttle 중 (5분 내 이미 복구 시도)');
+      return;
+    }
+    props.setProperty(TG.PROP_LAST_RECOVER, String(nowSec));
+    Logger.log('tgEnsureWebhookHealthy: 비정상 감지 → 자동 재등록');
+    Logger.log('  url: ' + (r.url || '(없음)'));
+    Logger.log('  pending: ' + (r.pending_update_count || 0));
+    Logger.log('  last_error: ' + (r.last_error_message || '(없음)'));
+    // Properties의 /exec URL 사용 (자동 감지 X — /dev 반환 위험)
+    const url = props.getProperty(TG.PROP_WEBAPP_URL);
+    if (!url || url.indexOf('/exec') !== url.length - 5) {
+      Logger.log('  ❌ Properties의 TG_WEBAPP_URL이 /exec 아님 — 수동 등록 필요');
+      return;
+    }
+    tgRegisterWebhook(url, /*dropPending=*/ false);
+  } catch (e) {
+    Logger.log('tgEnsureWebhookHealthy 오류: ' + e.message);
   }
 }
 
@@ -121,6 +171,8 @@ function tgRefreshAndPush() {
     updateNewPriceHistory(ss);
     updatePositionFromLedger();
     tgSendMessage(_tgFormatPnL());
+    // 응답 후 안전망 — webhook 상태 점검 (throttle 내장)
+    try { tgEnsureWebhookHealthy(); } catch (_) {}
   } catch (e) {
     Logger.log('tgRefreshAndPush 오류: ' + e.message);
     try { tgSendMessage('⚠️ 갱신 실패: ' + e.message); } catch (_) {}
@@ -244,8 +296,8 @@ function tgCaptureMyChatId() {
   tgSendMessage('✅ Telegram 봇 연동 완료. 이제 "갱신" 메시지로 손익 조회 가능합니다.');
 }
 
-/** 3단계: Web App URL을 Telegram webhook으로 등록 */
-function tgRegisterWebhook(webAppUrl) {
+/** Web App URL을 Telegram webhook으로 등록 — dropPending 인자(기본 true)로 큐 처리 여부 제어 */
+function tgRegisterWebhook(webAppUrl, dropPending) {
   const token = _tgToken();
   const secret = _tgSecret();
   if (!token || !secret) {
@@ -263,7 +315,7 @@ function tgRegisterWebhook(webAppUrl) {
     payload: JSON.stringify({
       url: fullUrl,
       allowed_updates: ['message'],
-      drop_pending_updates: true,
+      drop_pending_updates: dropPending !== false, // 기본 true (수동 등록), 자가 복구 시 false (큐 보존)
       max_connections: 1, // GAS 동시 처리 1개로 제한 (안정성)
     }),
     muteHttpExceptions: true,
@@ -271,14 +323,57 @@ function tgRegisterWebhook(webAppUrl) {
   Logger.log('✅ webhook 등록 응답: ' + res.getContentText());
 }
 
-/** 3단계: Properties의 TG_WEBAPP_URL을 읽어서 webhook 등록 (인자 없는 버전) */
+/** webhook 등록 — Properties의 /exec URL만 사용 (자동 감지는 /dev를 반환하므로 위험) */
 function tgInstallWebhook() {
-  const url = _tgProps().getProperty(TG.PROP_WEBAPP_URL);
+  const propUrl = _tgProps().getProperty(TG.PROP_WEBAPP_URL);
+  const autoUrl = ScriptApp.getService().getUrl();
+  // 자동 감지된 URL이 /exec로 끝나는 경우만 사용 가능 (대부분 /dev라 무시)
+  const autoIsExec = autoUrl && autoUrl.indexOf('/exec') === autoUrl.length - 5;
+  const propIsExec = propUrl && propUrl.indexOf('/exec') === propUrl.length - 5;
+
+  let url = null;
+  if (propIsExec) {
+    url = propUrl;
+  } else if (autoIsExec) {
+    url = autoUrl;
+    _tgProps().setProperty(TG.PROP_WEBAPP_URL, url);
+  }
+
   if (!url) {
-    Logger.log('❌ TG_WEBAPP_URL 미설정 — 프로젝트 설정 > 스크립트 속성에 Web App URL 추가 후 다시 실행');
+    Logger.log('❌ /exec URL 없음 — 배포 후 URL을 Properties의 TG_WEBAPP_URL에 직접 입력하세요');
+    Logger.log('  현재 Properties URL: ' + (propUrl || '(없음)'));
+    Logger.log('  자동 감지 URL: ' + (autoUrl || '(없음)') + ' ← /dev는 사용 불가');
     return;
   }
+  if (autoUrl && !autoIsExec) {
+    Logger.log('  (자동 감지 URL은 /dev — 무시, Properties의 /exec 사용)');
+  }
+  Logger.log('  webhook URL: ' + url);
   tgRegisterWebhook(url);
+  tgSetupHealTrigger();
+}
+
+/** 자가 복구 트리거 등록 (30분마다 tgEnsureWebhookHealthy 실행) — 이미 있으면 skip */
+function tgSetupHealTrigger() {
+  const existing = ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === TG.HEAL_HANDLER);
+  if (existing.length > 0) {
+    Logger.log('  자가 복구 트리거 이미 존재 (개수: ' + existing.length + ')');
+    return;
+  }
+  ScriptApp.newTrigger(TG.HEAL_HANDLER)
+    .timeBased()
+    .everyMinutes(TG.HEAL_MINUTES)
+    .create();
+  Logger.log('  ✅ 자가 복구 트리거 등록 (' + TG.HEAL_MINUTES + '분마다)');
+}
+
+/** 자가 복구 트리거 해제 */
+function tgDeleteHealTrigger() {
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === TG.HEAL_HANDLER)
+    .forEach(t => ScriptApp.deleteTrigger(t));
+  Logger.log('✅ 자가 복구 트리거 해제 완료');
 }
 
 /** webhook 해제 (디버깅용) */
@@ -324,8 +419,10 @@ function tgDeletePushTrigger() {
   Logger.log('✅ 자동 푸시 트리거 해제 완료');
 }
 
-/** 즉시 테스트 발송 (현재 시트 값으로) */
+/** 즉시 테스트 발송 (현재 시트 값으로) — 끝에 webhook 자가 점검 (안전망) */
 function tgTestSend() {
-  Logger.log(_tgFormatPnL());
-  tgSendMessage(_tgFormatPnL());
+  const text = _tgFormatPnL();
+  Logger.log(text);
+  tgSendMessage(text);
+  try { tgEnsureWebhookHealthy(); } catch (_) {}
 }

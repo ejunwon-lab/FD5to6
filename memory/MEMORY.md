@@ -19,3 +19,5 @@
 - [대시보드가 유일한 UI](project_dashboard_primary.md) — 사용자는 대시보드만 봄. 모든 정보는 대시보드에 표시해야 함
 - [변경 보고 시 검증 섹션 필수](feedback_verify_changes.md) — "## 검증" 섹션(자동 결과 + 사용자 확인 4요소) 없는 보고는 미완료. CLAUDE.md "변경 검증 절차" 참조
 - [옵션 다 거부되면 프레임을 의심](feedback_reframe_before_options.md) — 같은 전제 안 변형 찾지 말고 한 단계 위로 올라가 프레임 재구성. 합리화 금지
+- [GAS curl 진단 금지](feedback_gas_curl_diagnosis.md) — GAS Web App POST 디버깅에서 curl 결과만 신뢰 금지, Python urllib 등으로 교차 검증
+- [GAS Web App 익명 POST 권한](feedback_gas_webapp_anyone_anonymous.md) — appsscript.json `webapp.access: ANYONE_ANONYMOUS` 명시 + 새 deployment 필수
