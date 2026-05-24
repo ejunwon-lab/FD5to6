@@ -30,7 +30,7 @@ export default {
       },
       fontFamily: {
         mono: ['"JetBrains Mono"', 'monospace'],
-        display: ['"Major Mono Display"', 'monospace'],
+        display: ['"Monoton"', 'monospace'],
       },
       fontSize: {
         '2xs': '10px',

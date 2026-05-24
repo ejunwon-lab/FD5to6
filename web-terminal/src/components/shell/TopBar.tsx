@@ -22,7 +22,7 @@ export function TopBar({ onMenuClick }: Props) {
           <line x1="3" y1="18" x2="21" y2="18" />
         </svg>
       </button>
-      <div className="font-display text-sm tracking-widest2 text-amber">port.jun</div>
+      <div className="font-display text-[20px] sm:text-[22px] tracking-[0.08em] text-amber leading-none pt-0.5">PORT.JUN</div>
       <Pill live className="hidden sm:inline-flex">CONNECTED · KIS</Pill>
       <Pill className="hidden md:inline-flex">KRX OPEN</Pill>
       <Pill className="hidden md:inline-flex">NYSE PRE</Pill>
