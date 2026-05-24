@@ -72,6 +72,7 @@ export interface PortfolioSummary {
 }
 
 export interface EquityPoint {
-  date: string
+  date: string         // MM-DD (표시용)
+  fullDate?: string    // YYYY-MM-DD (필터링용)
   value: number
 }

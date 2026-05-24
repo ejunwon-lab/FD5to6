@@ -141,8 +141,9 @@ function mapIndicators(ind: IndicatorsResponse): Indicator[] {
 
 function mapEquity(hist: TrendHistoryResponse): EquityPoint[] {
   return (hist.entries ?? []).map((e) => ({
-    date: e.date.slice(5), // MM-DD
-    value: Number(e.totalProfit) || 0, // trendTotalProfit이라 누적 손익 — 표시 의미는 동일
+    date: e.date.slice(5),   // MM-DD (X축 라벨)
+    fullDate: e.date,        // YYYY-MM-DD (필터링용)
+    value: Number(e.totalProfit) || 0,
   }))
 }
 

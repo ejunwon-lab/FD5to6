@@ -77,25 +77,29 @@ export const tickerItems: TickerItem[] = [
   { symbol: '000660', price: 142_500, changePct: 2.15 },
 ]
 
-// 30-day equity curve — mostly upward with some dips
+// 180일 equity curve — 다양한 기간 필터 테스트용
 export const equityCurve: EquityPoint[] = (() => {
-  const start = 43_000_000
+  const start = 38_000_000
   const target = 47_832_500
-  const n = 30
+  const n = 180
   const arr: EquityPoint[] = []
   let v = start
+  const today = new Date()
   for (let i = 0; i < n; i++) {
-    // Drift toward target with some noise
-    const drift = (target - v) * 0.06
-    const noise = (Math.sin(i * 1.7) + Math.cos(i * 0.6)) * 200_000
-    v = v + drift + noise
-    const d = new Date(2026, 3, 22 + i)
+    const drift = (target - v) * 0.012
+    const noise = (Math.sin(i * 1.7) + Math.cos(i * 0.6)) * 250_000
+    const trendNoise = (Math.sin(i * 0.13)) * 800_000
+    v = v + drift + noise + trendNoise
+    const d = new Date(today.getTime() - (n - 1 - i) * 86_400_000)
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
     arr.push({
-      date: `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+      date: `${mm}-${dd}`,
+      fullDate: `${yyyy}-${mm}-${dd}`,
       value: Math.round(v),
     })
   }
-  // Force last point to target for consistency with KPI
   arr[arr.length - 1].value = target
   return arr
 })()
