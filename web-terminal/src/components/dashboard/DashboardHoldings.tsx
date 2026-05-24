@@ -4,6 +4,7 @@ import type { Holding } from '../../lib/types'
 import { HoldingCard, type HoldingSortKey } from '../holdings/HoldingCard'
 import { HoldingCardWeb } from '../holdings/HoldingCardWeb'
 import { StockDetailModal } from '../holdings/StockDetailModal'
+import { HoldingsStatusStrip } from './HoldingsStatusStrip'
 
 interface Props { holdings: Holding[] }
 
@@ -123,7 +124,7 @@ export function DashboardHoldings({ holdings }: Props) {
               {sortKey === opt.key && <span>{sortAsc ? '↑' : '↓'}</span>}
             </button>
           ))}
-          {/* View mode toggle — 3-state */}
+          {/* View mode toggle — 3-state (순서: List → Web → Terminal) */}
           <div className="ml-auto flex items-center gap-2">
             <div className="inline-flex border border-line">
               <button
@@ -134,19 +135,19 @@ export function DashboardHoldings({ holdings }: Props) {
                 title="목록"
               >☰ List</button>
               <button
-                onClick={() => setViewMode('card-terminal')}
-                className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest border-l border-line ${
-                  viewMode === 'card-terminal' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
-                }`}
-                title="Terminal 카드"
-              >▦ Terminal</button>
-              <button
                 onClick={() => setViewMode('card-web')}
                 className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest border-l border-line ${
                   viewMode === 'card-web' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
                 }`}
                 title="Web 스타일 카드"
               >▤ Web</button>
+              <button
+                onClick={() => setViewMode('card-terminal')}
+                className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest border-l border-line ${
+                  viewMode === 'card-terminal' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
+                }`}
+                title="Terminal 카드"
+              >▦ Terminal</button>
             </div>
             <input
               value={query}
@@ -157,6 +158,9 @@ export function DashboardHoldings({ holdings }: Props) {
           </div>
         </div>
       </div>
+
+      {/* 현황 strip — 필터·정렬 컨텍스트 요약 */}
+      <HoldingsStatusStrip holdings={filtered} sortKey={sortKey} selectedAccount={selectedAccount} />
 
       {/* Terminal Card view */}
       {viewMode === 'card-terminal' && (
