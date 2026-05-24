@@ -5,6 +5,7 @@ import type { Holding, Indicator, PortfolioSummary, EquityPoint, Market } from '
 
 interface PortfolioState {
   loading: boolean
+  updating: boolean
   error: string | null
   summary: PortfolioSummary | null
   holdings: Holding[]
@@ -15,6 +16,7 @@ interface PortfolioState {
 
 const initial: PortfolioState = {
   loading: false,
+  updating: false,
   error: null,
   summary: null,
   holdings: [],
@@ -42,6 +44,7 @@ export function usePortfolio() {
       const fxIndicators = makeFxIndicators(pf)
       setState({
         loading: false,
+        updating: false,
         error: pf.success ? null : (pf.error ?? '포트폴리오 조회 실패'),
         summary: pf.summary ? mapSummary(pf) : null,
         holdings: pf.holdings ? mapHoldings(pf) : [],
@@ -55,11 +58,45 @@ export function usePortfolio() {
     }
   }, [isSignedIn, getToken])
 
+  /** 전체 업데이트 — KIS 가격·환율·보유현황·추이까지 다시 계산 (30~60초). 끝나면 자동 refresh */
+  const updateAll = useCallback(async () => {
+    if (!isSignedIn) return
+    setState((s) => ({ ...s, updating: true, error: null }))
+    try {
+      const token = await getToken()
+      const res = await gasApi.updateAll(token)
+      if (!res.success) {
+        setState((s) => ({ ...s, updating: false, error: res.error ?? '전체 업데이트 실패' }))
+        return
+      }
+      // updateAll 결과로 portfolio가 이미 fresh — 추가로 indicators·history도 다시 fetch
+      const [ind, hist] = await Promise.all([
+        gasApi.getIndicators(token).catch(() => null),
+        gasApi.getProfitHistory(token).catch(() => null),
+      ])
+      const baseIndicators: Indicator[] = ind?.indicators ? mapIndicators(ind) : []
+      const fxIndicators = makeFxIndicators(res)
+      setState({
+        loading: false,
+        updating: false,
+        error: null,
+        summary: res.summary ? mapSummary(res) : null,
+        holdings: res.holdings ? mapHoldings(res) : [],
+        indicators: [...baseIndicators, ...fxIndicators],
+        equityCurve: hist?.entries ? mapEquity(hist) : [],
+        updatedAt: res.updatedAt ?? null,
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '알 수 없는 오류'
+      setState((s) => ({ ...s, updating: false, error: msg }))
+    }
+  }, [isSignedIn, getToken])
+
   useEffect(() => {
     if (isSignedIn) refresh()
   }, [isSignedIn, refresh])
 
-  return { ...state, refresh }
+  return { ...state, refresh, updateAll }
 }
 
 function mapSummary(pf: PortfolioResponse): PortfolioSummary {

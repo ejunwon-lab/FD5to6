@@ -9,7 +9,7 @@ import { ActivityFeed } from './ActivityFeed'
 
 export function DashboardPage() {
   const { isSignedIn, signIn, isLoading: authLoading } = useAuth()
-  const { loading, error, summary, holdings, indicators, equityCurve, updatedAt, refresh } = usePortfolio()
+  const { loading, updating, error, summary, holdings, indicators, equityCurve, updatedAt, refresh, updateAll } = usePortfolio()
 
   const liveReady = isSignedIn && summary && !loading
   const showSummary = liveReady ? summary! : sampleSummary
@@ -23,10 +23,12 @@ export function DashboardPage() {
         isSignedIn={isSignedIn}
         authLoading={authLoading}
         loading={loading}
+        updating={updating}
         error={error}
         updatedAt={updatedAt}
         onSignIn={signIn}
         onRefresh={refresh}
+        onUpdateAll={updateAll}
       />
       <main className="p-2 sm:p-3 grid gap-2.5 grid-cols-1 lg:grid-cols-[1fr_2fr]" style={{ gridAutoRows: 'min-content' }}>
         {/* Row 1: KPI Strip (full width) */}
@@ -53,13 +55,15 @@ interface StatusProps {
   isSignedIn: boolean
   authLoading: boolean
   loading: boolean
+  updating: boolean
   error: string | null
   updatedAt: string | null
   onSignIn: () => void
   onRefresh: () => void
+  onUpdateAll: () => void
 }
 
-function DataStatusBar({ isSignedIn, authLoading, loading, error, updatedAt, onSignIn, onRefresh }: StatusProps) {
+function DataStatusBar({ isSignedIn, authLoading, loading, updating, error, updatedAt, onSignIn, onRefresh, onUpdateAll }: StatusProps) {
   if (authLoading) {
     return <Bar tone="info">인증 확인 중…</Bar>
   }
@@ -73,6 +77,16 @@ function DataStatusBar({ isSignedIn, authLoading, loading, error, updatedAt, onS
         >
           Sign in
         </button>
+      </Bar>
+    )
+  }
+  if (updating) {
+    return (
+      <Bar tone="info">
+        <span className="inline-flex items-center gap-2">
+          <span className="inline-block w-2 h-2 rounded-full bg-amber animate-pulse" />
+          전체 업데이트 중… KIS 가격·환율·보유현황·추이 재계산 (최대 1분)
+        </span>
       </Bar>
     )
   }
@@ -95,6 +109,13 @@ function DataStatusBar({ isSignedIn, authLoading, loading, error, updatedAt, onS
         className="ml-3 border border-line px-2 py-0.5 text-xxs uppercase tracking-widest hover:border-amber hover:text-amber"
       >
         Refresh
+      </button>
+      <button
+        onClick={onUpdateAll}
+        className="ml-2 border border-amber bg-amber/10 text-amber px-2 py-0.5 text-xxs uppercase tracking-widest hover:bg-amber hover:text-bg"
+        title="KIS 가격·환율·보유현황 모두 재계산 (30~60초)"
+      >
+        ⚡ 전체 업데이트
       </button>
     </Bar>
   )
