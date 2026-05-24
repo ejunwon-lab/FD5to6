@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Panel } from '../ui/Panel'
 import type { Holding } from '../../lib/types'
+import { HoldingCard, type HoldingSortKey } from '../holdings/HoldingCard'
+import { StockDetailModal } from '../holdings/StockDetailModal'
 
 interface Props { holdings: Holding[] }
 
-type SortKey = 'allInfo' | 'change' | 'agedDays' | 'opCurrent' | 'profitRate' | 'opProfit'
+type SortKey = HoldingSortKey
+type ViewMode = 'list' | 'card'
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'allInfo',    label: '종목 정보' },
@@ -29,6 +32,9 @@ export function DashboardHoldings({ holdings }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('allInfo')
   const [sortAsc, setSortAsc] = useState(false)
   const [query, setQuery] = useState('')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null)
+  const [detailStock, setDetailStock] = useState<{ code: string; name: string } | null>(null)
 
   // 계좌 → 증권사 매핑
   const accountBrokerMap = useMemo(() => {
@@ -99,8 +105,8 @@ export function DashboardHoldings({ holdings }: Props) {
             )
           })}
         </div>
-        {/* Sort + Search */}
-        <div className="flex gap-1.5 items-center">
+        {/* Sort + View toggle + Search */}
+        <div className="flex gap-1.5 items-center flex-wrap">
           <span className="text-2xs text-ink-faint uppercase tracking-widest shrink-0 mr-1">정렬</span>
           {SORT_OPTIONS.map((opt) => (
             <button
@@ -116,16 +122,58 @@ export function DashboardHoldings({ holdings }: Props) {
               {sortKey === opt.key && <span>{sortAsc ? '↑' : '↓'}</span>}
             </button>
           ))}
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="search..."
-            className="ml-auto bg-bg-deep border border-line text-ink px-2.5 py-0.5 text-xs w-44 focus:outline-none focus:border-amber"
-          />
+          {/* View mode toggle */}
+          <div className="ml-auto flex items-center gap-2">
+            <div className="inline-flex border border-line">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest ${
+                  viewMode === 'list' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
+                }`}
+                title="목록"
+              >☰ List</button>
+              <button
+                onClick={() => setViewMode('card')}
+                className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest border-l border-line ${
+                  viewMode === 'card' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
+                }`}
+                title="카드"
+              >▦ Card</button>
+            </div>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="search..."
+              className="bg-bg-deep border border-line text-ink px-2.5 py-0.5 text-xs w-44 focus:outline-none focus:border-amber"
+            />
+          </div>
         </div>
       </div>
 
-      {/* 가로 스크롤 wrapper — 모바일 대응 */}
+      {/* Card view */}
+      {viewMode === 'card' && (
+        <div className="p-3 grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {filtered.map((h) => {
+            const id = `${h.symbol}-${h.accountType}`
+            return (
+              <HoldingCard
+                key={id}
+                holding={h}
+                sortKey={sortKey}
+                isExpanded={expandedCardId === id}
+                onExpand={() => setExpandedCardId((cur) => cur === id ? null : id)}
+                onDetail={() => setDetailStock({ code: h.symbol, name: h.name })}
+              />
+            )
+          })}
+          {filtered.length === 0 && (
+            <div className="col-span-full text-center text-ink-faint py-10 text-xs">검색 결과 없음</div>
+          )}
+        </div>
+      )}
+
+      {/* List view */}
+      {viewMode === 'list' && (
       <div className="overflow-x-auto">
       {/* Header row */}
       <div className="grid items-center text-2xs uppercase tracking-widest text-ink-faint border-b border-line px-3 py-1.5 min-w-[1100px]"
@@ -221,6 +269,16 @@ export function DashboardHoldings({ holdings }: Props) {
         </div>
       )}
       </div>
+      )}
+
+      {/* Stock detail modal */}
+      {detailStock && (
+        <StockDetailModal
+          code={detailStock.code}
+          initialName={detailStock.name}
+          onClose={() => setDetailStock(null)}
+        />
+      )}
     </Panel>
   )
 }

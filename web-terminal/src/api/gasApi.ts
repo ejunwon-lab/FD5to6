@@ -33,6 +33,12 @@ export interface ApiHolding {
   profitRate: number
   change: number
   changePct: string
+  m1?: number
+  m3?: number
+  m6?: number
+  y1?: number
+  high52?: number
+  low52?: number
   buyDate?: string
 }
 
@@ -96,13 +102,43 @@ export interface StockTransaction {
   amount: number
 }
 
+export interface StockPosition {
+  broker: string
+  accountType: string
+  quantity: number
+  avgPrice: number
+  buyAmount: number
+  currentPrice: number
+  opCurrent: number
+  opProfit: number
+  profitRate: number
+  high52?: number
+  low52?: number
+}
+
 export interface StockDetailResponse {
   success: boolean
   error?: string
   code?: string
   name?: string
+  category?: string
+  positions?: StockPosition[]
+  summary?: {
+    totalQuantity: number
+    totalBuyAmount: number
+    totalCurrentValue: number
+    totalProfit: number
+    profitRate: number
+  }
   transactions?: StockTransaction[]
   priceHistory?: { date: string; price: number }[]
+  stats?: {
+    transactionCount: number
+    buyCount: number
+    sellCount: number
+    firstBuyDate: string | null
+    lastTransactionDate: string | null
+  }
 }
 
 async function callGAS<T>(functionName: string, token: string, parameters?: unknown[]): Promise<T> {

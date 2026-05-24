@@ -14,15 +14,35 @@ export const summary: PortfolioSummary = {
   cashPct: 4.5,
 }
 
+function mk(p: Omit<Holding, 'category' | 'opBuy' | 'currentPrice' | 'change' | 'changePct' | 'm1' | 'm3' | 'm6' | 'y1' | 'high52' | 'low52'> & { changeKRW: number }): Holding {
+  const opBuy = p.value - p.opProfit
+  const currentPrice = p.value / Math.max(p.shares, 1)
+  const change = p.changeKRW / Math.max(p.shares, 1)
+  return {
+    ...p,
+    category: p.market === 'KR' ? '한국주식' : '미국주식',
+    opBuy,
+    currentPrice,
+    change,
+    changePct: `${p.dayChangePct >= 0 ? '+' : ''}${p.dayChangePct.toFixed(2)}%`,
+    m1: p.dayChangePct * 1.3,
+    m3: p.returnPct * 0.4,
+    m6: p.returnPct * 0.7,
+    y1: p.returnPct,
+    high52: currentPrice * 1.18,
+    low52: currentPrice * 0.72,
+  }
+}
+
 export const holdings: Holding[] = [
-  { symbol: 'NVDA',   name: 'NVIDIA',     market: 'US', value: 12_400_000, returnPct: 28.5,  weightPct: 25.9, shares: 8,  avgPrice: 720,    accountType: '종합',      broker: '미래에셋',   opProfit: 2_750_000, dayChange:  +135_400, dayChangePct: +1.10, buyDate: '2025-09-15' },
-  { symbol: '005930', name: '삼성전자',   market: 'KR', value: 8_200_000,  returnPct: 5.2,   weightPct: 17.1, shares: 25, avgPrice: 328_000,accountType: '종합_랩',   broker: '미래에셋',   opProfit:   405_000, dayChange:   +91_000, dayChangePct: +1.12, buyDate: '2024-11-02' },
-  { symbol: 'MSFT',   name: 'Microsoft',  market: 'US', value: 7_300_000,  returnPct: 18.7,  weightPct: 15.3, shares: 12, avgPrice: 310,    accountType: '종합',      broker: '미래에셋',   opProfit: 1_150_000, dayChange:   +77_400, dayChangePct: +1.07, buyDate: '2025-02-20' },
-  { symbol: '000660', name: 'SK하이닉스', market: 'KR', value: 6_750_000,  returnPct: 12.8,  weightPct: 14.1, shares: 30, avgPrice: 175_000,accountType: '종합_랩',   broker: '미래에셋',   opProfit:   765_000, dayChange:  +145_300, dayChangePct: +2.20, buyDate: '2025-03-08' },
-  { symbol: 'AAPL',   name: 'Apple',      market: 'US', value: 5_200_000,  returnPct: 3.2,   weightPct: 10.9, shares: 15, avgPrice: 182,    accountType: 'ISA',       broker: '삼성증권',   opProfit:   160_000, dayChange:   +44_200, dayChangePct: +0.85, buyDate: '2025-06-11' },
-  { symbol: 'TSLA',   name: 'Tesla',      market: 'US', value: 3_100_000,  returnPct: -2.1,  weightPct: 6.5,  shares: 10, avgPrice: 240,    accountType: 'ISA',       broker: '미래에셋',   opProfit:   -67_000, dayChange:   -66_400, dayChangePct: -2.10, buyDate: '2025-08-23' },
-  { symbol: '035720', name: '카카오',     market: 'KR', value: 2_500_000,  returnPct: -8.3,  weightPct: 5.2,  shares: 50, avgPrice: 54_000, accountType: 'ISA',       broker: '삼성증권',   opProfit:  -225_000, dayChange:   -49_000, dayChangePct: -1.92, buyDate: '2024-09-14' },
-  { symbol: '005380', name: '현대차',     market: 'KR', value: 2_382_500,  returnPct: 6.4,   weightPct: 5.0,  shares: 12, avgPrice: 186_000,accountType: '퇴직연금_미래', broker: '미래에셋', opProfit:   143_500, dayChange:   +29_200, dayChangePct: +1.24, buyDate: '2025-01-30' },
+  mk({ symbol: 'NVDA',   name: 'NVIDIA',     market: 'US', value: 12_400_000, returnPct: 28.5,  weightPct: 25.9, shares: 8,  avgPrice: 720,    accountType: '종합',         broker: '미래에셋', opProfit: 2_750_000, dayChange: +135_400, changeKRW: +135_400, dayChangePct: +1.10, buyDate: '2025-09-15' }),
+  mk({ symbol: '005930', name: '삼성전자',   market: 'KR', value: 8_200_000,  returnPct: 5.2,   weightPct: 17.1, shares: 25, avgPrice: 328_000,accountType: '종합_랩',      broker: '미래에셋', opProfit:   405_000, dayChange:  +91_000, changeKRW:  +91_000, dayChangePct: +1.12, buyDate: '2024-11-02' }),
+  mk({ symbol: 'MSFT',   name: 'Microsoft',  market: 'US', value: 7_300_000,  returnPct: 18.7,  weightPct: 15.3, shares: 12, avgPrice: 310,    accountType: '종합',         broker: '미래에셋', opProfit: 1_150_000, dayChange:  +77_400, changeKRW:  +77_400, dayChangePct: +1.07, buyDate: '2025-02-20' }),
+  mk({ symbol: '000660', name: 'SK하이닉스', market: 'KR', value: 6_750_000,  returnPct: 12.8,  weightPct: 14.1, shares: 30, avgPrice: 175_000,accountType: '종합_랩',      broker: '미래에셋', opProfit:   765_000, dayChange: +145_300, changeKRW: +145_300, dayChangePct: +2.20, buyDate: '2025-03-08' }),
+  mk({ symbol: 'AAPL',   name: 'Apple',      market: 'US', value: 5_200_000,  returnPct: 3.2,   weightPct: 10.9, shares: 15, avgPrice: 182,    accountType: 'ISA',          broker: '삼성증권', opProfit:   160_000, dayChange:  +44_200, changeKRW:  +44_200, dayChangePct: +0.85, buyDate: '2025-06-11' }),
+  mk({ symbol: 'TSLA',   name: 'Tesla',      market: 'US', value: 3_100_000,  returnPct: -2.1,  weightPct: 6.5,  shares: 10, avgPrice: 240,    accountType: 'ISA',          broker: '미래에셋', opProfit:   -67_000, dayChange:  -66_400, changeKRW:  -66_400, dayChangePct: -2.10, buyDate: '2025-08-23' }),
+  mk({ symbol: '035720', name: '카카오',     market: 'KR', value: 2_500_000,  returnPct: -8.3,  weightPct: 5.2,  shares: 50, avgPrice: 54_000, accountType: 'ISA',          broker: '삼성증권', opProfit:  -225_000, dayChange:  -49_000, changeKRW:  -49_000, dayChangePct: -1.92, buyDate: '2024-09-14' }),
+  mk({ symbol: '005380', name: '현대차',     market: 'KR', value: 2_382_500,  returnPct: 6.4,   weightPct: 5.0,  shares: 12, avgPrice: 186_000,accountType: '퇴직연금_미래', broker: '미래에셋', opProfit:   143_500, dayChange:  +29_200, changeKRW:  +29_200, dayChangePct: +1.24, buyDate: '2025-01-30' }),
 ]
 
 export const indicators: Indicator[] = [
