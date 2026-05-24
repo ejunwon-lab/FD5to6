@@ -37,12 +37,15 @@ export function usePortfolio() {
         gasApi.getIndicators(token).catch(() => null),
         gasApi.getProfitHistory(token).catch(() => null),
       ])
+      const baseIndicators: Indicator[] = ind?.indicators ? mapIndicators(ind) : []
+      // FX 환율은 portfolio 응답의 usdRate/gbpRate에 있음 (indicators엔 없음) — 병합
+      const fxIndicators = makeFxIndicators(pf)
       setState({
         loading: false,
         error: pf.success ? null : (pf.error ?? '포트폴리오 조회 실패'),
         summary: pf.summary ? mapSummary(pf) : null,
         holdings: pf.holdings ? mapHoldings(pf) : [],
-        indicators: ind?.indicators ? mapIndicators(ind) : [],
+        indicators: [...baseIndicators, ...fxIndicators],
         equityCurve: hist?.entries ? mapEquity(hist) : [],
         updatedAt: pf.updatedAt ?? null,
       })
@@ -126,6 +129,18 @@ function mapHoldings(pf: PortfolioResponse): Holding[] {
 function detectMarket(code: string): Market {
   // KR codes are 6-digit numeric; everything else US
   return /^\d{6}$/.test(code) ? 'KR' : 'US'
+}
+
+// FX 환율 합성 — portfolio 응답에서 usdRate/gbpRate 추출. 변동 정보 없어 0으로 표기
+function makeFxIndicators(pf: PortfolioResponse): Indicator[] {
+  const out: Indicator[] = []
+  if (Number(pf.usdRate) > 0) {
+    out.push({ symbol: 'USDKRW', name: 'USD/KRW', value: Number(pf.usdRate), changeAbs: 0, changePct: 0, spark: [] })
+  }
+  if (Number(pf.gbpRate) > 0) {
+    out.push({ symbol: 'GBPKRW', name: 'GBP/KRW', value: Number(pf.gbpRate), changeAbs: 0, changePct: 0, spark: [] })
+  }
+  return out
 }
 
 function mapIndicators(ind: IndicatorsResponse): Indicator[] {

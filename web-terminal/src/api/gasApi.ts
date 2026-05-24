@@ -47,6 +47,7 @@ export interface PortfolioResponse {
   error?: string
   updatedAt?: string
   usdRate?: number
+  gbpRate?: number
   summary?: Summary
   holdings?: ApiHolding[]
 }

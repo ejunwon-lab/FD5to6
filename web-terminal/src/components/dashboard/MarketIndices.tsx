@@ -46,8 +46,10 @@ function IndexCard({ label, ind }: { label: string; ind?: Indicator }) {
       </div>
     )
   }
+  // 변동 데이터 없는 경우 (FX 등) → 중립 표시
+  const noChangeData = ind.changeAbs === 0 && ind.changePct === 0 && ind.spark.length === 0
   const up = ind.changePct >= 0
-  const stroke = up ? '#00ff7f' : '#ff3366'
+  const stroke = noChangeData ? '#4a5568' : (up ? '#00ff7f' : '#ff3366')
   let points = ''
   if (ind.spark.length >= 2) {
     const max = Math.max(...ind.spark)
@@ -65,15 +67,19 @@ function IndexCard({ label, ind }: { label: string; ind?: Indicator }) {
     <div className="bg-bg-elev p-3">
       <div className="flex justify-between items-baseline mb-1">
         <span className="text-amber font-medium text-xs tracking-wider truncate">{label}</span>
-        <span className={`text-2xs tabular shrink-0 ml-1 ${up ? 'text-gain' : 'text-loss'}`}>
-          {up ? '▲' : '▼'} {up ? '+' : ''}{ind.changePct.toFixed(2)}%
-        </span>
+        {noChangeData ? (
+          <span className="text-2xs tabular shrink-0 ml-1 text-ink-faint">·</span>
+        ) : (
+          <span className={`text-2xs tabular shrink-0 ml-1 ${up ? 'text-gain' : 'text-loss'}`}>
+            {up ? '▲' : '▼'} {up ? '+' : ''}{ind.changePct.toFixed(2)}%
+          </span>
+        )}
       </div>
       <div className="text-[19px] font-medium text-ink tabular leading-tight">
         {ind.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </div>
-      <div className={`text-2xs tabular mt-0.5 ${up ? 'text-gain' : 'text-loss'}`}>
-        {up ? '+' : ''}{ind.changeAbs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      <div className={`text-2xs tabular mt-0.5 ${noChangeData ? 'text-ink-faint' : (up ? 'text-gain' : 'text-loss')}`}>
+        {noChangeData ? '변동 데이터 없음' : `${up ? '+' : ''}${ind.changeAbs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
       </div>
       <svg viewBox="0 0 100 28" preserveAspectRatio="none" className="w-full h-5 mt-1.5">
         <path d={points} stroke={stroke} strokeWidth={1.5} fill="none" vectorEffect="non-scaling-stroke" />
