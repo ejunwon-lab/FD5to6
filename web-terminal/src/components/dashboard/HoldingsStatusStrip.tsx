@@ -95,8 +95,8 @@ function DynamicCell({ holdings, sortKey, selectedAccount }: Props) {
       return (
         <KpiCell
           label="비중 1위"
-          value={<span className="text-amber">{top.symbol}</span>}
-          sub={`${top.name.slice(0, 8)} · ${pct.toFixed(1)}%`}
+          value={<span className="text-amber">{top.name}</span>}
+          sub={`${top.symbol} · ${pct.toFixed(1)}%`}
           tone="amber"
         />
       )
@@ -109,7 +109,7 @@ function DynamicCell({ holdings, sortKey, selectedAccount }: Props) {
       return (
         <KpiCell
           label={up ? '오늘 TOP 상승' : '오늘 TOP 하락'}
-          value={<span className="text-amber">{top.symbol}</span>}
+          value={<span className="text-amber">{top.name}</span>}
           sub={
             <span className={up ? 'text-gain' : 'text-loss'}>
               {up ? '+' : ''}₩{top.dayChange.toLocaleString()} ({top.changePct})
@@ -128,13 +128,13 @@ function DynamicCell({ holdings, sortKey, selectedAccount }: Props) {
         <div className="bg-bg-elev px-3 sm:px-3.5 py-2.5 sm:py-3">
           <div className="text-xxs text-ink-faint tracking-widest2 uppercase mb-1">베스트 · 워스트</div>
           <div className="text-xs space-y-0.5">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-amber font-medium">{best.symbol}</span>
-              <span className="text-gain tabular">+{best.returnPct.toFixed(1)}%</span>
+            <div className="flex items-baseline gap-1.5 justify-between">
+              <span className="text-amber font-medium truncate">{best.name}</span>
+              <span className="text-gain tabular shrink-0">+{best.returnPct.toFixed(1)}%</span>
             </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-amber font-medium">{worst.symbol}</span>
-              <span className="text-loss tabular">{worst.returnPct.toFixed(1)}%</span>
+            <div className="flex items-baseline gap-1.5 justify-between">
+              <span className="text-amber font-medium truncate">{worst.name}</span>
+              <span className="text-loss tabular shrink-0">{worst.returnPct.toFixed(1)}%</span>
             </div>
           </div>
         </div>
@@ -149,13 +149,13 @@ function DynamicCell({ holdings, sortKey, selectedAccount }: Props) {
         <div className="bg-bg-elev px-3 sm:px-3.5 py-2.5 sm:py-3">
           <div className="text-xxs text-ink-faint tracking-widest2 uppercase mb-1">최대 수익 · 손실</div>
           <div className="text-xs space-y-0.5">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-amber font-medium">{best.symbol}</span>
-              <span className="text-gain tabular text-2xs">+₩{Math.abs(best.opProfit).toLocaleString()}</span>
+            <div className="flex items-baseline gap-1.5 justify-between">
+              <span className="text-amber font-medium truncate">{best.name}</span>
+              <span className="text-gain tabular text-2xs shrink-0">+₩{Math.abs(best.opProfit).toLocaleString()}</span>
             </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-amber font-medium">{worst.symbol}</span>
-              <span className="text-loss tabular text-2xs">−₩{Math.abs(worst.opProfit).toLocaleString()}</span>
+            <div className="flex items-baseline gap-1.5 justify-between">
+              <span className="text-amber font-medium truncate">{worst.name}</span>
+              <span className="text-loss tabular text-2xs shrink-0">−₩{Math.abs(worst.opProfit).toLocaleString()}</span>
             </div>
           </div>
         </div>
@@ -172,7 +172,7 @@ function DynamicCell({ holdings, sortKey, selectedAccount }: Props) {
         <KpiCell
           label="평균 보유"
           value={<span>{avg}<span className="text-base text-ink-faint ml-1">일</span></span>}
-          sub={<span>최장: <span className="text-amber">{longest.symbol}</span> · {longestDays}일</span>}
+          sub={<span>최장: <span className="text-amber">{longest.name}</span> · {longestDays}일</span>}
           tone="cyan"
         />
       )
