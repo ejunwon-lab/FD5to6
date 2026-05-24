@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react'
 import { Panel } from '../ui/Panel'
 import type { Holding } from '../../lib/types'
 import { HoldingCard, type HoldingSortKey } from '../holdings/HoldingCard'
+import { HoldingCardWeb } from '../holdings/HoldingCardWeb'
 import { StockDetailModal } from '../holdings/StockDetailModal'
 
 interface Props { holdings: Holding[] }
 
 type SortKey = HoldingSortKey
-type ViewMode = 'list' | 'card'
+type ViewMode = 'list' | 'card-terminal' | 'card-web'
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'allInfo',    label: '종목 정보' },
@@ -122,7 +123,7 @@ export function DashboardHoldings({ holdings }: Props) {
               {sortKey === opt.key && <span>{sortAsc ? '↑' : '↓'}</span>}
             </button>
           ))}
-          {/* View mode toggle */}
+          {/* View mode toggle — 3-state */}
           <div className="ml-auto flex items-center gap-2">
             <div className="inline-flex border border-line">
               <button
@@ -133,12 +134,19 @@ export function DashboardHoldings({ holdings }: Props) {
                 title="목록"
               >☰ List</button>
               <button
-                onClick={() => setViewMode('card')}
+                onClick={() => setViewMode('card-terminal')}
                 className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest border-l border-line ${
-                  viewMode === 'card' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
+                  viewMode === 'card-terminal' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
                 }`}
-                title="카드"
-              >▦ Card</button>
+                title="Terminal 카드"
+              >▦ Terminal</button>
+              <button
+                onClick={() => setViewMode('card-web')}
+                className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest border-l border-line ${
+                  viewMode === 'card-web' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
+                }`}
+                title="Web 스타일 카드"
+              >▤ Web</button>
             </div>
             <input
               value={query}
@@ -150,8 +158,8 @@ export function DashboardHoldings({ holdings }: Props) {
         </div>
       </div>
 
-      {/* Card view */}
-      {viewMode === 'card' && (
+      {/* Terminal Card view */}
+      {viewMode === 'card-terminal' && (
         <div className="p-3 grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {filtered.map((h) => {
             const id = `${h.symbol}-${h.accountType}`
@@ -168,6 +176,28 @@ export function DashboardHoldings({ holdings }: Props) {
           })}
           {filtered.length === 0 && (
             <div className="col-span-full text-center text-ink-faint py-10 text-xs">검색 결과 없음</div>
+          )}
+        </div>
+      )}
+
+      {/* Web-style Card view (web/ 와 동일 디자인, 큰 사이즈, 풀 숫자) */}
+      {viewMode === 'card-web' && (
+        <div className="p-4 grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((h) => {
+            const id = `${h.symbol}-${h.accountType}`
+            return (
+              <HoldingCardWeb
+                key={id}
+                holding={h}
+                sortKey={sortKey}
+                isExpanded={expandedCardId === id}
+                onExpand={() => setExpandedCardId((cur) => cur === id ? null : id)}
+                onDetail={() => setDetailStock({ code: h.symbol, name: h.name })}
+              />
+            )
+          })}
+          {filtered.length === 0 && (
+            <div className="col-span-full text-center text-ink-faint py-10 text-sm">검색 결과 없음</div>
           )}
         </div>
       )}
