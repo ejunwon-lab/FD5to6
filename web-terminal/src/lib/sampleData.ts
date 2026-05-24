@@ -46,11 +46,13 @@ export const holdings: Holding[] = [
 ]
 
 export const indicators: Indicator[] = [
-  { symbol: 'KOSPI',   name: 'KOSPI',      value: 2541.32, changeAbs: 11.34,   changePct: 0.45,  spark: [18,16,19,14,12,9,13,7,5] },
-  { symbol: 'KOSDAQ',  name: 'KOSDAQ',     value: 832.41,  changeAbs: 4.18,    changePct: 0.50,  spark: [22,19,17,15,18,12,14,9,7] },
-  { symbol: 'S&P500',  name: 'S&P 500',    value: 5234.18, changeAbs: 42.55,   changePct: 0.82,  spark: [20,18,21,15,13,10,8,11,4] },
-  { symbol: 'USDKRW',  name: 'USD/KRW',    value: 1342.50, changeAbs: -2.40,   changePct: -0.18, spark: [6,9,11,13,12,15,14,17,18] },
-  { symbol: 'BTC',     name: 'BTC/USD',    value: 67234,   changeAbs: 1583,    changePct: 2.41,  spark: [19,17,14,16,11,13,8,10,5] },
+  { symbol: 'KOSPI',     name: 'KOSPI',       value: 2541.32, changeAbs: 11.34,   changePct: 0.45,  spark: [18,16,19,14,12,9,13,7,5] },
+  { symbol: 'KOSDAQ',    name: 'KOSDAQ',      value:  832.41, changeAbs:  4.18,   changePct: 0.50,  spark: [22,19,17,15,18,12,14,9,7] },
+  { symbol: 'S&P500',    name: 'S&P 500',     value: 5234.18, changeAbs: 42.55,   changePct: 0.82,  spark: [20,18,21,15,13,10,8,11,4] },
+  { symbol: 'NASDAQ100', name: 'NASDAQ 100',  value:18342.65, changeAbs:206.42,   changePct: 1.14,  spark: [21,18,22,16,14,11,13,8,3] },
+  { symbol: 'USDKRW',    name: 'USD/KRW',     value: 1342.50, changeAbs: -2.40,   changePct:-0.18,  spark: [6,9,11,13,12,15,14,17,18] },
+  { symbol: 'GBPKRW',    name: 'GBP/KRW',     value: 1701.20, changeAbs: -3.15,   changePct:-0.18,  spark: [7,9,12,11,13,16,15,17,19] },
+  { symbol: 'BTC',       name: 'BTC/USD',     value:67234,    changeAbs:1583,     changePct: 2.41,  spark: [19,17,14,16,11,13,8,10,5] },
 ]
 
 export const activity: ActivityItem[] = [
