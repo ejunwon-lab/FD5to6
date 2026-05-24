@@ -34,7 +34,7 @@ export function DashboardHoldings({ holdings }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('allInfo')
   const [sortAsc, setSortAsc] = useState(false)
   const [query, setQuery] = useState('')
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [viewMode, setViewMode] = useState<ViewMode>('card-web')
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null)
   const [detailStock, setDetailStock] = useState<{ code: string; name: string } | null>(null)
 
@@ -124,19 +124,12 @@ export function DashboardHoldings({ holdings }: Props) {
               {sortKey === opt.key && <span>{sortAsc ? '↑' : '↓'}</span>}
             </button>
           ))}
-          {/* View mode toggle — 3-state (순서: List → Web → Terminal) */}
+          {/* View mode toggle — 3-state (순서: Web → Terminal → List) */}
           <div className="ml-auto flex items-center gap-2">
             <div className="inline-flex border border-line">
               <button
-                onClick={() => setViewMode('list')}
-                className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest ${
-                  viewMode === 'list' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
-                }`}
-                title="목록"
-              >☰ List</button>
-              <button
                 onClick={() => setViewMode('card-web')}
-                className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest border-l border-line ${
+                className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest ${
                   viewMode === 'card-web' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
                 }`}
                 title="Web 스타일 카드"
@@ -148,6 +141,13 @@ export function DashboardHoldings({ holdings }: Props) {
                 }`}
                 title="Terminal 카드"
               >▦ Terminal</button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest border-l border-line ${
+                  viewMode === 'list' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
+                }`}
+                title="목록"
+              >☰ List</button>
             </div>
             <input
               value={query}
