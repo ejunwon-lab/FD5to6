@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis
 import { usePortfolio } from '../../lib/usePortfolio'
 import { holdings as sampleHoldings, equityCurve as sampleEquity } from '../../lib/sampleData'
 import { Panel } from '../ui/Panel'
+import { ContributionBar } from './ContributionBar'
 
 const MARKET_COLORS = { KR: '#00d4ff', US: '#ffa500' } as const
 
@@ -79,6 +80,9 @@ export function AnalysisPage() {
           </ResponsiveContainer>
         </div>
       </Panel>
+
+      {/* Profit Contribution — 종목별 합계 수익 기여 */}
+      <ContributionBar holdings={holdings} />
 
       {/* Top winners */}
       <Panel title="Top Winners">
