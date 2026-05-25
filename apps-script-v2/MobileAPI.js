@@ -413,6 +413,58 @@ function newMobileGetProfitHistory() {
 }
 
 // ══════════════════════════════════════════════════════
+//  참고지표 히스토리 시계열 (벤치마크 차트용)
+//  - *참고지표_히스토리* 시트 (날짜 + 시간 + 지표명 컬럼들) → wide JSON
+//  - 응답: { keys: ['KOSPI','SPX',...], entries: [{date, KOSPI:2700, SPX:5200, ...}] }
+//  - 헤더는 NEW_REFERENCE_INDICATORS의 .name. name→key 매핑하여 클라이언트가 다루기 쉬운 key로 변환
+//  - 날짜 오름차순 정렬
+// ══════════════════════════════════════════════════════
+function newMobileGetIndicatorHistory() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('참고지표_히스토리');
+    if (!sheet || sheet.getLastRow() < 2) {
+      return JSON.stringify({ success: true, keys: [], entries: [] });
+    }
+    const tz      = ss.getSpreadsheetTimeZone();
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+
+    const header = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    const names  = header.slice(2);  // [날짜, 시간] 다음부터 지표명
+
+    const nameToKey = {};
+    for (const d of NEW_REFERENCE_INDICATORS) nameToKey[d.name] = d.key;
+
+    const keys = [];
+    const colIdxByKey = [];
+    names.forEach((n, i) => {
+      const k = nameToKey[n];
+      if (k) { keys.push(k); colIdxByKey.push(2 + i); }
+    });
+
+    const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    const entries = rows.map(r => {
+      const dateStr = r[0] instanceof Date
+        ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd')
+        : String(r[0]).slice(0, 10);
+      const entry = { date: dateStr };
+      for (let i = 0; i < keys.length; i++) {
+        entry[keys[i]] = Number(r[colIdxByKey[i]]) || 0;
+      }
+      return entry;
+    }).filter(e => e.date);
+
+    entries.sort((a, b) => a.date.localeCompare(b.date));
+
+    return JSON.stringify({ success: true, keys, entries });
+  } catch (e) {
+    Logger.log('newMobileGetIndicatorHistory 오류: ' + e);
+    return JSON.stringify({ success: false, error: String(e) });
+  }
+}
+
+// ══════════════════════════════════════════════════════
 //  참고지표 정의 (구시스템 동일)
 // ══════════════════════════════════════════════════════
 const NEW_REFERENCE_INDICATORS = [

@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useRealized } from '../../lib/useRealized'
+import { usePortfolio } from '../../lib/usePortfolio'
 import { Panel } from '../ui/Panel'
+import { TaxSimPanel } from './TaxSimPanel'
+import { YearlyComparisonPanel } from './YearlyComparisonPanel'
+import { holdings as sampleHoldings } from '../../lib/sampleData'
 
 const SAMPLE_REALIZED = [
   { date: '2026-05-20', month: '2026-05', code: 'NVDA',    name: 'NVIDIA',     broker: '미래에셋', account: '종합_랩',
@@ -23,7 +27,9 @@ const SAMPLE_REALIZED = [
 
 export function ActivityPage() {
   const { entries, loading, error } = useRealized()
+  const { holdings: liveHoldings } = usePortfolio()
   const data = entries.length ? entries : SAMPLE_REALIZED
+  const holdings = liveHoldings.length ? liveHoldings : sampleHoldings
 
   const [selectedMonth, setSelectedMonth] = useState<string>('ALL')
 
@@ -54,6 +60,12 @@ export function ActivityPage() {
         <Stat label="Win Rate"      value={`${data.length ? Math.round((stats.winCount / data.length) * 100) : 0}%`} sub={`${data.length} closed`} />
         <Stat label="Avg Trade"     value={fmtSignedKrw(stats.total / Math.max(data.length, 1))}        sub="per close"                                                    tone="cyan" />
         <Stat label="Total Fees"    value={`₩${Math.round(stats.totalFee).toLocaleString()}`}           sub={`${data.length ? Math.round(stats.totalFee / data.length).toLocaleString() : 0}/trade`} />
+      </div>
+
+      {/* Yearly + Tax-loss (신규 Phase B) */}
+      <div className="grid lg:grid-cols-2 gap-2.5">
+        <YearlyComparisonPanel entries={data} />
+        <TaxSimPanel holdings={holdings} />
       </div>
 
       {/* Monthly P&L bar */}

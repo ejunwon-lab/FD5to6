@@ -4,6 +4,7 @@ import { usePortfolio } from '../../lib/usePortfolio'
 import { holdings as sampleHoldings, equityCurve as sampleEquity } from '../../lib/sampleData'
 import { Panel } from '../ui/Panel'
 import { ContributionBar } from './ContributionBar'
+import { BenchmarkPanel } from './BenchmarkPanel'
 
 // 증권사 base 색상 + 같은 증권사 내 계좌별 명도 변형
 const BROKER_SHADES: Record<string, string[]> = {
@@ -29,9 +30,10 @@ function accountShade(b: string, localIdx: number): string {
 import { accountDisplay } from '../../lib/accountDisplay'
 
 export function AnalysisPage() {
-  const { holdings: live, equityCurve: liveEquity } = usePortfolio()
+  const { holdings: live, equityCurve: liveEquity, summary } = usePortfolio()
   const holdings = live.length ? live : sampleHoldings
   const equity = liveEquity.length ? liveEquity : sampleEquity
+  const portfolioValue = summary?.totalValue ?? 0
 
   const stats = useMemo(() => computeStats(holdings, equity), [holdings, equity])
 
@@ -45,6 +47,11 @@ export function AnalysisPage() {
         <Stat label="Volatility" value={`${stats.vol.toFixed(2)}%`} sub="daily σ" />
         <Stat label="Win Days" value={`${stats.winRate.toFixed(0)}%`} sub={`${stats.winDays}/${stats.totalDays} sessions`} />
         <Stat label="Best Day" value={`+${stats.bestDay.toFixed(2)}%`} sub={stats.bestDayDate} tone="up" />
+      </div>
+
+      {/* Benchmark outperformance (전체 폭) */}
+      <div className="lg:col-span-2">
+        <BenchmarkPanel equityCurve={equity} portfolioValue={portfolioValue} />
       </div>
 
       {/* Allocation by 증권사 → 계좌 (nested) */}
