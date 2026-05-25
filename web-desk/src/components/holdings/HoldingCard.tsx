@@ -24,13 +24,13 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
       className={`bg-bg-elev border border-line border-l-4 ${borderClass} cursor-pointer hover:bg-bg-hover transition-colors`}
     >
       <div className="p-3.5">
-        {/* Top: name·code | currentPrice·dayChange */}
+        {/* Top: name (main) · code · market | currentPrice·dayChange */}
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
-              <span className="text-amber font-semibold text-sm tabular shrink-0">{h.symbol}</span>
-              <span className="text-ink truncate text-sm">{h.name}</span>
+              <span className="text-amber font-semibold text-sm truncate">{h.name}</span>
               <span className="text-cyan text-2xs tracking-widest shrink-0">{h.market}</span>
+              <span className="text-2xs text-ink-faint tabular shrink-0">{h.symbol}</span>
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-2xs text-ink-faint tabular">{duration}</span>
@@ -47,7 +47,7 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
           </div>
           <div className="text-right shrink-0">
             <div className="text-ink font-medium tabular text-sm">
-              {h.market === 'KR' ? `₩${formatPrice(h.currentPrice, false)}` : `₩${formatPrice(h.currentPrice, false)}`}
+              ₩{Math.round(h.currentPrice).toLocaleString()}
             </div>
             <div className={`text-xs tabular ${isUp ? 'text-gain' : 'text-loss'}`}>
               {isUp ? '▲' : '▼'} {h.changePct}
@@ -58,9 +58,9 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
 
         {/* Mid: 매입 / 평가 / 수익 */}
         <div className="grid grid-cols-3 gap-px bg-line border border-line mb-3">
-          <Cell label="매입" value={`₩${compactKRW(h.opBuy)}`} />
-          <Cell label="평가" value={`₩${compactKRW(h.value)}`} />
-          <Cell label="수익" value={`${h.opProfit >= 0 ? '+' : ''}₩${compactKRW(h.opProfit)}`} tone={isProfit ? 'gain' : 'loss'} />
+          <Cell label="매입" value={`₩${Math.round(h.opBuy).toLocaleString()}`} />
+          <Cell label="평가" value={`₩${Math.round(h.value).toLocaleString()}`} />
+          <Cell label="수익" value={`${h.opProfit >= 0 ? '+' : ''}₩${Math.round(h.opProfit).toLocaleString()}`} tone={isProfit ? 'gain' : 'loss'} />
         </div>
 
         {/* Bottom: 오늘 등락 / 수익률 */}
@@ -73,17 +73,17 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
         {isExpanded && (
           <div className="mt-3 pt-3 border-t border-line">
             <div className="grid grid-cols-3 gap-x-3 gap-y-2.5 text-xs">
-              <DField label="평가금액"  value={`₩${compactKRW(h.value)}`} />
-              <DField label="매입금액"  value={`₩${compactKRW(h.opBuy)}`} />
-              <DField label="수익금"    value={`${h.opProfit >= 0 ? '+' : ''}₩${compactKRW(h.opProfit)}`} tone={isProfit ? 'gain' : 'loss'} />
-              <DField label="현재 단가" value={`₩${formatPrice(h.currentPrice, true)}`} />
-              <DField label="평균 단가" value={h.market === 'KR' ? `₩${formatPrice(h.avgPrice, true)}` : `$${h.avgPrice.toFixed(2)}`} />
-              <DField label="수량"      value={`${h.shares}주`} />
+              <DField label="평가금액"  value={`₩${Math.round(h.value).toLocaleString()}`} />
+              <DField label="매입금액"  value={`₩${Math.round(h.opBuy).toLocaleString()}`} />
+              <DField label="수익금"    value={`${h.opProfit >= 0 ? '+' : ''}₩${Math.round(h.opProfit).toLocaleString()}`} tone={isProfit ? 'gain' : 'loss'} />
+              <DField label="현재 단가" value={`₩${Math.round(h.currentPrice).toLocaleString()}`} />
+              <DField label="평균 단가" value={h.market === 'KR' ? `₩${Math.round(h.avgPrice).toLocaleString()}` : `$${h.avgPrice.toFixed(2)}`} />
+              <DField label="수량"      value={`${h.shares.toLocaleString()}주`} />
               <DField label="1개월"     value={pctStr(h.m1)} tone={h.m1 >= 0 ? 'gain' : 'loss'} />
               <DField label="3개월"     value={pctStr(h.m3)} tone={h.m3 >= 0 ? 'gain' : 'loss'} />
               <DField label="12개월"    value={pctStr(h.y1)} tone={h.y1 >= 0 ? 'gain' : 'loss'} />
-              <DField label="52주 고"   value={`₩${formatPrice(h.high52, true)}`} />
-              <DField label="52주 저"   value={`₩${formatPrice(h.low52, true)}`} />
+              <DField label="52주 고"   value={`₩${Math.round(h.high52).toLocaleString()}`} />
+              <DField label="52주 저"   value={`₩${Math.round(h.low52).toLocaleString()}`} />
               <DField label="계좌"      value={accountDisplay(h.accountType)} />
             </div>
           </div>
@@ -130,20 +130,6 @@ function DField({ label, value, tone }: { label: string; value: string; tone?: '
       </div>
     </div>
   )
-}
-
-function compactKRW(n: number): string {
-  const abs = Math.abs(n)
-  if (abs >= 1e8) return (n / 1e8).toFixed(2) + '억'
-  if (abs >= 1e6) return (n / 1e4).toFixed(0) + '만'
-  if (abs >= 1e4) return (n / 1e4).toFixed(1) + '만'
-  return Math.round(n).toLocaleString()
-}
-
-function formatPrice(n: number, full: boolean): string {
-  if (!Number.isFinite(n)) return '—'
-  if (full) return Math.round(n).toLocaleString()
-  return compactKRW(n)
 }
 
 function pctStr(p: number): string {
