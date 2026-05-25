@@ -48,3 +48,33 @@
   클라이언트(web/iOS) 영향 없음 — API 응답 구조 불변.
 - **갱신 보장**: `updatePositionFromLedger` 끝에서 `computeStockMetrics` 호출 →
   모든 갱신 경로(updateAllNew·newMobileUpdate*·메뉴)가 통과. 읽기 시 시트 없으면 1회 자동 계산.
+
+## 2026-05-25 — 데스크 표시 규칙: 숫자 풀 + 종목명 메인
+
+- **결정**: 모든 UI에서 숫자는 풀 표시(`toLocaleString()`), 종목 표시는 종목명이 메인·종목코드는 보조
+- **이유**: 사용자 명시 피드백 — 축약(`1.23억`·`456만`·`M/K`)은 정확 금액 파악을 방해. 한국 종목 6자리 코드는 그 자체로 의미 인지가 안 됨 → 종목명이 1차 단서
+- **적용 범위**: web-desk 모든 컴포넌트 (Account P&L·ContributionBar·GainersLosersStrip·MarketHeatmap·HoldingCard Terminal·DashboardHoldings List·Ticker 등)
+- **보장 장치**: memory 영구 저장 (`feedback_number_display`·`feedback_stock_name_primary`) → 향후 새 컴포넌트에 자동 적용
+
+## 2026-05-25 — 데스크 단일 데이터 소스 (DataProvider Context)
+
+- **결정**: `usePortfolio`·`useRealized`를 페이지마다 새 instance로 호출하는 대신, App 최상위 `DataProvider`가 1 instance로 모든 페이지에 공유
+- **이유**: 페이지 unmount/mount 시마다 fetch 3건 중복 호출되던 문제 (사용자 발견). Provider 1개로 페이지 전환 시 fetch 0건
+- **호환성**: 기존 hook 파일(`usePortfolio.ts`·`useRealized.ts`)을 re-export 1줄로 변경 → 모든 호출처의 import 경로 무변경
+- **부가 효과**:
+  - **prefetch**: 대시보드 1차 fetch 직후 `monthlyRealized` 백그라운드 prefetch → Activity 첫 진입 즉시 표시
+  - **시간당 자동 백그라운드 재페치**: `setInterval(60 * 60 * 1000)` → GAS 09:30~16:30 매시 :30 자동 갱신과 매칭
+  - **inflight 가드**: 동시 호출 방지
+
+## 2026-05-25 — GAS 장중 자동 트리거: everyMinutes(30) + 핸들러 분 체크
+
+- **결정**: 장중 매시 :30 트리거를 `everyHours(1) nearMinute(30)` 대신 `everyMinutes(30)` + 핸들러에서 분/시각/거래일 통과 조건 체크
+- **이유**: `nearMinute`는 GAS 문서상 ±15분 슬랙 → "정확히 :30" 보장 불가. `everyMinutes(30)`은 ±2분 정확도
+- **트레이드오프**: 컴퓨팅 트리거 호출은 더 많아지지만(매 30분 발화 → 09:30~16:30 외엔 즉시 return), GAS time-driven 한도 안에서 무시할 만한 비용
+- **충돌 방지**: `LockService.tryLock(2000)` — tgPushPnL(매시 :00/:20/:40)·사용자 갱신과 겹치면 skip → 다음 30분 슬롯에서 복구
+
+## 2026-05-25 — Holdings Account P&L (구 Exposure Matrix)
+
+- **결정**: 시장 분류(KR/US) 매트릭스 → 계좌×(투자 원금/수익금/합계 평가) 구조로 재설계
+- **이유**: 기존 KR/US 분류는 클라이언트가 종목코드 6자리 여부로 자체 분류(GAS는 market 필드 안 줌). 사용자가 보고 싶은 건 "이 계좌가 얼마 투자해서 얼마 벌었나"인데, 시장 분류는 사용자 의도와 불일치
+- **이전 방식 보존**: 시장(KR/US) 정보는 종목 카드/리스트에서 그대로 표시. 다만 매트릭스 집계에서만 제외
