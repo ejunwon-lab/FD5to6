@@ -1,4 +1,5 @@
 import type { Holding } from '../../lib/types'
+import { accountDisplay } from '../../lib/accountDisplay'
 
 /**
  * Web 앱(기존 web/)의 HoldingCard와 시각적으로 동일한 스타일.
@@ -89,7 +90,7 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
               <Field label="12개월"    value={pctStr(h.y1)} tone={h.y1 >= 0 ? 'gain' : 'loss'} />
               <Field label="52주 고"   value={`₩${Math.round(h.high52).toLocaleString()}`} />
               <Field label="52주 저"   value={`₩${Math.round(h.low52).toLocaleString()}`} />
-              <Field label="계좌"      value={accountDisplay(h.accountType)} />
+              <Field label="계좌"      value={accountDisplay(h.broker, h.accountType)} />
             </div>
           </div>
         )}
@@ -149,11 +150,6 @@ function pctStr(p: number): string {
   return `${sign}${p.toFixed(2)}%`
 }
 
-const ACCOUNT_DISPLAY: Record<string, string> = {
-  '퇴직연금_개인IRP': '퇴직연금_미래',
-  '퇴직연금_개인형IRP(범용)': '퇴직연금_삼성',
-}
-function accountDisplay(a: string): string { return ACCOUNT_DISPLAY[a] ?? a }
 
 function formatDuration(d?: string): string {
   if (!d) return ''

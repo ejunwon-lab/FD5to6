@@ -164,7 +164,7 @@ iOS / web / web-desk
 | **대시보드** | GAS가 시트에 렌더한 가시화 (사용자가 시트에서 봄) | buildDashboard |
 | **종목상태_이력** | 자동 누적 (참조용) | 분석 |
 
-`NS.KIS_SKIP = ['펀드','예금','보험','기타']` — KIS 호출에서 제외, holdings 응답에도 제외.
+`NS.KIS_SKIP = ['펀드','예금','보험','기타']` — KIS 호출에서 제외, holdings 응답에도 제외. 단 *데스크*는 `_mGetNonStockAssets`로 별도 노출(Account P&L 패널 "비주식 자산" 그룹).
 
 ---
 

@@ -128,6 +128,7 @@ function newMobileGetPortfolio() {
     const byCategory = _mGroupBy(posRows, 2, totalCur);
     const byAccount  = _mGroupBy(posRows, 4, totalCur);
     const cashReserve = _mGetCashReserve(ss);
+    const nonStockAssets = _mGetNonStockAssets(allPosRows);
 
     return JSON.stringify({
       success: true,
@@ -139,6 +140,7 @@ function newMobileGetPortfolio() {
       byAccount,
       holdings,
       cashReserve,
+      nonStockAssets,
     });
   } catch (e) {
     Logger.log('newMobileGetPortfolio 오류: ' + e);
@@ -604,6 +606,39 @@ function _mGetFxRates(ss) {
       gbp: Number(sheet.getRange(3, 2).getValue()) || 1700,
     };
   } catch (e) { return { usd: 1400, gbp: 1700 }; }
+}
+
+/**
+ * 비주식 자산 — *보유현황*의 KIS_SKIP 카테고리(펀드·예금·보험·기타)
+ * holdings 응답에서는 빠져있어서 별도 노출. 카테고리·계좌·금액 보존.
+ * allPosRows는 newMobileGetPortfolio가 이미 ['합계' 제외 + quantity>0] 필터한 전체.
+ */
+function _mGetNonStockAssets(allPosRows) {
+  try {
+    const items = [];
+    let total = 0;
+    for (const r of allPosRows) {
+      const category = String(r[2] || '').trim();
+      if (!NS.KIS_SKIP.includes(category)) continue;
+      const item = {
+        category,
+        name:     String(r[1] || ''),
+        broker:   String(r[3] || ''),
+        account:  String(r[4] || ''),
+        quantity: Number(r[6]) || 0,
+        opBuy:    Number(r[8]) || 0,
+        value:    Number(r[10]) || 0,
+        opProfit: Number(r[11]) || 0,
+        profitRate: Number(r[12]) || 0,
+      };
+      items.push(item);
+      total += item.value;
+    }
+    return { items, total };
+  } catch (e) {
+    Logger.log('_mGetNonStockAssets 오류: ' + e);
+    return { items: [], total: 0 };
+  }
 }
 
 /**

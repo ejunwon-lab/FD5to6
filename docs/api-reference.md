@@ -24,6 +24,7 @@ last updated: 2026-05-25
 | `byCategory` / `byAccount` | 분류별·계좌별 집계 (`Record<string, GroupStat>`) | `_mGroupBy` |
 | `holdings` | 종목 배열 (아래 표) | `_mMapHolding` |
 | `cashReserve` | 대기자금 `{ items: CashReserveItem[], total }` (2026-05-25 신규). 옛 클라이언트는 무시. | `_mGetCashReserve` ← *설정* A7:E12 |
+| `nonStockAssets` | 비주식 자산 `{ items: NonStockAssetItem[], total }` (2026-05-25 신규). KIS_SKIP 카테고리(펀드·예금·보험·기타) 행들. 옛 클라이언트는 무시. | `_mGetNonStockAssets` ← *보유현황* (KIS_SKIP 카테고리) |
 
 ### summary (Summary)
 

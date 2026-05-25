@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { gasApi, type PortfolioResponse, type IndicatorsResponse, type TrendHistoryResponse, type MonthlyRealizedItem, type CashReserve } from '../api/gasApi'
+import { gasApi, type PortfolioResponse, type IndicatorsResponse, type TrendHistoryResponse, type MonthlyRealizedItem, type CashReserve, type NonStockAssets } from '../api/gasApi'
 import type { Holding, Indicator, PortfolioSummary, EquityPoint, Market } from './types'
 
 interface PortfolioCtxValue {
@@ -12,6 +12,7 @@ interface PortfolioCtxValue {
   indicators: Indicator[]
   equityCurve: EquityPoint[]
   cashReserve: CashReserve | null
+  nonStockAssets: NonStockAssets | null
   updatedAt: string | null
   refresh: () => Promise<void>
   updateAll: () => Promise<void>
@@ -38,13 +39,14 @@ interface PortfolioState {
   indicators: Indicator[]
   equityCurve: EquityPoint[]
   cashReserve: CashReserve | null
+  nonStockAssets: NonStockAssets | null
   updatedAt: string | null
 }
 
 const initialP: PortfolioState = {
   loading: false, updating: false, error: null,
   summary: null, holdings: [], indicators: [], equityCurve: [],
-  cashReserve: null, updatedAt: null,
+  cashReserve: null, nonStockAssets: null, updatedAt: null,
 }
 
 interface RealizedState {
@@ -86,6 +88,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         indicators: [...baseIndicators, ...fxIndicators],
         equityCurve: hist?.entries ? mapEquity(hist) : [],
         cashReserve: pf.cashReserve ?? null,
+        nonStockAssets: pf.nonStockAssets ?? null,
         updatedAt: pf.updatedAt ?? null,
       })
     } catch (e) {
@@ -143,6 +146,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         indicators: [...baseIndicators, ...fxIndicators],
         equityCurve: hist?.entries ? mapEquity(hist) : [],
         cashReserve: res.cashReserve ?? null,
+        nonStockAssets: res.nonStockAssets ?? null,
         updatedAt: res.updatedAt ?? null,
       })
       // updateAll 후 realized도 같이 갱신

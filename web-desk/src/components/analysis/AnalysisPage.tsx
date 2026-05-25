@@ -26,12 +26,7 @@ function accountShade(b: string, localIdx: number): string {
   return shades[localIdx % shades.length]
 }
 
-// 긴 계좌명 축약
-const ACCOUNT_DISPLAY: Record<string, string> = {
-  '퇴직연금_개인IRP': '퇴직연금_미래',
-  '퇴직연금_개인형IRP(범용)': '퇴직연금_삼성',
-}
-function accountDisplay(a: string): string { return ACCOUNT_DISPLAY[a] ?? a }
+import { accountDisplay } from '../../lib/accountDisplay'
 
 export function AnalysisPage() {
   const { holdings: live, equityCurve: liveEquity } = usePortfolio()
@@ -221,7 +216,7 @@ function computeStats(holdings: { symbol: string; name: string; market: string; 
     const accounts = Array.from(accMap.entries())
       .map(([account, v]) => ({
         account,
-        display: accountDisplay(account),
+        display: accountDisplay(broker, account),
         value: v.value,
         count: v.count,
         pct: (v.value / totalValue) * 100,

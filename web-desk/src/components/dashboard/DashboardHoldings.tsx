@@ -20,14 +20,10 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'opProfit',   label: '수익금' },
 ]
 
-// 계좌 표시명 매핑 (긴 이름 축약)
-const ACCOUNT_DISPLAY: Record<string, string> = {
-  '퇴직연금_개인IRP': '퇴직연금_미래',
-  '퇴직연금_개인형IRP(범용)': '퇴직연금_삼성',
-}
+import { accountDisplay } from '../../lib/accountDisplay'
 
-// 계좌 우선 정렬
-const ACCOUNT_ORDER = ['종합_랩', '종합', 'ISA', '퇴직연금_미래', '퇴직연금_개인IRP', '퇴직연금_개인형IRP(범용)']
+// 계좌 우선 정렬 (계좌명 raw 기준 — 시트의 원본 값)
+const ACCOUNT_ORDER = ['종합_랩', '종합', 'ISA', '퇴직연금_개인IRP', '퇴직연금_개인형IRP(범용)']
 
 export function DashboardHoldings({ holdings }: Props) {
   const [selectedAccount, setSelectedAccount] = useState<string>('전체')
@@ -81,7 +77,7 @@ export function DashboardHoldings({ holdings }: Props) {
 
   return (
     <Panel
-      title={`Holdings · ${filtered.length}${selectedAccount === '전체' ? '' : ' / ' + (ACCOUNT_DISPLAY[selectedAccount] ?? selectedAccount)}`}
+      title={`Holdings · ${filtered.length}${selectedAccount === '전체' ? '' : ' / ' + accountDisplay(accountBrokerMap[selectedAccount] ?? '', selectedAccount)}`}
       meta={`₩${(stats.value / 1e6).toFixed(2)}M`}
       className="col-span-full"
     >
@@ -94,7 +90,7 @@ export function DashboardHoldings({ holdings }: Props) {
             const isAll = acc === '전체'
             const broker = isAll ? '' : accountBrokerMap[acc] ?? ''
             const selected = selectedAccount === acc
-            const label = isAll ? '전체' : (ACCOUNT_DISPLAY[acc] ?? acc)
+            const label = isAll ? '전체' : accountDisplay(broker, acc)
             const cnt = isAll ? holdings.length : holdings.filter((h) => h.accountType === acc).length
             return (
               <button
@@ -245,7 +241,7 @@ export function DashboardHoldings({ holdings }: Props) {
               {/* Account · Broker chip */}
               <div className="flex items-center gap-2 min-w-0">
                 <span className={`px-1.5 py-0 text-2xs tracking-wider border ${brokerBadge(h.broker)}`}>
-                  {ACCOUNT_DISPLAY[h.accountType] ?? h.accountType}
+                  {accountDisplay(h.broker, h.accountType)}
                 </span>
                 <span className="text-2xs text-ink-faint truncate">{h.broker}</span>
               </div>
@@ -290,7 +286,7 @@ export function DashboardHoldings({ holdings }: Props) {
       {selectedAccount !== '전체' && (
         <div className="border-t border-line px-3 py-2 grid text-xs min-w-[1100px]"
              style={{ gridTemplateColumns: '1.8fr 1.4fr 60px 90px 1.1fr 1.3fr 1.4fr 60px 90px' }}>
-          <span className="text-ink-faint uppercase tracking-widest text-2xs">소계 · {ACCOUNT_DISPLAY[selectedAccount] ?? selectedAccount}</span>
+          <span className="text-ink-faint uppercase tracking-widest text-2xs">소계 · {accountDisplay(accountBrokerMap[selectedAccount] ?? '', selectedAccount)}</span>
           <span></span><span></span><span></span>
           <span className="text-right tabular font-medium">₩{stats.value.toLocaleString()}</span>
           <span className={`text-right tabular ${stats.dayChange >= 0 ? 'text-gain' : 'text-loss'}`}>
