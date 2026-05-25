@@ -195,6 +195,12 @@ walk-through 자체가 "내가 정말 그 로직을 이해했나"의 시험. 과
 | `저장!` | `중간 저장해` + `동기화해` 합쳐서 한 번에 실행 |
 | `실행@` | git pull + memory 복원 (`FD5to6/memory/` → `~/.claude/.../memory/`) + `docs/pending.md` 읽고 현황 요약 |
 
+## 인덱스 정합 검증 (stale 방지)
+
+- `bash scripts/check_stale.sh` — 인덱스 vs 코드 전수 정합 검사. 작업 마무리·`저장!` 직전에 실행. GAS public 함수·web-desk 컴포넌트가 `code-map.md`에 등재됐는지 + `last updated` 30일+ 경과 검사.
+- `scripts/save.sh`는 commit 직전 변경 파일 패턴 보고 누락 인덱스 자동 hint (차단 X, 경고만). Claude는 hint 보고 같은 turn에 추가 갱신할지 판단.
+- 두 도구 false positive 가능 (alias 등 등재 불필요한 경우). 의도된 누락이면 무시.
+
 ## 저장! 절차
 
 `저장!` 입력 시:
