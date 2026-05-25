@@ -212,7 +212,7 @@ export function DashboardHoldings({ holdings }: Props) {
       {/* Header row */}
       <div className="grid items-center text-2xs uppercase tracking-widest text-ink-faint border-b border-line px-3 py-1.5 min-w-[1100px]"
            style={{ gridTemplateColumns: '1.8fr 1.4fr 60px 90px 1.1fr 1.3fr 1.4fr 60px 90px' }}>
-        <span>Symbol</span>
+        <span>Stock</span>
         <span>Account · Broker</span>
         <span className="text-right">Shares</span>
         <span className="text-right">Avg</span>
@@ -236,11 +236,11 @@ export function DashboardHoldings({ holdings }: Props) {
               className="grid items-center px-3 py-2 hover:bg-bg-hover text-xs"
               style={{ gridTemplateColumns: '1.8fr 1.4fr 60px 90px 1.1fr 1.3fr 1.4fr 60px 90px' }}
             >
-              {/* Symbol + Name + Market badge */}
+              {/* Name (main) + Market badge + Symbol (보조) */}
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-amber font-medium tabular shrink-0">{h.symbol}</span>
-                <span className="text-ink-dim truncate">{h.name}</span>
+                <span className="text-amber font-medium truncate">{h.name}</span>
                 <span className="text-2xs text-cyan tracking-widest shrink-0">{h.market}</span>
+                <span className="text-2xs text-ink-faint tabular shrink-0">{h.symbol}</span>
               </div>
               {/* Account · Broker chip */}
               <div className="flex items-center gap-2 min-w-0">
