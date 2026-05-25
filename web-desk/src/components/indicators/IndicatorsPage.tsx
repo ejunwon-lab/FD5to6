@@ -3,6 +3,8 @@ import { usePortfolio } from '../../lib/usePortfolio'
 import { indicators as sampleIndicators } from '../../lib/sampleData'
 import { Panel } from '../ui/Panel'
 import type { Indicator } from '../../lib/types'
+import { GainersLosersStrip } from './GainersLosersStrip'
+import { MarketHeatmap } from './MarketHeatmap'
 
 const CATEGORY_LABELS: Record<string, string> = {
   index_kr:    'Korea',
@@ -44,6 +46,8 @@ export function IndicatorsPage() {
 
   return (
     <div className="overflow-y-auto p-2 sm:p-3 grid gap-2.5">
+      <GainersLosersStrip indicators={indicators} />
+      <MarketHeatmap indicators={indicators} />
       {grouped.map(([cat, items]) => (
         <Panel key={cat} title={CATEGORY_LABELS[cat] ?? cat} meta={`${items.length} symbols`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-line">
