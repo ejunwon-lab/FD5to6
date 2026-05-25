@@ -1,4 +1,4 @@
-export type NavKey = 'dashboard' | 'holdings' | 'analysis' | 'indicators' | 'tradelog' | 'pricehist' | 'realized' | 'dividends' | 'kis' | 'settings'
+export type NavKey = 'dashboard' | 'holdings' | 'analysis' | 'indicators' | 'tradelog' | 'pricehist' | 'dividends' | 'kis' | 'settings'
 
 interface Props {
   active: NavKey
@@ -23,7 +23,6 @@ const sections: { title: string; items: { key: NavKey; label: string; hint?: str
     title: 'Data',
     items: [
       { key: 'pricehist', label: 'Price History', hint: 'F6' },
-      { key: 'realized', label: 'Realized P&L', hint: 'F7' },
       { key: 'dividends', label: 'Dividends', badge: '3' },
     ],
   },
