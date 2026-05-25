@@ -132,6 +132,18 @@ export interface MonthlyRealizedResponse {
   entries?: MonthlyRealizedItem[]
 }
 
+export interface IndicatorHistoryEntry {
+  date: string
+  [key: string]: number | string
+}
+
+export interface IndicatorHistoryResponse {
+  success: boolean
+  error?: string
+  keys?: string[]
+  entries?: IndicatorHistoryEntry[]
+}
+
 export interface StockTransaction {
   date: string
   type: '매수' | '매도'
@@ -214,6 +226,7 @@ export const gasApi = {
   getIndicators:     (token: string) => callGAS<IndicatorsResponse>('newMobileGetIndicators', token),
   getProfitHistory:  (token: string) => callGAS<TrendHistoryResponse>('newMobileGetProfitHistory', token),
   getMonthlyRealized:(token: string) => callGAS<MonthlyRealizedResponse>('newMobileGetMonthlyRealized', token),
+  getIndicatorHistory:(token: string) => callGAS<IndicatorHistoryResponse>('newMobileGetIndicatorHistory', token),
   getStockDetail:    (token: string, code: string) =>
     callGAS<StockDetailResponse>('newMobileGetStockDetail', token, [code]),
   updateAll:         (token: string) => callGAS<PortfolioResponse>('newMobileUpdateAll', token),

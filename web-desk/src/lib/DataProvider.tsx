@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { gasApi, type PortfolioResponse, type IndicatorsResponse, type TrendHistoryResponse, type MonthlyRealizedItem, type CashReserve, type NonStockAssets } from '../api/gasApi'
+import { gasApi, type PortfolioResponse, type IndicatorsResponse, type TrendHistoryResponse, type MonthlyRealizedItem, type CashReserve, type NonStockAssets, type IndicatorHistoryEntry } from '../api/gasApi'
 import type { Holding, Indicator, PortfolioSummary, EquityPoint, Market } from './types'
 
 interface PortfolioCtxValue {
@@ -25,8 +25,17 @@ interface RealizedCtxValue {
   refresh: () => Promise<void>
 }
 
+interface IndicatorHistoryCtxValue {
+  loading: boolean
+  error: string | null
+  keys: string[]
+  entries: IndicatorHistoryEntry[]
+  ensureLoaded: () => void  // lazy: 처음 호출 시 fetch, 이후 cache
+}
+
 const PortfolioCtx = createContext<PortfolioCtxValue | null>(null)
 const RealizedCtx = createContext<RealizedCtxValue | null>(null)
+const IndicatorHistoryCtx = createContext<IndicatorHistoryCtxValue | null>(null)
 
 const AUTO_REFRESH_MS = 60 * 60 * 1000  // 1시간
 
@@ -57,13 +66,25 @@ interface RealizedState {
 
 const initialR: RealizedState = { loading: false, error: null, entries: [] }
 
+interface IndicatorHistoryState {
+  loading: boolean
+  error: string | null
+  keys: string[]
+  entries: IndicatorHistoryEntry[]
+  loaded: boolean
+}
+
+const initialIH: IndicatorHistoryState = { loading: false, error: null, keys: [], entries: [], loaded: false }
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const { isSignedIn, getToken } = useAuth()
   const [pState, setPState] = useState<PortfolioState>(initialP)
   const [rState, setRState] = useState<RealizedState>(initialR)
+  const [ihState, setIHState] = useState<IndicatorHistoryState>(initialIH)
   // 중복 호출 가드 — Strict mode 등에서 동시 호출되지 않게
   const inflightP = useRef(false)
   const inflightR = useRef(false)
+  const inflightIH = useRef(false)
 
   // ── portfolio refresh (시트 캐시만 읽기) ──
   const refreshPortfolio = useCallback(async () => {
@@ -98,6 +119,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
       inflightP.current = false
     }
   }, [isSignedIn, getToken])
+
+  // ── indicator history (lazy, 처음 ensureLoaded 호출 시만 fetch) ──
+  const fetchIndicatorHistory = useCallback(async () => {
+    if (!isSignedIn || inflightIH.current) return
+    inflightIH.current = true
+    setIHState((s) => ({ ...s, loading: true, error: null }))
+    try {
+      const token = await getToken()
+      const res = await gasApi.getIndicatorHistory(token)
+      setIHState({
+        loading: false,
+        error: res.success ? null : (res.error ?? '지표 history 조회 실패'),
+        keys: res.keys ?? [],
+        entries: res.entries ?? [],
+        loaded: true,
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '알 수 없는 오류'
+      setIHState({ loading: false, error: msg, keys: [], entries: [], loaded: true })
+    } finally {
+      inflightIH.current = false
+    }
+  }, [isSignedIn, getToken])
+
+  const ensureIndicatorHistory = useCallback(() => {
+    if (ihState.loaded || ihState.loading || inflightIH.current) return
+    fetchIndicatorHistory()
+  }, [ihState.loaded, ihState.loading, fetchIndicatorHistory])
 
   // ── monthly realized refresh ──
   const refreshRealized = useCallback(async () => {
@@ -189,10 +238,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     ...rState,
     refresh: refreshRealized,
   }
+  const ihValue: IndicatorHistoryCtxValue = {
+    loading: ihState.loading,
+    error: ihState.error,
+    keys: ihState.keys,
+    entries: ihState.entries,
+    ensureLoaded: ensureIndicatorHistory,
+  }
 
   return (
     <PortfolioCtx.Provider value={pValue}>
-      <RealizedCtx.Provider value={rValue}>{children}</RealizedCtx.Provider>
+      <RealizedCtx.Provider value={rValue}>
+        <IndicatorHistoryCtx.Provider value={ihValue}>{children}</IndicatorHistoryCtx.Provider>
+      </RealizedCtx.Provider>
     </PortfolioCtx.Provider>
   )
 }
@@ -206,6 +264,12 @@ export function usePortfolio(): PortfolioCtxValue {
 export function useRealized(): RealizedCtxValue {
   const ctx = useContext(RealizedCtx)
   if (!ctx) throw new Error('useRealized must be used inside <DataProvider>')
+  return ctx
+}
+
+export function useIndicatorHistory(): IndicatorHistoryCtxValue {
+  const ctx = useContext(IndicatorHistoryCtx)
+  if (!ctx) throw new Error('useIndicatorHistory must be used inside <DataProvider>')
   return ctx
 }
 
