@@ -54,6 +54,22 @@ export interface CashReserve {
   total: number
 }
 
+export interface NonStockAssetItem {
+  category: string     // 펀드/예금/보험/기타
+  name: string
+  broker: string
+  account: string
+  quantity: number
+  opBuy: number
+  value: number
+  opProfit: number
+  profitRate: number
+}
+export interface NonStockAssets {
+  items: NonStockAssetItem[]
+  total: number
+}
+
 export interface PortfolioResponse {
   success: boolean
   error?: string
@@ -63,6 +79,7 @@ export interface PortfolioResponse {
   summary?: Summary
   holdings?: ApiHolding[]
   cashReserve?: CashReserve
+  nonStockAssets?: NonStockAssets
 }
 
 export interface ApiIndicator {

@@ -1,4 +1,5 @@
 import type { Holding } from '../../lib/types'
+import { accountDisplay } from '../../lib/accountDisplay'
 
 export type HoldingSortKey = 'allInfo' | 'change' | 'agedDays' | 'opCurrent' | 'profitRate' | 'opProfit'
 
@@ -84,7 +85,7 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
               <DField label="12개월"    value={pctStr(h.y1)} tone={h.y1 >= 0 ? 'gain' : 'loss'} />
               <DField label="52주 고"   value={`₩${Math.round(h.high52).toLocaleString()}`} />
               <DField label="52주 저"   value={`₩${Math.round(h.low52).toLocaleString()}`} />
-              <DField label="계좌"      value={accountDisplay(h.accountType)} />
+              <DField label="계좌"      value={accountDisplay(h.broker, h.accountType)} />
             </div>
           </div>
         )}
@@ -93,11 +94,6 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
   )
 }
 
-const ACCOUNT_DISPLAY: Record<string, string> = {
-  '퇴직연금_개인IRP': '퇴직연금_미래',
-  '퇴직연금_개인형IRP(범용)': '퇴직연금_삼성',
-}
-function accountDisplay(a: string): string { return ACCOUNT_DISPLAY[a] ?? a }
 
 function Cell({ label, value, tone }: { label: string; value: string; tone?: 'gain' | 'loss' }) {
   return (

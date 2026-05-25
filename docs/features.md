@@ -57,7 +57,8 @@ last updated: 2026-05-25
 - Google OAuth 로그인 (GIS)
 - 5 메뉴: Dashboard · Holdings · Analysis · Indicators · Activity
 - **Dashboard**: KPI strip(총자산=주식+대기자금 · Total Return · Today P&L · Positions · Cash Reserve) · Markets 위젯(6 지표) · Equity Curve(6 기간 필터) · Recent Activity · DashboardHoldings 통합
-- **Holdings**: Account P&L 패널(계좌별 원금/수익금/평가 + 대기자금 행 + 순자산 합계) + 3-view 토글(Web 카드/Terminal 카드/List) + 검색·필터·정렬 + 종목 상세 모달
+- **Holdings**: Account P&L 패널 (주식 계좌별 → 비주식 자산(펀드·예금·보험·기타) → 대기자금 → 순자산 합계) + 3-view 토글(Web 카드/Terminal 카드/List) + 검색·필터·정렬 + 종목 상세 모달
+- **계좌명 표시 규칙**: `{미래/삼성}_{계좌명}` (예: 미래_종합_랩 · 삼성_ISA · 미래_퇴직연금 · 삼성_퇴직연금) — `web-desk/src/lib/accountDisplay.ts` 공통 유틸
 - **Indicators**: Top Gainers/Losers (각 3건) + Market Heatmap (|Δ%| 격자) + 카테고리별 패널
 - **Analysis**: Risk-Return KPI strip(Sharpe·MaxDD·Vol·Win·Best) · Allocation 도넛 · Concentration bar · Profit Contribution(±막대, ₩/% 토글) · Top Winners/Losers
 - **Activity**: 월별 P&L + 5 KPI strip

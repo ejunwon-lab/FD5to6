@@ -1,47 +1,43 @@
 import { useMemo } from 'react'
 import type { Holding } from '../../lib/types'
-import type { CashReserve } from '../../api/gasApi'
+import type { CashReserve, NonStockAssets } from '../../api/gasApi'
 import { Panel } from '../ui/Panel'
+import { accountDisplay } from '../../lib/accountDisplay'
 
-interface Props { holdings: Holding[]; cashReserve?: CashReserve | null }
-
-const ACCOUNT_DISPLAY: Record<string, string> = {
-  '퇴직연금_개인IRP': '퇴직연금_미래',
-  '퇴직연금_개인형IRP(범용)': '퇴직연금_삼성',
+interface Props {
+  holdings: Holding[]
+  cashReserve?: CashReserve | null
+  nonStockAssets?: NonStockAssets | null
 }
-const ACCOUNT_ORDER = ['종합_랩', '종합', 'ISA', '퇴직연금_미래', '퇴직연금_개인IRP', '퇴직연금_개인형IRP(범용)']
 
-export function ExposureMatrix({ holdings, cashReserve }: Props) {
+export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props) {
   const { rows, totals } = useMemo(() => {
-    // 계좌별 원금/수익/평가 집계
-    const agg: Record<string, { opBuy: number; opProfit: number; value: number; count: number }> = {}
+    // 계좌별 원금/수익/평가 집계 (broker도 같이 추적해서 display 만들 때 사용)
+    const agg: Record<string, { broker: string; opBuy: number; opProfit: number; value: number; count: number }> = {}
     for (const h of holdings) {
-      const acc = h.accountType
-      if (!agg[acc]) agg[acc] = { opBuy: 0, opProfit: 0, value: 0, count: 0 }
-      agg[acc].opBuy += h.opBuy
-      agg[acc].opProfit += h.opProfit
-      agg[acc].value += h.value
-      agg[acc].count += 1
+      const key = `${h.broker}||${h.accountType}`
+      if (!agg[key]) agg[key] = { broker: h.broker, opBuy: 0, opProfit: 0, value: 0, count: 0 }
+      agg[key].opBuy += h.opBuy
+      agg[key].opProfit += h.opProfit
+      agg[key].value += h.value
+      agg[key].count += 1
     }
-    // 계좌 정렬: ACCOUNT_ORDER → 나머지
-    const present = Object.keys(agg)
-    const ordered = ACCOUNT_ORDER.filter((a) => present.includes(a))
-    const rest = present.filter((a) => !ACCOUNT_ORDER.includes(a)).sort()
-    const accounts = [...ordered, ...rest]
 
-    const rows = accounts.map((acc) => {
-      const a = agg[acc]
-      const returnPct = a.opBuy > 0 ? (a.opProfit / a.opBuy) * 100 : 0
-      return {
-        account: acc,
-        display: ACCOUNT_DISPLAY[acc] ?? acc,
-        opBuy: a.opBuy,
-        opProfit: a.opProfit,
-        value: a.value,
-        count: a.count,
-        returnPct,
-      }
-    })
+    const rows = Object.entries(agg)
+      .map(([key, a]) => {
+        const [broker, account] = key.split('||')
+        const returnPct = a.opBuy > 0 ? (a.opProfit / a.opBuy) * 100 : 0
+        return {
+          broker, account,
+          display: accountDisplay(broker, account),
+          opBuy: a.opBuy,
+          opProfit: a.opProfit,
+          value: a.value,
+          count: a.count,
+          returnPct,
+        }
+      })
+      .sort((a, b) => b.value - a.value)
 
     const totals = {
       opBuy: rows.reduce((s, r) => s + r.opBuy, 0),
@@ -54,7 +50,8 @@ export function ExposureMatrix({ holdings, cashReserve }: Props) {
 
   const totalReturnPct = totals.opBuy > 0 ? (totals.opProfit / totals.opBuy) * 100 : 0
   const cashTotal = cashReserve?.total ?? 0
-  const netWorth = totals.value + cashTotal
+  const nonStockTotal = nonStockAssets?.total ?? 0
+  const netWorth = totals.value + nonStockTotal + cashTotal
 
   return (
     <Panel
@@ -73,7 +70,7 @@ export function ExposureMatrix({ holdings, cashReserve }: Props) {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.account} className="border-b border-line-dim">
+              <tr key={`${r.broker}-${r.account}`} className="border-b border-line-dim">
                 <td className="px-3 py-2">
                   <div className="text-ink">{r.display}</div>
                   <div className="text-2xs text-ink-faint tabular">{r.count}개 종목</div>
@@ -112,15 +109,67 @@ export function ExposureMatrix({ holdings, cashReserve }: Props) {
               </td>
             </tr>
 
+            {/* 비주식 자산 그룹 (펀드·예금·보험·기타) */}
+            {nonStockAssets && nonStockAssets.items.length > 0 && (
+              <>
+                {nonStockAssets.items.map((a, i) => {
+                  const display = accountDisplay(a.broker, a.account)
+                  const isProfit = a.opProfit >= 0
+                  return (
+                    <tr key={`nonstock-${i}`} className="border-b border-line-dim">
+                      <td className="px-3 py-2">
+                        <div className="text-ink">{display}</div>
+                        <div className="text-2xs text-ink-faint tabular normal-case">
+                          {a.category}{a.name ? ` · ${a.name}` : ''}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular text-ink">
+                        {a.opBuy > 0 ? `₩${Math.round(a.opBuy).toLocaleString()}` : '—'}
+                      </td>
+                      <td className={`px-3 py-2 text-right tabular ${a.opProfit === 0 ? 'text-ink-faint' : (isProfit ? 'text-gain' : 'text-loss')}`}>
+                        {a.opProfit !== 0 ? (
+                          <>
+                            <div>{isProfit ? '+' : ''}₩{Math.round(a.opProfit).toLocaleString()}</div>
+                            <div className="text-2xs opacity-80">
+                              {a.profitRate >= 0 ? '+' : ''}{a.profitRate.toFixed(2)}%
+                            </div>
+                          </>
+                        ) : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular bg-bg-elev">
+                        <div className="text-ink-dim font-medium">₩{Math.round(a.value).toLocaleString()}</div>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {/* 비주식 자산 소계 */}
+                <tr className="border-t border-line-dim bg-bg/30">
+                  <td className="px-3 py-2 text-2xs uppercase tracking-widest text-ink-faint font-medium">
+                    비주식 자산 소계
+                    <div className="text-2xs text-ink-faint tabular normal-case">
+                      {nonStockAssets.items.length}건 · {Array.from(new Set(nonStockAssets.items.map(i => i.category))).join('·')}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular text-ink-faint">—</td>
+                  <td className="px-3 py-2 text-right tabular text-ink-faint">—</td>
+                  <td className="px-3 py-2 text-right tabular bg-ink/5">
+                    <div className="text-ink font-medium">₩{Math.round(nonStockAssets.total).toLocaleString()}</div>
+                  </td>
+                </tr>
+              </>
+            )}
+
             {/* 대기자금 그룹 */}
             {cashReserve && cashReserve.items.length > 0 && (
               <>
-                {cashReserve.items.map((c, i) => (
+                {cashReserve.items.map((c, i) => {
+                  const display = accountDisplay(c.broker, c.account)
+                  return (
                   <tr key={`cash-${i}`} className="border-b border-line-dim">
                     <td className="px-3 py-2">
-                      <div className="text-cyan">{c.account || c.broker}</div>
-                      <div className="text-2xs text-ink-faint tabular">
-                        대기자금 · {c.broker}{c.updatedAt ? ` · ${c.updatedAt}` : ''}
+                      <div className="text-cyan">{display}</div>
+                      <div className="text-2xs text-ink-faint tabular normal-case">
+                        대기자금{c.updatedAt ? ` · ${c.updatedAt}` : ''}
                       </div>
                     </td>
                     <td className="px-3 py-2 text-right tabular text-ink-faint">—</td>
@@ -130,7 +179,8 @@ export function ExposureMatrix({ holdings, cashReserve }: Props) {
                       {c.note && <div className="text-2xs text-ink-faint normal-case">{c.note}</div>}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
                 {/* 대기자금 소계 */}
                 <tr className="border-t border-line-dim bg-bg/30">
                   <td className="px-3 py-2 text-2xs uppercase tracking-widest text-ink-faint font-medium">
@@ -150,7 +200,9 @@ export function ExposureMatrix({ holdings, cashReserve }: Props) {
             <tr className="border-t-2 border-amber/40 bg-amber/5">
               <td className="px-3 py-2.5 text-2xs uppercase tracking-widest font-semibold text-amber">
                 순자산 합계
-                <div className="text-2xs text-ink-faint tabular normal-case">주식 + 대기자금</div>
+                <div className="text-2xs text-ink-faint tabular normal-case">
+                  주식{nonStockTotal > 0 ? ' + 비주식' : ''}{cashTotal > 0 ? ' + 대기자금' : ''}
+                </div>
               </td>
               <td className="px-3 py-2.5 text-right tabular text-ink-faint">—</td>
               <td className="px-3 py-2.5 text-right tabular text-ink-faint">—</td>
