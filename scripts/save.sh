@@ -30,6 +30,42 @@ if git diff --cached --quiet; then
   exit 0
 fi
 
+# 3.5. staging hint — 인덱스 문서 갱신 누락 감지 (경고만, 차단 X)
+STAGED=$(git diff --cached --name-only)
+hint_missing() {
+  if ! grep -q "^$1\$" <<< "$STAGED"; then
+    echo "  ⚠ '$2' 변경 — '$1' 함께 갱신 권장 (이번 commit에 미포함)"
+  fi
+}
+HAS_HINT=0
+if echo "$STAGED" | grep -qE '^apps-script-v2/.+\.js$'; then
+  ! grep -q "^docs/code-map.md$" <<< "$STAGED" && {
+    hint_missing "docs/code-map.md" "GAS .js"
+    HAS_HINT=1
+  }
+fi
+if echo "$STAGED" | grep -qE '^apps-script-v2/Main\.js$|^apps-script-v2/Telegram\.js$'; then
+  ! grep -q "^docs/architecture.md$" <<< "$STAGED" && {
+    hint_missing "docs/architecture.md" "트리거·메뉴 영향 .js"
+    HAS_HINT=1
+  }
+fi
+if echo "$STAGED" | grep -qE '^web-desk/src/components/.+\.tsx$'; then
+  ! grep -q "^docs/code-map.md$" <<< "$STAGED" && {
+    hint_missing "docs/code-map.md" "web-desk 컴포넌트"
+    HAS_HINT=1
+  }
+fi
+if echo "$STAGED" | grep -qE '^apps-script-v2/MobileAPI\.js$'; then
+  ! grep -q "^docs/api-reference.md$" <<< "$STAGED" && {
+    hint_missing "docs/api-reference.md" "MobileAPI (응답 필드 영향 가능)"
+    HAS_HINT=1
+  }
+fi
+if [ "$HAS_HINT" = "1" ]; then
+  echo "  (의도된 누락이면 계속 진행 OK — 매뉴얼 점검: bash scripts/check_stale.sh)"
+fi
+
 # 4. commit
 if git commit -m "$MSG" -m "Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"; then
   echo "✓ 커밋 완료"

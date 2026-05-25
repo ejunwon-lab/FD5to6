@@ -32,4 +32,9 @@ metadata:
 
 **예외**: 트리비얼 변경(오타·공백·주석 한 줄)에는 인덱스 갱신 불필요. 함수·구조·동작·인터페이스 변경이면 무조건 갱신.
 
+**자동 검증 도구**:
+- `bash scripts/check_stale.sh` — 인덱스가 코드와 어긋났는지 전수 점검 (GAS public 함수·web-desk 컴포넌트 미등재, last updated 30일+ 경과). 작업 마무리(저장! 호출 직전) 또는 시스템 변경 큰 작업 후 실행.
+- `bash scripts/save.sh ...` — 변경 파일 패턴 보고 자동 staging hint 출력 (GAS .js 변경 시 code-map 미포함이면 경고 등). 차단은 안 함 — Claude가 판단해서 추가 갱신.
+- 두 도구 모두 false positive 가능 (alias·운영 함수 등 등재 불필요할 수도). 의도된 누락이면 무시하면 됨.
+
 연관: [[number-display-full]] · [[stock-name-primary]] (표시 규칙 자동 적용도 같은 원리 — 사용자 매번 지시 불필요)
