@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { Holding, Market } from '../../lib/types'
+import type { Holding } from '../../lib/types'
 import { Panel } from '../ui/Panel'
 
 interface Props { holdings: Holding[] }
@@ -9,76 +9,63 @@ const ACCOUNT_DISPLAY: Record<string, string> = {
   '퇴직연금_개인형IRP(범용)': '퇴직연금_삼성',
 }
 const ACCOUNT_ORDER = ['종합_랩', '종합', 'ISA', '퇴직연금_미래', '퇴직연금_개인IRP', '퇴직연금_개인형IRP(범용)']
-const MARKETS: Market[] = ['KR', 'US']
 
 export function ExposureMatrix({ holdings }: Props) {
-  const { rows, marketTotals, grandTotal } = useMemo(() => {
-    // 계좌별·시장별 value 집계
-    const cell: Record<string, Record<Market, number>> = {}
-    const cnt: Record<string, Record<Market, number>> = {}
-    const accountTotals: Record<string, number> = {}
-    const marketTotals: Record<Market, number> = { KR: 0, US: 0 }
-    let grandTotal = 0
-
+  const { rows, totals } = useMemo(() => {
+    // 계좌별 원금/수익/평가 집계
+    const agg: Record<string, { opBuy: number; opProfit: number; value: number; count: number }> = {}
     for (const h of holdings) {
       const acc = h.accountType
-      if (!cell[acc]) {
-        cell[acc] = { KR: 0, US: 0 }
-        cnt[acc] = { KR: 0, US: 0 }
-        accountTotals[acc] = 0
-      }
-      cell[acc][h.market] += h.value
-      cnt[acc][h.market] += 1
-      accountTotals[acc] += h.value
-      marketTotals[h.market] += h.value
-      grandTotal += h.value
+      if (!agg[acc]) agg[acc] = { opBuy: 0, opProfit: 0, value: 0, count: 0 }
+      agg[acc].opBuy += h.opBuy
+      agg[acc].opProfit += h.opProfit
+      agg[acc].value += h.value
+      agg[acc].count += 1
     }
-
-    // 계좌 정렬: ACCOUNT_ORDER → 나머지 알파벳
-    const present = Object.keys(cell)
+    // 계좌 정렬: ACCOUNT_ORDER → 나머지
+    const present = Object.keys(agg)
     const ordered = ACCOUNT_ORDER.filter((a) => present.includes(a))
     const rest = present.filter((a) => !ACCOUNT_ORDER.includes(a)).sort()
     const accounts = [...ordered, ...rest]
 
-    const rows = accounts.map((acc) => ({
-      account: acc,
-      display: ACCOUNT_DISPLAY[acc] ?? acc,
-      cells: MARKETS.map((m) => ({
-        market: m,
-        value: cell[acc][m],
-        count: cnt[acc][m],
-        pctOfGrand: grandTotal ? (cell[acc][m] / grandTotal) * 100 : 0,
-      })),
-      total: accountTotals[acc],
-      pctOfGrand: grandTotal ? (accountTotals[acc] / grandTotal) * 100 : 0,
-    }))
+    const rows = accounts.map((acc) => {
+      const a = agg[acc]
+      const returnPct = a.opBuy > 0 ? (a.opProfit / a.opBuy) * 100 : 0
+      return {
+        account: acc,
+        display: ACCOUNT_DISPLAY[acc] ?? acc,
+        opBuy: a.opBuy,
+        opProfit: a.opProfit,
+        value: a.value,
+        count: a.count,
+        returnPct,
+      }
+    })
 
-    return { rows, marketTotals, grandTotal }
+    const totals = {
+      opBuy: rows.reduce((s, r) => s + r.opBuy, 0),
+      opProfit: rows.reduce((s, r) => s + r.opProfit, 0),
+      value: rows.reduce((s, r) => s + r.value, 0),
+      count: rows.reduce((s, r) => s + r.count, 0),
+    }
+    return { rows, totals }
   }, [holdings])
 
-  // 셀 색상 강도: grand 대비 비중 (0~100%)
-  function cellShade(pct: number): string {
-    if (pct <= 0) return 'bg-bg-elev'
-    if (pct < 1) return 'bg-amber/5'
-    if (pct < 3) return 'bg-amber/10'
-    if (pct < 7) return 'bg-amber/20'
-    if (pct < 15) return 'bg-amber/30'
-    return 'bg-amber/45'
-  }
+  const totalReturnPct = totals.opBuy > 0 ? (totals.opProfit / totals.opBuy) * 100 : 0
 
   return (
-    <Panel title="Exposure Matrix" meta={`${rows.length} accounts × ${MARKETS.length} markets · ₩${grandTotal.toLocaleString()}`}>
+    <Panel
+      title="Account P&L"
+      meta={`${rows.length} accounts · ${totals.count} positions · 평가 ₩${Math.round(totals.value).toLocaleString()}`}
+    >
       <div className="overflow-x-auto">
         <table className="w-full text-xs min-w-[640px]">
           <thead>
             <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line">
               <th className="px-3 pt-2 pb-1.5 text-left font-medium">Account</th>
-              {MARKETS.map((m) => (
-                <th key={m} className="px-3 pt-2 pb-1.5 text-right font-medium">
-                  <span className="text-cyan tracking-widest">{m}</span>
-                </th>
-              ))}
-              <th className="px-3 pt-2 pb-1.5 text-right font-medium text-amber">Total</th>
+              <th className="px-3 pt-2 pb-1.5 text-right font-medium">투자 원금</th>
+              <th className="px-3 pt-2 pb-1.5 text-right font-medium">수익금</th>
+              <th className="px-3 pt-2 pb-1.5 text-right font-medium text-amber">합계 (평가)</th>
             </tr>
           </thead>
           <tbody>
@@ -86,40 +73,39 @@ export function ExposureMatrix({ holdings }: Props) {
               <tr key={r.account} className="border-b border-line-dim">
                 <td className="px-3 py-2">
                   <div className="text-ink">{r.display}</div>
-                  <div className="text-2xs text-ink-faint tabular">{r.pctOfGrand.toFixed(1)}% of total</div>
+                  <div className="text-2xs text-ink-faint tabular">{r.count}개 종목</div>
                 </td>
-                {r.cells.map((c) => (
-                  <td key={c.market} className={`px-3 py-2 text-right tabular ${cellShade(c.pctOfGrand)}`}>
-                    {c.value > 0 ? (
-                      <>
-                        <div className="text-ink">₩{fullKRW(c.value)}</div>
-                        <div className="text-2xs text-ink-faint">{c.count}p · {c.pctOfGrand.toFixed(1)}%</div>
-                      </>
-                    ) : (
-                      <span className="text-ink-faint">—</span>
-                    )}
-                  </td>
-                ))}
+                <td className="px-3 py-2 text-right tabular text-ink">
+                  ₩{Math.round(r.opBuy).toLocaleString()}
+                </td>
+                <td className={`px-3 py-2 text-right tabular ${r.opProfit >= 0 ? 'text-gain' : 'text-loss'}`}>
+                  <div>{r.opProfit >= 0 ? '+' : ''}₩{Math.round(r.opProfit).toLocaleString()}</div>
+                  <div className="text-2xs opacity-80">
+                    {r.returnPct >= 0 ? '+' : ''}{r.returnPct.toFixed(2)}%
+                  </div>
+                </td>
                 <td className="px-3 py-2 text-right tabular bg-bg-elev">
-                  <div className="text-amber font-medium">₩{fullKRW(r.total)}</div>
-                  <div className="text-2xs text-ink-faint">{r.pctOfGrand.toFixed(1)}%</div>
+                  <div className="text-amber font-medium">₩{Math.round(r.value).toLocaleString()}</div>
                 </td>
               </tr>
             ))}
-            {/* Column totals */}
+            {/* 전체 Total */}
             <tr className="border-t border-line bg-bg/30">
-              <td className="px-3 py-2 text-2xs uppercase tracking-widest text-ink-faint font-medium">Market Total</td>
-              {MARKETS.map((m) => (
-                <td key={m} className="px-3 py-2 text-right tabular">
-                  <div className="text-cyan font-medium">₩{fullKRW(marketTotals[m])}</div>
-                  <div className="text-2xs text-ink-faint">
-                    {grandTotal ? ((marketTotals[m] / grandTotal) * 100).toFixed(1) : '0.0'}%
-                  </div>
-                </td>
-              ))}
+              <td className="px-3 py-2 text-2xs uppercase tracking-widest text-ink-faint font-medium">
+                Total
+                <div className="text-2xs text-ink-faint tabular normal-case">{totals.count}개 종목</div>
+              </td>
+              <td className="px-3 py-2 text-right tabular text-ink font-medium">
+                ₩{Math.round(totals.opBuy).toLocaleString()}
+              </td>
+              <td className={`px-3 py-2 text-right tabular font-medium ${totals.opProfit >= 0 ? 'text-gain' : 'text-loss'}`}>
+                <div>{totals.opProfit >= 0 ? '+' : ''}₩{Math.round(totals.opProfit).toLocaleString()}</div>
+                <div className="text-2xs opacity-80">
+                  {totalReturnPct >= 0 ? '+' : ''}{totalReturnPct.toFixed(2)}%
+                </div>
+              </td>
               <td className="px-3 py-2 text-right tabular bg-amber/10">
-                <div className="text-amber font-semibold">₩{fullKRW(grandTotal)}</div>
-                <div className="text-2xs text-ink-faint">100%</div>
+                <div className="text-amber font-semibold">₩{Math.round(totals.value).toLocaleString()}</div>
               </td>
             </tr>
           </tbody>
@@ -127,8 +113,4 @@ export function ExposureMatrix({ holdings }: Props) {
       </div>
     </Panel>
   )
-}
-
-function fullKRW(n: number): string {
-  return Math.round(n).toLocaleString()
 }
