@@ -37,6 +37,7 @@ export interface Holding {
 export interface Indicator {
   symbol: string
   name: string
+  category?: string   // GAS 정의 카테고리 (한국시장·미국시장·AI/반도체·빅테크·상품·매크로 등)
   value: number
   changeAbs: number
   changePct: number

@@ -4,23 +4,46 @@ import { Panel } from '../ui/Panel'
 
 interface Props { indicators: Indicator[] }
 
+// 웹앱 IndicatorsPage.tsx와 동일 순서 — GAS 정의 순(REFERENCE_INDICATORS)에 맞춤
+const CATEGORY_ORDER = [
+  '한국시장', '한국선물', '중국시장',
+  '미국시장', '미국선물', 'AI/반도체', '빅테크',
+  '상품', '매크로', '환율', '암호화폐',
+]
+
 export function MarketHeatmap({ indicators }: Props) {
-  const sorted = useMemo(
-    () => [...indicators]
-      .filter((i) => Number.isFinite(i.changePct))
-      .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct)),
-    [indicators]
-  )
+  const grouped = useMemo(() => {
+    const map = new Map<string, Indicator[]>()
+    indicators.forEach((i) => {
+      const cat = i.category || '기타'
+      if (!map.has(cat)) map.set(cat, [])
+      map.get(cat)!.push(i)
+    })
+    // 카테고리 순서: CATEGORY_ORDER 우선, 그 외는 알파벳
+    const present = Array.from(map.keys())
+    const ordered = CATEGORY_ORDER.filter((c) => map.has(c))
+    const rest = present.filter((c) => !CATEGORY_ORDER.includes(c)).sort()
+    return [...ordered, ...rest].map((c) => ({ category: c, items: map.get(c)! }))
+  }, [indicators])
+
+  const total = indicators.length
 
   return (
-    <Panel title="Market Heatmap" meta={`${sorted.length} symbols · sorted by |Δ%|`}>
-      <div className="p-2">
-        <div className="grid gap-1 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
-          {sorted.map((i) => <Cell key={i.symbol} ind={i} />)}
-          {sorted.length === 0 && (
-            <div className="col-span-full text-center text-ink-faint py-8 text-xs">no data</div>
-          )}
-        </div>
+    <Panel title="Market Heatmap" meta={`${total} symbols · 카테고리 순`}>
+      <div className="p-2 space-y-2">
+        {grouped.map(({ category, items }) => (
+          <div key={category}>
+            <div className="text-2xs uppercase tracking-widest text-ink-faint mb-1 px-1">
+              {category} <span className="text-ink-faint/70 normal-case">· {items.length}</span>
+            </div>
+            <div className="grid gap-1 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+              {items.map((i) => <Cell key={i.symbol} ind={i} />)}
+            </div>
+          </div>
+        ))}
+        {grouped.length === 0 && (
+          <div className="text-center text-ink-faint py-8 text-xs">no data</div>
+        )}
         <Legend />
       </div>
     </Panel>

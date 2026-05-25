@@ -272,10 +272,10 @@ function detectMarket(code: string): Market {
 function makeFxIndicators(pf: PortfolioResponse): Indicator[] {
   const out: Indicator[] = []
   if (Number(pf.usdRate) > 0) {
-    out.push({ symbol: 'USDKRW', name: 'USD/KRW', value: Number(pf.usdRate), changeAbs: 0, changePct: 0, spark: [] })
+    out.push({ symbol: 'USDKRW', name: 'USD/KRW', category: '환율', value: Number(pf.usdRate), changeAbs: 0, changePct: 0, spark: [] })
   }
   if (Number(pf.gbpRate) > 0) {
-    out.push({ symbol: 'GBPKRW', name: 'GBP/KRW', value: Number(pf.gbpRate), changeAbs: 0, changePct: 0, spark: [] })
+    out.push({ symbol: 'GBPKRW', name: 'GBP/KRW', category: '환율', value: Number(pf.gbpRate), changeAbs: 0, changePct: 0, spark: [] })
   }
   return out
 }
@@ -283,6 +283,7 @@ function makeFxIndicators(pf: PortfolioResponse): Indicator[] {
 function mapIndicators(ind: IndicatorsResponse): Indicator[] {
   return (ind.indicators ?? []).map((i) => ({
     symbol: i.key, name: i.name,
+    category: i.category,
     value: Number(i.value) || 0,
     changeAbs: Number(i.change) || 0,
     changePct: Number(i.changePct) || 0,
