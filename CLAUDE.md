@@ -34,6 +34,9 @@ cp config/global-claude.md ~/.claude/CLAUDE.md
 ```
 
 ## 코드 탐색
+
+**시스템 전체 그림이 필요할 때** → `docs/architecture.md` — 5 컴포넌트(GAS/Sheets/iOS/web/web-desk/Telegram), 데이터 흐름 4 경로, 자동 트리거 표, 공통 규칙, 작업 진입점 인덱스를 한 곳에 모음.
+
 코드 구조가 필요할 때 **파일 전체를 읽기 전에** `docs/code-map.md`를 먼저 읽는다.
 함수명·위치를 파악한 뒤 해당 부분만 grep 또는 offset/limit으로 읽는다.
 
