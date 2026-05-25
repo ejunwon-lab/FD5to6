@@ -27,3 +27,4 @@
 - [다중 파일 수정 효율](feedback_efficient_multi_file_edits.md) — Read 병렬화, TS 타입 변경 전 grep, rename 체크리스트, GH Pages 배포 retry 패턴
 - [숫자 풀 표시](feedback_number_display.md) — 모든 UI에서 숫자 절대 축약 금지 (억/만/M/K 금지), 항상 toLocaleString() 풀
 - [종목명이 메인](feedback_stock_name_primary.md) — 종목명이 메인 표시, 종목코드는 보조 (작고 흐리게)
+- [인덱스 문서 자동 갱신](feedback_index_docs_auto_update.md) — 함수/스키마/트리거/기능/결정/에러 변경 시 같은 turn에서 인덱스 문서 자동 갱신 (사용자 지시 불필요)
