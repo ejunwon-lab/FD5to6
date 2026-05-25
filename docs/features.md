@@ -56,8 +56,8 @@ last updated: 2026-05-25
 ### 데스크 (Bloomberg 스타일 — web-desk/)
 - Google OAuth 로그인 (GIS)
 - 5 메뉴: Dashboard · Holdings · Analysis · Indicators · Activity
-- **Dashboard**: KPI strip · Markets 위젯(6 지표) · Equity Curve(6 기간 필터) · Recent Activity · DashboardHoldings 통합
-- **Holdings**: Account P&L 패널(계좌별 원금/수익금/평가) + 3-view 토글(Web 카드/Terminal 카드/List) + 검색·필터·정렬 + 종목 상세 모달
+- **Dashboard**: KPI strip(총자산=주식+대기자금 · Total Return · Today P&L · Positions · Cash Reserve) · Markets 위젯(6 지표) · Equity Curve(6 기간 필터) · Recent Activity · DashboardHoldings 통합
+- **Holdings**: Account P&L 패널(계좌별 원금/수익금/평가 + 대기자금 행 + 순자산 합계) + 3-view 토글(Web 카드/Terminal 카드/List) + 검색·필터·정렬 + 종목 상세 모달
 - **Indicators**: Top Gainers/Losers (각 3건) + Market Heatmap (|Δ%| 격자) + 카테고리별 패널
 - **Analysis**: Risk-Return KPI strip(Sharpe·MaxDD·Vol·Win·Best) · Allocation 도넛 · Concentration bar · Profit Contribution(±막대, ₩/% 토글) · Top Winners/Losers
 - **Activity**: 월별 P&L + 5 KPI strip
@@ -74,6 +74,13 @@ last updated: 2026-05-25
 - `scheduledDailyUpdate` — 매일 17:30 장 마감 후 정리 (`setupDailyTrigger`)
 - `scheduledHourlyUpdate` (2026-05-25 신규) — 거래일 09:30~16:30 매시 :30(±5분) `updateAllNew`. `everyMinutes(30)` + 핸들러 분/시각/거래일 체크. LockService로 tgPushPnL·사용자 갱신과 충돌 시 skip
 - `tgPushPnL` — Telegram 자동 푸시 (매시 :00/:20/:40, 거래일 09:00~16:00만 발송)
+- `onEdit` 트리거 — *설정* 시트 C7:C12 편집 시 같은 행 E열에 yyyy-MM-dd HH:mm 자동 스탬프 (`_handleCashReserveTimestamp`)
+
+### 대기자금 (2026-05-25 신규)
+- *설정* 시트 A7:E12에 사용자 수동 입력 (증권사·구분·금액·비고·업데이트 날짜)
+- `newMobileGetPortfolio` 응답에 `cashReserve: { items, total }` 필드로 노출 (기존 summary·holdings 무변경)
+- 데스크: KpiStrip 총자산 = 주식 평가 + 대기자금, Holdings Account P&L 하단에 대기자금 행 + 순자산 합계
+- 다른 클라이언트(iOS·web·Telegram)는 신규 필드 무시 (선택적 호환)
 
 ## ❌ 미완료
 

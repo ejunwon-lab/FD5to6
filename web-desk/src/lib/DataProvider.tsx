@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { gasApi, type PortfolioResponse, type IndicatorsResponse, type TrendHistoryResponse, type MonthlyRealizedItem } from '../api/gasApi'
+import { gasApi, type PortfolioResponse, type IndicatorsResponse, type TrendHistoryResponse, type MonthlyRealizedItem, type CashReserve } from '../api/gasApi'
 import type { Holding, Indicator, PortfolioSummary, EquityPoint, Market } from './types'
 
 interface PortfolioCtxValue {
@@ -11,6 +11,7 @@ interface PortfolioCtxValue {
   holdings: Holding[]
   indicators: Indicator[]
   equityCurve: EquityPoint[]
+  cashReserve: CashReserve | null
   updatedAt: string | null
   refresh: () => Promise<void>
   updateAll: () => Promise<void>
@@ -36,12 +37,14 @@ interface PortfolioState {
   holdings: Holding[]
   indicators: Indicator[]
   equityCurve: EquityPoint[]
+  cashReserve: CashReserve | null
   updatedAt: string | null
 }
 
 const initialP: PortfolioState = {
   loading: false, updating: false, error: null,
-  summary: null, holdings: [], indicators: [], equityCurve: [], updatedAt: null,
+  summary: null, holdings: [], indicators: [], equityCurve: [],
+  cashReserve: null, updatedAt: null,
 }
 
 interface RealizedState {
@@ -82,6 +85,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         holdings: pf.holdings ? mapHoldings(pf) : [],
         indicators: [...baseIndicators, ...fxIndicators],
         equityCurve: hist?.entries ? mapEquity(hist) : [],
+        cashReserve: pf.cashReserve ?? null,
         updatedAt: pf.updatedAt ?? null,
       })
     } catch (e) {
@@ -138,6 +142,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         holdings: res.holdings ? mapHoldings(res) : [],
         indicators: [...baseIndicators, ...fxIndicators],
         equityCurve: hist?.entries ? mapEquity(hist) : [],
+        cashReserve: res.cashReserve ?? null,
         updatedAt: res.updatedAt ?? null,
       })
       // updateAll 후 realized도 같이 갱신
@@ -212,11 +217,14 @@ function mapSummary(pf: PortfolioResponse): PortfolioSummary {
   const holdings = pf.holdings ?? []
   const gainN = holdings.filter((h) => h.profitRate > 0).length
   const lossN = holdings.filter((h) => h.profitRate < 0).length
+  const cashReserve = pf.cashReserve?.total ?? 0
+  const netWorth = totalValue + cashReserve
   return {
     totalValue, todayPnl, todayPct, totalReturn, totalReturnPct,
     positionsActive: holdings.length, positionsTotal: holdings.length,
     positionsGain: gainN, positionsLoss: lossN,
-    cashReserve: 0, cashPct: 0,
+    cashReserve,
+    cashPct: netWorth > 0 ? (cashReserve / netWorth) * 100 : 0,
   }
 }
 

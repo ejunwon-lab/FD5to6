@@ -4,11 +4,12 @@ import { fmtKRW, fmtPct } from '../../lib/format'
 interface Props { summary: PortfolioSummary }
 
 export function KpiStrip({ summary }: Props) {
+  const netWorth = summary.totalValue + summary.cashReserve
   const cells = [
     {
-      label: 'Net Worth',
-      value: fmtKRW(summary.totalValue),
-      delta: `+${fmtKRW(summary.todayPnl)} (${fmtPct(summary.todayPct)})`,
+      label: '총자산 (주식 + 대기)',
+      value: fmtKRW(netWorth),
+      delta: `주식 ${fmtKRW(summary.totalValue)} · 대기 ${fmtKRW(summary.cashReserve)}`,
       tone: 'up',
     },
     {
@@ -33,7 +34,7 @@ export function KpiStrip({ summary }: Props) {
     {
       label: 'Cash Reserve',
       value: fmtKRW(summary.cashReserve),
-      delta: `${summary.cashPct}% allocation`,
+      delta: `${summary.cashPct.toFixed(1)}% of total`,
       tone: 'cyan',
     },
   ]

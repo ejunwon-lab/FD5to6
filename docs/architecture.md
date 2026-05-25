@@ -158,7 +158,7 @@ iOS / web / web-desk
 | **장기_가격_이력** | KIS 주봉/일봉 백필 (52주·장기 수익률) | StockMetrics |
 | **추이 기록** | 날짜별 합계 자산·운용·확정 누적. AD2=합계최신, U열=어제거래일 행 | 합계수익·전일변동 |
 | **실현손익** | 종목·증권사·계좌별 매도 손익 | `confirmedProfit` 합산 |
-| **설정** | B2=USD/KRW B3=GBP/KRW | `updateFxRates` |
+| **설정** | B2=USD/KRW · B3=GBP/KRW · A7:E12 대기자금(A:증권사 B:구분 C:대기자금 D:비고 E:업데이트 날짜 자동 스탬프) | `updateFxRates` · `_mGetCashReserve` · onEdit `_handleCashReserveTimestamp` |
 | **참고지표** | KOSPI·KOSDAQ·SPX·NDX·DJI·SOX·ES·NQ·GC·CL·VIX·TNX·DXY·NVDA·AAPL·MSFT·HSI 등 | `newMobileGetIndicators` |
 | **휴장일** | 증시 휴장일 (스승의날 등 제외, 14종 화이트리스트) | `_isKoreanHoliday`·`_isTradingDateStr` |
 | **대시보드** | GAS가 시트에 렌더한 가시화 (사용자가 시트에서 봄) | buildDashboard |

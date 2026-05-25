@@ -1,6 +1,6 @@
 # API Reference — GAS 모바일 엔드포인트 데이터 계약
 
-last updated: 2026-05-17
+last updated: 2026-05-25
 
 `apps-script-v2/MobileAPI.js`의 `newMobile*` 함수가 iOS(`ios2`)·웹(`web`)에 돌려주는 JSON 계약.
 **"어떤 필드가 이상하다"** 류 버그는 코드를 뒤지기 전에 이 표에서 필드 → 계산 위치를 먼저 찾는다.
@@ -23,6 +23,7 @@ last updated: 2026-05-17
 | `summary` | 요약 (아래 표) | — |
 | `byCategory` / `byAccount` | 분류별·계좌별 집계 (`Record<string, GroupStat>`) | `_mGroupBy` |
 | `holdings` | 종목 배열 (아래 표) | `_mMapHolding` |
+| `cashReserve` | 대기자금 `{ items: CashReserveItem[], total }` (2026-05-25 신규). 옛 클라이언트는 무시. | `_mGetCashReserve` ← *설정* A7:E12 |
 
 ### summary (Summary)
 
