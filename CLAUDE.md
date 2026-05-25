@@ -51,6 +51,45 @@ cp config/global-claude.md ~/.claude/CLAUDE.md
 - code-map.md에는 **줄 번호를 적지 않는다** (가장 빨리 낡음). 함수명·역할·시트 컬럼 의미·데이터 흐름만 기록.
 - 지도는 "어디 있나"를 알려줄 뿐 — 실제 수정 직전엔 해당 함수를 직접 읽어 확인한다.
 
+## 시스템 한눈에
+
+전체 구조·상세 규칙은 `docs/architecture.md` 참조. **매 작업에 필요한 핵심만 여기에 압축** — 새 세션 시작 시 자동으로 컨텍스트에 들어감.
+
+**5 컴포넌트**:
+- `apps-script-v2/` — GAS (중앙 데이터 허브, 시트 캐시, 자동 트리거)
+- `web/` — React PWA (모바일/일반)
+- `web-desk/` — 데스크 (Bloomberg 스타일, `DataProvider` 단일 캐시)
+- `ios2/` — SwiftUI 네이티브
+- `apps-script-v2/Telegram.js` — Telegram 봇 (워치 손익 알림)
+
+**데이터 흐름**: KIS API → GAS `updateAllNew` → Google Sheets 캐시 → 4개 클라이언트가 **시트만 읽음** (KIS 직접 호출 없음). 사용자 ⚡ 전체 업데이트 버튼 누를 때만 KIS 강제 갱신.
+
+**자동 트리거** (등록은 시트 메뉴 🛠️ 유지보수에서 사용자가 1회 클릭):
+
+| 트리거 | 시각 | 동작 |
+|---|---|---|
+| `scheduledDailyUpdate` | 매일 17:30 (장 마감 후) | `updateAllNew` |
+| `scheduledHourlyUpdate` | 거래일 09:30~16:30 매시 :30 | `updateAllNew` (8회/일) |
+| `tgPushPnL` | 거래일 09:00~16:00 매시 :00/:20/:40 | 가격 갱신 후 Telegram 푸시 |
+| `scheduledHolidaySync` | 매년 12월 | 구글 공휴일 캘린더 동기화 |
+
+**데스크 표시 규칙** (모든 새 컴포넌트에 자동 적용 — memory: `feedback_number_display`·`feedback_stock_name_primary`):
+- 숫자: `Math.round(n).toLocaleString()` 풀. `compactKRW`·`억`·`만`·`M`·`K` 등 축약 금지
+- 종목: 종목명 메인 (`text-amber font-medium`), 종목코드 보조 (`text-xxs text-ink-faint`)
+
+**작업 진입점** (어떤 작업에 어디 보나):
+
+| 작업 | 1차 진입 |
+|---|---|
+| GAS 함수 추가/수정 | `code-map.md` GAS 섹션 → 해당 .js |
+| 데스크 컴포넌트 | `code-map.md` Web Desk 섹션 → `web-desk/src/components/*` |
+| 새 기능 계획 | `desk-enhancement-plan.md` (Phase A/B/C) |
+| 응답 JSON 필드 | `api-reference.md` |
+| 시트 컬럼 의미 | `architecture.md` 시트 스키마 |
+| 자동 트리거 | `architecture.md` 트리거 표 + `Main.js`/`Telegram.js` |
+| 과거 버그 | `errors.md` (증상→원인→해결) |
+| 설계 결정 이유 | `decisions.md` |
+
 ## 핵심 규칙
 
 ### GAS 배포
