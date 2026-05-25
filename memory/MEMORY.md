@@ -25,3 +25,5 @@
 - [가설을 확신처럼 제시 금지](feedback_no_overconfident_claims.md) — 검증 안 된 결론으로 사용자 행동 반복 요구 금지, 진단 가설은 가설로 명시
 - [신시스템 4개 클라이언트 연동 매핑](project_web_terminal_gas_integration.md) — apps-script-v2와 연동 중인 4개 클라이언트(web-desk·web·Telegram·iOS) + 환율 위치 함정
 - [다중 파일 수정 효율](feedback_efficient_multi_file_edits.md) — Read 병렬화, TS 타입 변경 전 grep, rename 체크리스트, GH Pages 배포 retry 패턴
+- [숫자 풀 표시](feedback_number_display.md) — 모든 UI에서 숫자 절대 축약 금지 (억/만/M/K 금지), 항상 toLocaleString() 풀
+- [종목명이 메인](feedback_stock_name_primary.md) — 종목명이 메인 표시, 종목코드는 보조 (작고 흐리게)
