@@ -92,7 +92,7 @@ export function ExposureMatrix({ holdings }: Props) {
                   <td key={c.market} className={`px-3 py-2 text-right tabular ${cellShade(c.pctOfGrand)}`}>
                     {c.value > 0 ? (
                       <>
-                        <div className="text-ink">₩{compact(c.value)}</div>
+                        <div className="text-ink">₩{fullKRW(c.value)}</div>
                         <div className="text-2xs text-ink-faint">{c.count}p · {c.pctOfGrand.toFixed(1)}%</div>
                       </>
                     ) : (
@@ -101,7 +101,7 @@ export function ExposureMatrix({ holdings }: Props) {
                   </td>
                 ))}
                 <td className="px-3 py-2 text-right tabular bg-bg-elev">
-                  <div className="text-amber font-medium">₩{compact(r.total)}</div>
+                  <div className="text-amber font-medium">₩{fullKRW(r.total)}</div>
                   <div className="text-2xs text-ink-faint">{r.pctOfGrand.toFixed(1)}%</div>
                 </td>
               </tr>
@@ -111,14 +111,14 @@ export function ExposureMatrix({ holdings }: Props) {
               <td className="px-3 py-2 text-2xs uppercase tracking-widest text-ink-faint font-medium">Market Total</td>
               {MARKETS.map((m) => (
                 <td key={m} className="px-3 py-2 text-right tabular">
-                  <div className="text-cyan font-medium">₩{compact(marketTotals[m])}</div>
+                  <div className="text-cyan font-medium">₩{fullKRW(marketTotals[m])}</div>
                   <div className="text-2xs text-ink-faint">
                     {grandTotal ? ((marketTotals[m] / grandTotal) * 100).toFixed(1) : '0.0'}%
                   </div>
                 </td>
               ))}
               <td className="px-3 py-2 text-right tabular bg-amber/10">
-                <div className="text-amber font-semibold">₩{compact(grandTotal)}</div>
+                <div className="text-amber font-semibold">₩{fullKRW(grandTotal)}</div>
                 <div className="text-2xs text-ink-faint">100%</div>
               </td>
             </tr>
@@ -129,9 +129,6 @@ export function ExposureMatrix({ holdings }: Props) {
   )
 }
 
-function compact(n: number): string {
-  const abs = Math.abs(n)
-  if (abs >= 1e8) return (n / 1e8).toFixed(2) + '억'
-  if (abs >= 1e4) return (n / 1e4).toFixed(0) + '만'
+function fullKRW(n: number): string {
   return Math.round(n).toLocaleString()
 }

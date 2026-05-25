@@ -80,14 +80,14 @@ function Side({ title, rows, mode, maxAbs, tone }: { title: string; rows: Row[];
         {rows.map((r) => {
           const widthPct = (Math.abs(r.profit) / maxAbs) * 100
           const display = mode === 'value'
-            ? `${r.profit >= 0 ? '+' : ''}₩${compact(r.profit)}`
+            ? `${r.profit >= 0 ? '+' : ''}₩${Math.round(r.profit).toLocaleString()}`
             : `${r.contribPct >= 0 ? '+' : ''}${r.contribPct.toFixed(1)}%`
           return (
             <div key={`${r.symbol}-${r.profit}`} className="text-2xs">
               <div className="flex items-baseline gap-2 mb-0.5">
-                <span className="text-amber font-medium tabular shrink-0">{r.symbol}</span>
+                <span className="text-amber font-medium text-xs truncate flex-1 normal-case">{r.name}</span>
                 <span className="text-cyan text-xxs tracking-widest shrink-0">{r.market}</span>
-                <span className="text-ink-dim truncate flex-1 normal-case">{r.name}</span>
+                <span className="text-ink-faint text-xxs tabular shrink-0">{r.symbol}</span>
                 <span className={`${textColor} tabular shrink-0`}>{display}</span>
               </div>
               <div className="h-1.5 bg-line w-full">
@@ -102,9 +102,3 @@ function Side({ title, rows, mode, maxAbs, tone }: { title: string; rows: Row[];
   )
 }
 
-function compact(n: number): string {
-  const abs = Math.abs(n)
-  if (abs >= 1e8) return (n / 1e8).toFixed(2) + '억'
-  if (abs >= 1e4) return (n / 1e4).toFixed(0) + '만'
-  return Math.round(n).toLocaleString()
-}
