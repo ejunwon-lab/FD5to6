@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import type { Holding } from '../../lib/types'
+import type { CashReserve } from '../../api/gasApi'
 import { Panel } from '../ui/Panel'
 
-interface Props { holdings: Holding[] }
+interface Props { holdings: Holding[]; cashReserve?: CashReserve | null }
 
 const ACCOUNT_DISPLAY: Record<string, string> = {
   '퇴직연금_개인IRP': '퇴직연금_미래',
@@ -10,7 +11,7 @@ const ACCOUNT_DISPLAY: Record<string, string> = {
 }
 const ACCOUNT_ORDER = ['종합_랩', '종합', 'ISA', '퇴직연금_미래', '퇴직연금_개인IRP', '퇴직연금_개인형IRP(범용)']
 
-export function ExposureMatrix({ holdings }: Props) {
+export function ExposureMatrix({ holdings, cashReserve }: Props) {
   const { rows, totals } = useMemo(() => {
     // 계좌별 원금/수익/평가 집계
     const agg: Record<string, { opBuy: number; opProfit: number; value: number; count: number }> = {}
@@ -52,6 +53,8 @@ export function ExposureMatrix({ holdings }: Props) {
   }, [holdings])
 
   const totalReturnPct = totals.opBuy > 0 ? (totals.opProfit / totals.opBuy) * 100 : 0
+  const cashTotal = cashReserve?.total ?? 0
+  const netWorth = totals.value + cashTotal
 
   return (
     <Panel
@@ -89,10 +92,10 @@ export function ExposureMatrix({ holdings }: Props) {
                 </td>
               </tr>
             ))}
-            {/* 전체 Total */}
+            {/* 주식 소계 */}
             <tr className="border-t border-line bg-bg/30">
               <td className="px-3 py-2 text-2xs uppercase tracking-widest text-ink-faint font-medium">
-                Total
+                주식 소계
                 <div className="text-2xs text-ink-faint tabular normal-case">{totals.count}개 종목</div>
               </td>
               <td className="px-3 py-2 text-right tabular text-ink font-medium">
@@ -104,8 +107,55 @@ export function ExposureMatrix({ holdings }: Props) {
                   {totalReturnPct >= 0 ? '+' : ''}{totalReturnPct.toFixed(2)}%
                 </div>
               </td>
-              <td className="px-3 py-2 text-right tabular bg-amber/10">
-                <div className="text-amber font-semibold">₩{Math.round(totals.value).toLocaleString()}</div>
+              <td className="px-3 py-2 text-right tabular bg-amber/5">
+                <div className="text-amber font-medium">₩{Math.round(totals.value).toLocaleString()}</div>
+              </td>
+            </tr>
+
+            {/* 대기자금 그룹 */}
+            {cashReserve && cashReserve.items.length > 0 && (
+              <>
+                {cashReserve.items.map((c, i) => (
+                  <tr key={`cash-${i}`} className="border-b border-line-dim">
+                    <td className="px-3 py-2">
+                      <div className="text-cyan">{c.account || c.broker}</div>
+                      <div className="text-2xs text-ink-faint tabular">
+                        대기자금 · {c.broker}{c.updatedAt ? ` · ${c.updatedAt}` : ''}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular text-ink-faint">—</td>
+                    <td className="px-3 py-2 text-right tabular text-ink-faint">—</td>
+                    <td className="px-3 py-2 text-right tabular bg-bg-elev">
+                      <div className="text-cyan font-medium">₩{Math.round(c.amount).toLocaleString()}</div>
+                      {c.note && <div className="text-2xs text-ink-faint normal-case">{c.note}</div>}
+                    </td>
+                  </tr>
+                ))}
+                {/* 대기자금 소계 */}
+                <tr className="border-t border-line-dim bg-bg/30">
+                  <td className="px-3 py-2 text-2xs uppercase tracking-widest text-ink-faint font-medium">
+                    대기자금 소계
+                    <div className="text-2xs text-ink-faint tabular normal-case">{cashReserve.items.length}개 계좌</div>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular text-ink-faint">—</td>
+                  <td className="px-3 py-2 text-right tabular text-ink-faint">—</td>
+                  <td className="px-3 py-2 text-right tabular bg-cyan/5">
+                    <div className="text-cyan font-medium">₩{Math.round(cashTotal).toLocaleString()}</div>
+                  </td>
+                </tr>
+              </>
+            )}
+
+            {/* 순자산 합계 */}
+            <tr className="border-t-2 border-amber/40 bg-amber/5">
+              <td className="px-3 py-2.5 text-2xs uppercase tracking-widest font-semibold text-amber">
+                순자산 합계
+                <div className="text-2xs text-ink-faint tabular normal-case">주식 + 대기자금</div>
+              </td>
+              <td className="px-3 py-2.5 text-right tabular text-ink-faint">—</td>
+              <td className="px-3 py-2.5 text-right tabular text-ink-faint">—</td>
+              <td className="px-3 py-2.5 text-right tabular bg-amber/15">
+                <div className="text-amber font-bold text-sm">₩{Math.round(netWorth).toLocaleString()}</div>
               </td>
             </tr>
           </tbody>

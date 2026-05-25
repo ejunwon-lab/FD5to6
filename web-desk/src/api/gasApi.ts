@@ -42,6 +42,18 @@ export interface ApiHolding {
   buyDate?: string
 }
 
+export interface CashReserveItem {
+  broker: string
+  account: string
+  amount: number
+  note?: string
+  updatedAt?: string
+}
+export interface CashReserve {
+  items: CashReserveItem[]
+  total: number
+}
+
 export interface PortfolioResponse {
   success: boolean
   error?: string
@@ -50,6 +62,7 @@ export interface PortfolioResponse {
   gbpRate?: number
   summary?: Summary
   holdings?: ApiHolding[]
+  cashReserve?: CashReserve
 }
 
 export interface ApiIndicator {

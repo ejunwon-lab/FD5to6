@@ -127,6 +127,7 @@ function newMobileGetPortfolio() {
 
     const byCategory = _mGroupBy(posRows, 2, totalCur);
     const byAccount  = _mGroupBy(posRows, 4, totalCur);
+    const cashReserve = _mGetCashReserve(ss);
 
     return JSON.stringify({
       success: true,
@@ -137,6 +138,7 @@ function newMobileGetPortfolio() {
       byCategory,
       byAccount,
       holdings,
+      cashReserve,
     });
   } catch (e) {
     Logger.log('newMobileGetPortfolio 오류: ' + e);
@@ -602,6 +604,40 @@ function _mGetFxRates(ss) {
       gbp: Number(sheet.getRange(3, 2).getValue()) || 1700,
     };
   } catch (e) { return { usd: 1400, gbp: 1700 }; }
+}
+
+/**
+ * *설정* 시트 A7:E12 — 사용자 수동 입력 대기자금
+ *   A:증권사  B:구분  C:대기자금  D:비고  E:업데이트 날짜(자동 스탬프)
+ * 합계는 코드에서 자체 계산 (시트 C13 SUM 수식과 일치해야 함).
+ */
+function _mGetCashReserve(ss) {
+  try {
+    const sheet = ss.getSheetByName(NS.SETTINGS);
+    if (!sheet) return { items: [], total: 0 };
+    const range = sheet.getRange(7, 1, 6, 5).getValues();
+    const items = [];
+    let total = 0;
+    for (const row of range) {
+      const broker  = String(row[0] || '').trim();
+      const account = String(row[1] || '').trim();
+      const amount  = Number(row[2]) || 0;
+      const note    = String(row[3] || '').trim();
+      const stamp   = row[4];
+      if (!broker && !account && amount === 0) continue;
+      items.push({
+        broker, account, amount, note,
+        updatedAt: stamp instanceof Date
+          ? Utilities.formatDate(stamp, 'Asia/Seoul', 'yyyy-MM-dd HH:mm')
+          : String(stamp || ''),
+      });
+      total += amount;
+    }
+    return { items, total };
+  } catch (e) {
+    Logger.log('_mGetCashReserve 오류: ' + e);
+    return { items: [], total: 0 };
+  }
 }
 
 // *추이 기록* U열에서 "어제 거래일" 행을 찾아 AE(합계 변동)/AF(합계 변동률) 반환

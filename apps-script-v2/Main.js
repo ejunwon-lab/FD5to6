@@ -40,6 +40,32 @@ function onOpen() {
 function onEdit(e) {
   _handleFormOnEdit(e);
   _handleDashSortChange(e);
+  _handleCashReserveTimestamp(e);
+}
+
+/**
+ * *설정* 시트 C7:C12(대기자금) 편집 시, 같은 행 E열에 yyyy-MM-dd HH:mm 자동 스탬프.
+ * 값을 비우면 스탬프도 비움. 영역 밖 편집은 무시.
+ */
+function _handleCashReserveTimestamp(e) {
+  try {
+    if (!e || !e.range) return;
+    const sheet = e.range.getSheet();
+    if (sheet.getName() !== NS.SETTINGS) return;
+    const col = e.range.getColumn();
+    const row = e.range.getRow();
+    if (col !== 3) return;                  // C열만
+    if (row < 7 || row > 12) return;        // C7~C12만
+    const newVal = e.range.getValue();
+    const stampCell = sheet.getRange(row, 5);  // E열
+    if (newVal === '' || newVal === null) {
+      stampCell.clearContent();
+    } else {
+      stampCell.setValue(Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm'));
+    }
+  } catch (err) {
+    Logger.log('_handleCashReserveTimestamp 오류: ' + err);
+  }
 }
 
 // Web App POST endpoint — 현재는 Telegram webhook 전용
