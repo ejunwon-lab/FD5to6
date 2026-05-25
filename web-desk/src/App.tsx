@@ -8,6 +8,7 @@ import { HoldingsPage } from './components/holdings/HoldingsPage'
 import { AnalysisPage } from './components/analysis/AnalysisPage'
 import { IndicatorsPage } from './components/indicators/IndicatorsPage'
 import { ActivityPage } from './components/activity/ActivityPage'
+import { DataProvider } from './lib/DataProvider'
 
 function PlaceholderPage({ title }: { title: string }) {
   return (
@@ -35,15 +36,17 @@ function App() {
     }
   })()
   return (
-    <div className="h-screen flex flex-col">
-      <TopBar onMenuClick={() => setDrawerOpen(true)} />
-      <Ticker />
-      <div className="flex-1 grid overflow-hidden grid-cols-1 lg:grid-cols-[200px_1fr]">
-        <Sidebar active={active} onSelect={setActive} drawerOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
-        {page}
+    <DataProvider>
+      <div className="h-screen flex flex-col">
+        <TopBar onMenuClick={() => setDrawerOpen(true)} />
+        <Ticker />
+        <div className="flex-1 grid overflow-hidden grid-cols-1 lg:grid-cols-[200px_1fr]">
+          <Sidebar active={active} onSelect={setActive} drawerOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
+          {page}
+        </div>
+        <Footer />
       </div>
-      <Footer />
-    </div>
+    </DataProvider>
   )
 }
 

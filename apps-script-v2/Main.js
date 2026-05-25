@@ -19,7 +19,9 @@ function onOpen() {
     .addItem('🔍 진단', 'runDiag')
     .addSeparator()
     .addItem('⏰ 매일 17:30 자동 트리거 등록', 'setupDailyTrigger')
-    .addItem('🗑️ 자동 트리거 해제', 'deleteDailyTrigger')
+    .addItem('🗑️ 17:30 자동 트리거 해제', 'deleteDailyTrigger')
+    .addItem('🕐 매시 :30 장중 자동 트리거 등록 (09:30~16:30)', 'setupHourlyTrigger')
+    .addItem('🗑️ 장중 자동 트리거 해제', 'deleteHourlyTrigger')
     .addSeparator()
     .addItem('📱 Telegram — 20분 푸시 ON', 'tgSetupPushTrigger')
     .addItem('🔕 Telegram — 푸시 OFF', 'tgDeletePushTrigger')
@@ -109,5 +111,63 @@ function setupDailyTrigger() {
 function deleteDailyTrigger() {
   ScriptApp.getProjectTriggers()
     .filter(t => t.getHandlerFunction() === 'scheduledDailyUpdate')
+    .forEach(t => ScriptApp.deleteTrigger(t));
+}
+
+/**
+ * 장중 매시 :30 자동 업데이트 (거래일 09:30~16:30, 8회/일).
+ * everyMinutes(30)으로 슬랙 ±2분 확보 → 핸들러에서 30분 단위 + 시각·거래일 체크.
+ * LockService로 tgPushPnL·사용자 갱신과 충돌 시 skip (다음 슬롯에서 복구).
+ */
+function scheduledHourlyUpdate() {
+  // 1. 거래일이 아니면 skip
+  if (!_mIsTradingDay()) {
+    Logger.log('scheduledHourlyUpdate: 비거래일 — skip');
+    return;
+  }
+  // 2. 시각 범위 09:30~16:30 + 30분 단위(:00 or :30)만 실행
+  const tz = 'Asia/Seoul';
+  const now = new Date();
+  const hour = Number(Utilities.formatDate(now, tz, 'H'));
+  const minute = Number(Utilities.formatDate(now, tz, 'm'));
+  const mins = hour * 60 + minute;
+  if (mins < 9 * 60 + 28 || mins > 16 * 60 + 32) {
+    Logger.log('scheduledHourlyUpdate: 시각 범위 밖 (' + hour + ':' + minute + ') — skip');
+    return;
+  }
+  // 매시 :30 근처만 실행 (slack ±5분: :25~:35만 통과)
+  if (minute < 25 || minute > 35) {
+    Logger.log('scheduledHourlyUpdate: 30분 단위 슬롯 아님 (' + minute + 'm) — skip');
+    return;
+  }
+  // 3. 락 — tgPushPnL·사용자 갱신과 겹치면 skip
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(2000)) {
+    Logger.log('scheduledHourlyUpdate: 다른 갱신 처리 중 — skip');
+    return;
+  }
+  try {
+    Logger.log('scheduledHourlyUpdate 시작 (' + hour + ':' + minute + ')');
+    updateAllNew();
+    Logger.log('scheduledHourlyUpdate 완료');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function setupHourlyTrigger() {
+  deleteHourlyTrigger();
+  ScriptApp.newTrigger('scheduledHourlyUpdate')
+    .timeBased()
+    .everyMinutes(30)
+    .create();
+  Logger.log('트리거 설정 완료: scheduledHourlyUpdate (매 30분, 거래일 09:30~16:30만 실제 실행)');
+  SpreadsheetApp.getActiveSpreadsheet()
+    .toast('장중 자동 트리거 설정 완료 (매시 :30, 거래일만)', '🕐', 4);
+}
+
+function deleteHourlyTrigger() {
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'scheduledHourlyUpdate')
     .forEach(t => ScriptApp.deleteTrigger(t));
 }
