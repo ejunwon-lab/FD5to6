@@ -53,6 +53,7 @@ export interface ActivityItem {
 
 export interface TickerItem {
   symbol: string
+  name?: string
   price: number
   changePct: number
 }

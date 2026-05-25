@@ -56,27 +56,27 @@ export const indicators: Indicator[] = [
 ]
 
 export const activity: ActivityItem[] = [
-  { time: '14:18',  type: 'BUY',  symbol: 'NVDA',   description: 'NVDA · 2 shares @ 872.50',     amount: '$1,745' },
-  { time: '05-22',  type: 'DIV',  symbol: 'MSFT',   description: 'MSFT · quarterly',              amount: '$9.00' },
-  { time: '05-21',  type: 'SELL', symbol: '035720', description: '035720 · 10 shares',            amount: '₩498,000' },
-  { time: '05-20',  type: 'BUY',  symbol: '000660', description: '000660 · 5 shares',             amount: '₩697,500' },
-  { time: '05-19',  type: 'DIV',  symbol: 'AAPL',   description: 'AAPL · quarterly',              amount: '$3.60' },
-  { time: '05-16',  type: 'BUY',  symbol: 'MSFT',   description: 'MSFT · 3 shares @ 408.20',      amount: '$1,225' },
-  { time: '05-14',  type: 'SELL', symbol: 'TSLA',   description: 'TSLA · 5 shares',               amount: '$1,188' },
+  { time: '14:18',  type: 'BUY',  symbol: 'NVDA',   description: 'Nvidia · 2 shares @ 872.50',     amount: '$1,745' },
+  { time: '05-22',  type: 'DIV',  symbol: 'MSFT',   description: 'Microsoft · quarterly',           amount: '$9.00' },
+  { time: '05-21',  type: 'SELL', symbol: '035720', description: '카카오 · 10 shares',              amount: '₩498,000' },
+  { time: '05-20',  type: 'BUY',  symbol: '000660', description: 'SK하이닉스 · 5 shares',           amount: '₩697,500' },
+  { time: '05-19',  type: 'DIV',  symbol: 'AAPL',   description: 'Apple · quarterly',               amount: '$3.60' },
+  { time: '05-16',  type: 'BUY',  symbol: 'MSFT',   description: 'Microsoft · 3 shares @ 408.20',   amount: '$1,225' },
+  { time: '05-14',  type: 'SELL', symbol: 'TSLA',   description: 'Tesla · 5 shares',                amount: '$1,188' },
 ]
 
 export const tickerItems: TickerItem[] = [
-  { symbol: '005930', price: 70_400, changePct: 1.30 },
-  { symbol: 'NVDA', price: 875.32, changePct: 3.41 },
-  { symbol: 'AAPL', price: 184.92, changePct: 0.85 },
-  { symbol: 'KOSPI', price: 2541.32, changePct: 0.45 },
-  { symbol: 'S&P500', price: 5234.18, changePct: 0.82 },
-  { symbol: 'USDKRW', price: 1342.50, changePct: -0.18 },
-  { symbol: '035720', price: 50_400, changePct: -1.95 },
-  { symbol: 'TSLA', price: 235.10, changePct: -2.14 },
-  { symbol: 'BTC', price: 67_234, changePct: 2.41 },
-  { symbol: 'MSFT', price: 414.20, changePct: 1.06 },
-  { symbol: '000660', price: 142_500, changePct: 2.15 },
+  { symbol: '005930', name: '삼성전자',    price:  70_400, changePct:  1.30 },
+  { symbol: 'NVDA',   name: 'Nvidia',      price: 875.32, changePct:  3.41 },
+  { symbol: 'AAPL',   name: 'Apple',       price: 184.92, changePct:  0.85 },
+  { symbol: 'KOSPI',  name: 'KOSPI',       price: 2541.32, changePct: 0.45 },
+  { symbol: 'S&P500', name: 'S&P 500',     price: 5234.18, changePct: 0.82 },
+  { symbol: 'USDKRW', name: 'USD/KRW',     price: 1342.50, changePct:-0.18 },
+  { symbol: '035720', name: '카카오',      price:  50_400, changePct: -1.95 },
+  { symbol: 'TSLA',   name: 'Tesla',       price: 235.10, changePct: -2.14 },
+  { symbol: 'BTC',    name: 'BTC/USD',     price:  67_234, changePct:  2.41 },
+  { symbol: 'MSFT',   name: 'Microsoft',   price: 414.20, changePct:  1.06 },
+  { symbol: '000660', name: 'SK하이닉스',  price: 142_500, changePct:  2.15 },
 ]
 
 // 180일 equity curve — 다양한 기간 필터 테스트용
