@@ -108,7 +108,7 @@ export function MonthlyHeatmapPanel({ equityCurve }: { equityCurve: EquityPoint[
                         <div
                           className="h-7 border border-line-dim cursor-help"
                           style={{ backgroundColor: bg }}
-                          title={`${c.year}-${String(c.month + 1).padStart(2, '0')}: ${c.delta >= 0 ? '+' : ''}₩${Math.round(c.delta).toLocaleString()}`}
+                          title={`${c.year}-${String(c.month + 1).padStart(2, '0')}: ${c.delta >= 0 ? '+' : ''}${Math.round(c.delta).toLocaleString()}원`}
                         />
                       </td>
                     )
