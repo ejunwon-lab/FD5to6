@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TopBar } from './components/shell/TopBar'
 import { Ticker } from './components/shell/Ticker'
 import { Sidebar, type NavKey } from './components/shell/Sidebar'
@@ -21,9 +21,41 @@ function PlaceholderPage({ title }: { title: string }) {
   )
 }
 
+const SHORTCUTS: Record<string, NavKey> = {
+  d: 'dashboard',
+  h: 'holdings',
+  a: 'analysis',
+  i: 'indicators',
+  t: 'tradelog',
+  p: 'pricehist',
+  v: 'dividends',
+  k: 'kis',
+  s: 'settings',
+}
+
 function App() {
   const [active, setActive] = useState<NavKey>('dashboard')
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (t) {
+        const tag = t.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return
+      }
+      const k = e.key.toLowerCase()
+      const nav = SHORTCUTS[k]
+      if (nav) {
+        e.preventDefault()
+        setActive(nav)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   const page = (() => {
     switch (active) {
       case 'dashboard':   return <DashboardPage />
