@@ -12,25 +12,25 @@ const sections: { title: string; items: { key: NavKey; label: string; hint?: str
   {
     title: 'Workspace',
     items: [
-      { key: 'dashboard', label: 'Dashboard', hint: 'F1' },
-      { key: 'holdings', label: 'Holdings', hint: 'F2' },
-      { key: 'analysis', label: 'Analysis', hint: 'F3' },
-      { key: 'indicators', label: 'Indicators', hint: 'F4' },
-      { key: 'tradelog', label: 'Trade Log', hint: 'F5' },
+      { key: 'dashboard', label: 'Dashboard', hint: 'D' },
+      { key: 'holdings', label: 'Holdings', hint: 'H' },
+      { key: 'analysis', label: 'Analysis', hint: 'A' },
+      { key: 'indicators', label: 'Indicators', hint: 'I' },
+      { key: 'tradelog', label: 'Trade Log', hint: 'T' },
     ],
   },
   {
     title: 'Data',
     items: [
-      { key: 'pricehist', label: 'Price History', hint: 'F6' },
-      { key: 'dividends', label: 'Dividends', badge: '3' },
+      { key: 'pricehist', label: 'Price History', hint: 'P' },
+      { key: 'dividends', label: 'Dividends', hint: 'V', badge: '3' },
     ],
   },
   {
     title: 'System',
     items: [
-      { key: 'kis', label: 'KIS Status', hint: '●' },
-      { key: 'settings', label: 'Settings', hint: 'F9' },
+      { key: 'kis', label: 'KIS Status', hint: 'K' },
+      { key: 'settings', label: 'Settings', hint: 'S' },
     ],
   },
 ]
