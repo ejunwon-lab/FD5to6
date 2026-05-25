@@ -5,7 +5,17 @@ import { holdings as sampleHoldings, equityCurve as sampleEquity } from '../../l
 import { Panel } from '../ui/Panel'
 import { ContributionBar } from './ContributionBar'
 
-const MARKET_COLORS = { KR: '#00d4ff', US: '#ffa500' } as const
+const BROKER_COLORS: Record<string, string> = {
+  '미래에셋': '#fb923c',  // orange-400
+  '삼성증권': '#60a5fa',  // blue-400
+}
+function brokerColor(b: string): string {
+  // 부분 매칭 (e.g. "미래에셋대우" 같은 변형도 대응)
+  const low = b.toLowerCase()
+  if (low.includes('미래')) return BROKER_COLORS['미래에셋']
+  if (low.includes('삼성')) return BROKER_COLORS['삼성증권']
+  return '#6b7280'
+}
 
 export function AnalysisPage() {
   const { holdings: live, equityCurve: liveEquity } = usePortfolio()
@@ -26,15 +36,15 @@ export function AnalysisPage() {
         <Stat label="Best Day" value={`+${stats.bestDay.toFixed(2)}%`} sub={stats.bestDayDate} tone="up" />
       </div>
 
-      {/* Allocation by Market */}
-      <Panel title="Allocation · by Market" meta={`${holdings.length} positions`}>
+      {/* Allocation by 증권사 */}
+      <Panel title="Allocation · by 증권사" meta={`${holdings.length} positions`}>
         <div className="grid grid-cols-2 gap-2 p-3">
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={stats.byMarket} dataKey="value" nameKey="market" outerRadius={70} innerRadius={42} strokeWidth={0}>
-                  {stats.byMarket.map((m) => (
-                    <Cell key={m.market} fill={MARKET_COLORS[m.market as 'KR' | 'US'] ?? '#6b7280'} />
+                <Pie data={stats.byBroker} dataKey="value" nameKey="broker" outerRadius={70} innerRadius={42} strokeWidth={0}>
+                  {stats.byBroker.map((b) => (
+                    <Cell key={b.broker} fill={brokerColor(b.broker)} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -46,14 +56,14 @@ export function AnalysisPage() {
             </ResponsiveContainer>
           </div>
           <div className="flex flex-col justify-center gap-2 text-xs">
-            {stats.byMarket.map((m) => (
-              <div key={m.market} className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5" style={{ background: MARKET_COLORS[m.market as 'KR' | 'US'] }} />
-                  <span className="text-ink-dim">{m.market}</span>
-                  <span className="text-ink-faint text-2xs">({m.count})</span>
+            {stats.byBroker.map((b) => (
+              <div key={b.broker} className="flex justify-between items-center">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-2.5 h-2.5 shrink-0" style={{ background: brokerColor(b.broker) }} />
+                  <span className="text-ink-dim truncate">{b.broker}</span>
+                  <span className="text-ink-faint text-2xs shrink-0">({b.count})</span>
                 </div>
-                <span className="tabular">{m.pct.toFixed(1)}%</span>
+                <span className="tabular shrink-0 ml-2">{b.pct.toFixed(1)}%</span>
               </div>
             ))}
             <div className="border-t border-line mt-2 pt-2 text-ink-faint text-2xs uppercase tracking-widest">Total</div>
@@ -66,10 +76,10 @@ export function AnalysisPage() {
       <Panel title="Concentration · top positions" meta="HHI risk">
         <div className="p-3 h-[230px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats.topWeights} layout="vertical" margin={{ top: 0, right: 30, left: 30, bottom: 0 }}>
+            <BarChart data={stats.topWeights} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="#1f2630" strokeDasharray="0" horizontal={false} />
               <XAxis type="number" tick={{ fill: '#4a5568', fontSize: 10 }} stroke="#4a5568" />
-              <YAxis dataKey="symbol" type="category" tick={{ fill: '#ffa500', fontSize: 10 }} stroke="#4a5568" width={60} />
+              <YAxis dataKey="name" type="category" tick={{ fill: '#ffa500', fontSize: 10 }} stroke="#4a5568" width={110} interval={0} />
               <Tooltip
                 contentStyle={{ background: '#11151c', border: '1px solid #1f2630', fontSize: 11, fontFamily: 'JetBrains Mono' }}
                 labelStyle={{ color: '#6b7280' }} itemStyle={{ color: '#d4d8e0' }}
@@ -119,27 +129,29 @@ export function AnalysisPage() {
   )
 }
 
-function computeStats(holdings: { symbol: string; name: string; market: string; value: number; returnPct: number; weightPct: number }[], equity: { date: string; value: number }[]) {
+function computeStats(holdings: { symbol: string; name: string; market: string; broker: string; value: number; returnPct: number; weightPct: number }[], equity: { date: string; value: number }[]) {
   const totalValue = holdings.reduce((s, h) => s + h.value, 0) || 1
   // Re-compute weight from value (in case prop weightPct missing)
   const withW = holdings.map((h) => ({ ...h, w: (h.value / totalValue) * 100 }))
 
-  const byMarketMap = new Map<string, { value: number; count: number }>()
+  const byBrokerMap = new Map<string, { value: number; count: number }>()
   withW.forEach((h) => {
-    const cur = byMarketMap.get(h.market) ?? { value: 0, count: 0 }
-    byMarketMap.set(h.market, { value: cur.value + h.value, count: cur.count + 1 })
+    const cur = byBrokerMap.get(h.broker) ?? { value: 0, count: 0 }
+    byBrokerMap.set(h.broker, { value: cur.value + h.value, count: cur.count + 1 })
   })
-  const byMarket = Array.from(byMarketMap.entries()).map(([market, v]) => ({
-    market,
-    value: v.value,
-    count: v.count,
-    pct: (v.value / totalValue) * 100,
-  }))
+  const byBroker = Array.from(byBrokerMap.entries())
+    .map(([broker, v]) => ({
+      broker,
+      value: v.value,
+      count: v.count,
+      pct: (v.value / totalValue) * 100,
+    }))
+    .sort((a, b) => b.value - a.value)
 
   const topWeights = [...withW]
     .sort((a, b) => b.w - a.w)
     .slice(0, 6)
-    .map((h) => ({ symbol: h.symbol, weight: h.w }))
+    .map((h) => ({ symbol: h.symbol, name: h.name, weight: h.w }))
 
   const sorted = [...holdings].sort((a, b) => b.returnPct - a.returnPct)
   const winners = sorted.filter((h) => h.returnPct > 0).slice(0, 5)
@@ -215,7 +227,7 @@ function computeStats(holdings: { symbol: string; name: string; market: string; 
     totalDays,
     bestDay,
     bestDayDate,
-    byMarket,
+    byBroker,
     topWeights,
     winners,
     losers,
