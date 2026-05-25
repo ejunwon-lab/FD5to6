@@ -6,29 +6,12 @@ import type { Indicator } from '../../lib/types'
 import { GainersLosersStrip } from './GainersLosersStrip'
 import { MarketHeatmap } from './MarketHeatmap'
 
-const CATEGORY_LABELS: Record<string, string> = {
-  index_kr:    'Korea',
-  index_us:    'US',
-  index_intl:  'International',
-  fx:          'FX',
-  crypto:      'Crypto',
-  commodity:   'Commodity',
-  bond:        'Rates',
-  other:       'Other',
-}
-
-// Categorize indicators by symbol prefix (rough)
-function categorize(ind: Indicator): string {
-  const s = ind.symbol.toUpperCase()
-  if (s.includes('KOSPI') || s.includes('KOSDAQ')) return 'index_kr'
-  if (s.includes('S&P') || s.includes('SPX') || s.includes('NASDAQ') || s.includes('IXIC') || s.includes('DOW') || s.includes('DJI') || s.includes('VIX')) return 'index_us'
-  if (s.includes('NIKKEI') || s.includes('HSI') || s.includes('FTSE') || s.includes('DAX')) return 'index_intl'
-  if (s.includes('USD') || s.includes('KRW') || s.includes('EUR') || s.includes('JPY') || s.includes('GBP')) return 'fx'
-  if (s.includes('BTC') || s.includes('ETH') || s.includes('SOL')) return 'crypto'
-  if (s.includes('GOLD') || s.includes('OIL') || s.includes('WTI') || s.includes('BRENT')) return 'commodity'
-  if (s.includes('YIELD') || s.includes('UST') || s.includes('BOND')) return 'bond'
-  return 'other'
-}
+// 웹앱과 동일 카테고리 순서 (GAS REFERENCE_INDICATORS 정의 순)
+const CATEGORY_ORDER = [
+  '한국시장', '한국선물', '중국시장',
+  '미국시장', '미국선물', 'AI/반도체', '빅테크',
+  '상품', '매크로', '환율', '암호화폐',
+]
 
 export function IndicatorsPage() {
   const { indicators: live } = usePortfolio()
@@ -37,11 +20,14 @@ export function IndicatorsPage() {
   const grouped = useMemo(() => {
     const map = new Map<string, Indicator[]>()
     indicators.forEach((i) => {
-      const cat = categorize(i)
+      const cat = i.category || '기타'
       if (!map.has(cat)) map.set(cat, [])
       map.get(cat)!.push(i)
     })
-    return Array.from(map.entries())
+    const present = Array.from(map.keys())
+    const ordered = CATEGORY_ORDER.filter((c) => map.has(c))
+    const rest = present.filter((c) => !CATEGORY_ORDER.includes(c)).sort()
+    return [...ordered, ...rest].map((c) => [c, map.get(c)!] as const)
   }, [indicators])
 
   return (
@@ -49,7 +35,7 @@ export function IndicatorsPage() {
       <GainersLosersStrip indicators={indicators} />
       <MarketHeatmap indicators={indicators} />
       {grouped.map(([cat, items]) => (
-        <Panel key={cat} title={CATEGORY_LABELS[cat] ?? cat} meta={`${items.length} symbols`}>
+        <Panel key={cat} title={cat} meta={`${items.length} symbols`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-line">
             {items.map((i) => (
               <BigIndicator key={i.symbol} ind={i} />
