@@ -66,7 +66,7 @@ last updated: 2026-05-25
 | 함수 | 반환 타입 | 내용 |
 |---|---|---|
 | `newMobileGetStockDetail(code)` | StockDetailResponse | 종목별 positions·summary·transactions·priceHistory·stats |
-| `newMobileGetMonthlyRealized()` | MonthlyRealizedResponse | 월별 실현손익 (month·count·winCount·profit·profitRate·winRate) |
+| `newMobileGetMonthlyRealized()` | MonthlyRealizedResponse | 실현손익 **행 단위 14필드** (entries: date·month·code·name·category·broker·account·quantity·sellPrice·sellAmount·avgBuyPrice·buyCost·fee·profit·returnPct). 매도일 desc 정렬. KPI·월별 집계는 클라이언트 derive |
 | `newMobileGetProfitHistory()` | TrendHistoryResponse | 수익 추이 (entries: date·totalProfit) ← *추이 기록* |
 | `newMobileGetIndicators()` | IndicatorsResponse | 참고지표 (key·name·category·value·change·changePct) |
 | `newMobileUpdateCurrentPrice()` | — | 현재가 갱신 트리거 |

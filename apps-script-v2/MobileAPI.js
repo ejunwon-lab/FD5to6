@@ -320,38 +320,50 @@ function newMobileGetStockDetail(code) {
 }
 
 // ══════════════════════════════════════════════════════
-//  월별 실현손익 (*실현손익* 시트)
+//  실현손익 행 단위 (*실현손익* 시트 14컬럼 풀 노출)
+//  - 응답: { entries: [{date,month,code,name,category,broker,account,
+//                       quantity,sellPrice,sellAmount,avgBuyPrice,buyCost,
+//                       fee,profit,returnPct}] }
+//  - 정렬: 매도일 내림차순
+//  - KPI/월별 집계는 클라이언트에서 derive
 // ══════════════════════════════════════════════════════
 function newMobileGetMonthlyRealized() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const pnlSheet = ss.getSheetByName(NS.REALIZED_PNL);
     if (!pnlSheet || pnlSheet.getLastRow() < 2) {
-      return JSON.stringify({ success: true, monthly: [] });
+      return JSON.stringify({ success: true, entries: [] });
     }
+    const tz = ss.getSpreadsheetTimeZone();
     const rows = pnlSheet.getRange(2, 1, pnlSheet.getLastRow() - 1, 14).getValues()
       .filter(r => r[0] && String(r[0]) !== '합계');
 
-    const map = {};
-    rows.forEach(r => {
-      const m = String(r[0]).slice(0, 7);
-      if (!map[m]) map[m] = { month: m, count: 0, winCount: 0, profit: 0, buyAmount: 0 };
-      const p   = Number(r[12]) || 0;
-      const buy = Number(r[10]) || 0;
-      map[m].count++;
-      map[m].profit    += p;
-      map[m].buyAmount += buy;
-      if (p > 0) map[m].winCount++;
+    const entries = rows.map(r => {
+      const dateStr = r[0] instanceof Date
+        ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd')
+        : String(r[0]).slice(0, 10);
+      return {
+        date:        dateStr,
+        month:       dateStr.slice(0, 7),
+        code:        String(r[1] || ''),
+        name:        String(r[2] || ''),
+        category:    String(r[3] || ''),
+        broker:      String(r[4] || ''),
+        account:     String(r[5] || ''),
+        quantity:    Number(r[6])  || 0,
+        sellPrice:   Number(r[7])  || 0,
+        sellAmount:  Number(r[8])  || 0,
+        avgBuyPrice: Number(r[9])  || 0,
+        buyCost:     Number(r[10]) || 0,
+        fee:         Number(r[11]) || 0,
+        profit:      Number(r[12]) || 0,
+        returnPct:   Number(r[13]) || 0,
+      };
     });
-    const monthly = Object.keys(map).sort().map(m => ({
-      month:      m,
-      count:      map[m].count,
-      winCount:   map[m].winCount,
-      profit:     map[m].profit,
-      profitRate: map[m].buyAmount > 0 ? map[m].profit / map[m].buyAmount * 100 : 0,
-      winRate:    map[m].count > 0 ? map[m].winCount / map[m].count * 100 : 0,
-    }));
-    return JSON.stringify({ success: true, monthly });
+
+    entries.sort((a, b) => b.date.localeCompare(a.date));
+
+    return JSON.stringify({ success: true, entries });
   } catch (e) {
     Logger.log('newMobileGetMonthlyRealized 오류: ' + e);
     return JSON.stringify({ success: false, error: String(e) });

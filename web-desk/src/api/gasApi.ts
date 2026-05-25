@@ -109,12 +109,21 @@ export interface TrendHistoryResponse {
 }
 
 export interface MonthlyRealizedItem {
-  month: string         // YYYY-MM
+  date: string          // YYYY-MM-DD (매도일)
+  month: string         // YYYY-MM (date.slice(0,7))
   code: string
   name: string
+  category?: string     // 한국주식/미국주식/일본주식 등
+  broker?: string       // 미래에셋·삼성 등
+  account?: string      // 종합_랩·ISA 등
   quantity: number
-  profit: number
-  returnPct?: number
+  sellPrice?: number    // 매도단가
+  sellAmount?: number   // 매도금액
+  avgBuyPrice?: number  // 평균매입단가
+  buyCost?: number      // 매입원가
+  fee?: number          // 수수료
+  profit: number        // 실현손익 (수수료 차감 후)
+  returnPct?: number    // 수익률 %
 }
 
 export interface MonthlyRealizedResponse {
