@@ -1,10 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { usePortfolio } from '../../lib/usePortfolio'
 import { indicators as sampleIndicators } from '../../lib/sampleData'
 import { Panel } from '../ui/Panel'
 import type { Indicator } from '../../lib/types'
 import { GainersLosersStrip } from './GainersLosersStrip'
 import { MarketHeatmap } from './MarketHeatmap'
+import { IndicatorDetailModal } from './IndicatorDetailModal'
 
 // 웹앱과 동일 카테고리 순서 (GAS REFERENCE_INDICATORS 정의 순)
 const CATEGORY_ORDER = [
@@ -16,6 +17,7 @@ const CATEGORY_ORDER = [
 export function IndicatorsPage() {
   const { indicators: live } = usePortfolio()
   const indicators = live.length ? live : sampleIndicators
+  const [selected, setSelected] = useState<Indicator | null>(null)
 
   const grouped = useMemo(() => {
     const map = new Map<string, Indicator[]>()
@@ -33,12 +35,12 @@ export function IndicatorsPage() {
   return (
     <div className="overflow-y-auto p-2 sm:p-3 grid gap-2.5">
       <GainersLosersStrip indicators={indicators} />
-      <MarketHeatmap indicators={indicators} />
+      <MarketHeatmap indicators={indicators} onSelect={setSelected} />
       {grouped.map(([cat, items]) => (
         <Panel key={cat} title={cat} meta={`${items.length} symbols`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-line">
             {items.map((i) => (
-              <BigIndicator key={i.symbol} ind={i} />
+              <BigIndicator key={i.symbol} ind={i} onClick={() => setSelected(i)} />
             ))}
           </div>
         </Panel>
@@ -48,11 +50,12 @@ export function IndicatorsPage() {
           <div className="text-center text-ink-faint py-12 text-xs">No indicators available</div>
         </Panel>
       )}
+      {selected && <IndicatorDetailModal ind={selected} onClose={() => setSelected(null)} />}
     </div>
   )
 }
 
-function BigIndicator({ ind }: { ind: Indicator }) {
+function BigIndicator({ ind, onClick }: { ind: Indicator; onClick: () => void }) {
   const up = ind.changePct >= 0
   const stroke = up ? '#00ff7f' : '#ff3366'
   let points = ''
@@ -69,7 +72,11 @@ function BigIndicator({ ind }: { ind: Indicator }) {
       .join(' ')
   }
   return (
-    <div className="bg-bg-elev p-4 hover:bg-bg-hover">
+    <button
+      type="button"
+      onClick={onClick}
+      className="bg-bg-elev p-4 hover:bg-bg-hover text-left w-full focus:outline-none focus:ring-1 focus:ring-amber"
+    >
       <div className="flex justify-between items-baseline mb-2">
         <span className="text-amber font-medium text-sm tracking-wide">{ind.name || ind.symbol}</span>
         <span className="text-2xs text-ink-faint uppercase tracking-widest">live</span>
@@ -84,6 +91,6 @@ function BigIndicator({ ind }: { ind: Indicator }) {
       <svg viewBox="0 0 200 50" preserveAspectRatio="none" className="w-full h-12 mt-3">
         <path d={points} stroke={stroke} strokeWidth={1.5} fill="none" vectorEffect="non-scaling-stroke" />
       </svg>
-    </div>
+    </button>
   )
 }

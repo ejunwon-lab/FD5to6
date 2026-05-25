@@ -2,7 +2,10 @@ import { useMemo } from 'react'
 import type { Indicator } from '../../lib/types'
 import { Panel } from '../ui/Panel'
 
-interface Props { indicators: Indicator[] }
+interface Props {
+  indicators: Indicator[]
+  onSelect?: (ind: Indicator) => void
+}
 
 // 웹앱 IndicatorsPage.tsx와 동일 순서 — GAS 정의 순(REFERENCE_INDICATORS)에 맞춤
 const CATEGORY_ORDER = [
@@ -11,7 +14,7 @@ const CATEGORY_ORDER = [
   '상품', '매크로', '환율', '암호화폐',
 ]
 
-export function MarketHeatmap({ indicators }: Props) {
+export function MarketHeatmap({ indicators, onSelect }: Props) {
   const grouped = useMemo(() => {
     const map = new Map<string, Indicator[]>()
     indicators.forEach((i) => {
@@ -37,7 +40,7 @@ export function MarketHeatmap({ indicators }: Props) {
               {category} <span className="text-ink-faint/70 normal-case">· {items.length}</span>
             </div>
             <div className="grid gap-1 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
-              {items.map((i) => <Cell key={i.symbol} ind={i} />)}
+              {items.map((i) => <Cell key={i.symbol} ind={i} onSelect={onSelect} />)}
             </div>
           </div>
         ))}
@@ -50,12 +53,16 @@ export function MarketHeatmap({ indicators }: Props) {
   )
 }
 
-function Cell({ ind }: { ind: Indicator }) {
+function Cell({ ind, onSelect }: { ind: Indicator; onSelect?: (ind: Indicator) => void }) {
   const pct = ind.changePct
   const { bg, border, fg } = colorFor(pct)
+  const interactive = !!onSelect
   return (
-    <div
-      className={`relative px-2 py-2.5 border ${border} ${bg} ${fg} hover:brightness-125 transition-all`}
+    <button
+      type="button"
+      onClick={onSelect ? () => onSelect(ind) : undefined}
+      disabled={!interactive}
+      className={`relative px-2 py-2.5 border ${border} ${bg} ${fg} text-left ${interactive ? 'hover:brightness-125 cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber' : 'cursor-default'} transition-all`}
       title={`${ind.name || ind.symbol} · ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`}
     >
       <div className="text-amber font-medium text-xs truncate">{ind.name || ind.symbol}</div>
@@ -63,7 +70,7 @@ function Cell({ ind }: { ind: Indicator }) {
       <div className={`text-sm font-medium tabular mt-1 ${fg}`}>
         {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
       </div>
-    </div>
+    </button>
   )
 }
 

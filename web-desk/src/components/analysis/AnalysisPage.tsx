@@ -5,6 +5,7 @@ import { holdings as sampleHoldings, equityCurve as sampleEquity } from '../../l
 import { Panel } from '../ui/Panel'
 import { ContributionBar } from './ContributionBar'
 import { BenchmarkPanel } from './BenchmarkPanel'
+import { MonthlyHeatmapPanel } from './MonthlyHeatmapPanel'
 
 // 증권사 base 색상 + 같은 증권사 내 계좌별 명도 변형
 const BROKER_SHADES: Record<string, string[]> = {
@@ -52,6 +53,11 @@ export function AnalysisPage() {
       {/* Benchmark outperformance (전체 폭) */}
       <div className="lg:col-span-2">
         <BenchmarkPanel equityCurve={equity} portfolioValue={portfolioValue} />
+      </div>
+
+      {/* Monthly heatmap (전체 폭) */}
+      <div className="lg:col-span-2">
+        <MonthlyHeatmapPanel equityCurve={equity} />
       </div>
 
       {/* Allocation by 증권사 → 계좌 (nested) */}
