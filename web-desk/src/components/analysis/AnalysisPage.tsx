@@ -1,21 +1,37 @@
 import { useMemo } from 'react'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts'
 import { usePortfolio } from '../../lib/usePortfolio'
 import { holdings as sampleHoldings, equityCurve as sampleEquity } from '../../lib/sampleData'
 import { Panel } from '../ui/Panel'
 import { ContributionBar } from './ContributionBar'
 
-const BROKER_COLORS: Record<string, string> = {
-  '미래에셋': '#fb923c',  // orange-400
-  '삼성증권': '#60a5fa',  // blue-400
+// 증권사 base 색상 + 같은 증권사 내 계좌별 명도 변형
+const BROKER_SHADES: Record<string, string[]> = {
+  '미래에셋': ['#fdba74', '#fb923c', '#f97316', '#ea580c', '#c2410c'],   // orange 300~700
+  '삼성증권': ['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8'],   // blue   300~700
+}
+function brokerKey(b: string): string {
+  const low = b.toLowerCase()
+  if (low.includes('미래')) return '미래에셋'
+  if (low.includes('삼성')) return '삼성증권'
+  return ''
 }
 function brokerColor(b: string): string {
-  // 부분 매칭 (e.g. "미래에셋대우" 같은 변형도 대응)
-  const low = b.toLowerCase()
-  if (low.includes('미래')) return BROKER_COLORS['미래에셋']
-  if (low.includes('삼성')) return BROKER_COLORS['삼성증권']
-  return '#6b7280'
+  const key = brokerKey(b)
+  return key ? BROKER_SHADES[key][1] : '#6b7280'   // base = 400
 }
+function accountShade(b: string, localIdx: number): string {
+  const key = brokerKey(b)
+  const shades = key ? BROKER_SHADES[key] : ['#6b7280']
+  return shades[localIdx % shades.length]
+}
+
+// 긴 계좌명 축약
+const ACCOUNT_DISPLAY: Record<string, string> = {
+  '퇴직연금_개인IRP': '퇴직연금_미래',
+  '퇴직연금_개인형IRP(범용)': '퇴직연금_삼성',
+}
+function accountDisplay(a: string): string { return ACCOUNT_DISPLAY[a] ?? a }
 
 export function AnalysisPage() {
   const { holdings: live, equityCurve: liveEquity } = usePortfolio()
@@ -36,56 +52,112 @@ export function AnalysisPage() {
         <Stat label="Best Day" value={`+${stats.bestDay.toFixed(2)}%`} sub={stats.bestDayDate} tone="up" />
       </div>
 
-      {/* Allocation by 증권사 */}
-      <Panel title="Allocation · by 증권사" meta={`${holdings.length} positions`}>
-        <div className="grid grid-cols-2 gap-2 p-3">
-          <div className="h-[200px]">
+      {/* Allocation by 증권사 → 계좌 (nested) */}
+      <Panel title="Allocation · 증권사 → 계좌" meta={`${holdings.length} positions`}>
+        <div className="grid grid-cols-[200px_1fr] gap-3 p-3">
+          <div className="h-[230px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={stats.byBroker} dataKey="value" nameKey="broker" outerRadius={70} innerRadius={42} strokeWidth={0}>
+                {/* 내부 도넛: 증권사 */}
+                <Pie
+                  data={stats.byBroker}
+                  dataKey="value"
+                  nameKey="broker"
+                  innerRadius={25}
+                  outerRadius={55}
+                  strokeWidth={0}
+                >
                   {stats.byBroker.map((b) => (
                     <Cell key={b.broker} fill={brokerColor(b.broker)} />
+                  ))}
+                </Pie>
+                {/* 외부 도넛: 계좌 (같은 증권사 색상의 명도 변형) */}
+                <Pie
+                  data={stats.byBrokerAccount}
+                  dataKey="value"
+                  nameKey="display"
+                  innerRadius={62}
+                  outerRadius={95}
+                  strokeWidth={0}
+                >
+                  {stats.byBrokerAccount.map((a) => (
+                    <Cell key={`${a.broker}-${a.account}`} fill={accountShade(a.broker, a.localIdx)} />
                   ))}
                 </Pie>
                 <Tooltip
                   contentStyle={{ background: '#11151c', border: '1px solid #1f2630', fontSize: 11, fontFamily: 'JetBrains Mono' }}
                   labelStyle={{ color: '#6b7280' }} itemStyle={{ color: '#d4d8e0' }}
-                  formatter={(v) => [`₩${Math.round(Number(v)).toLocaleString()}`, '']}
+                  formatter={(v, name) => [`₩${Math.round(Number(v)).toLocaleString()}`, name]}
                 />
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex flex-col justify-center gap-2 text-xs">
-            {stats.byBroker.map((b) => (
-              <div key={b.broker} className="flex justify-between items-center">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-2.5 h-2.5 shrink-0" style={{ background: brokerColor(b.broker) }} />
-                  <span className="text-ink-dim truncate">{b.broker}</span>
-                  <span className="text-ink-faint text-2xs shrink-0">({b.count})</span>
+          <div className="flex flex-col gap-2 text-xs overflow-y-auto">
+            {stats.byBrokerHierarchy.map((b) => (
+              <div key={b.broker}>
+                <div className="flex items-center justify-between border-b border-line-dim pb-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-2.5 h-2.5 shrink-0" style={{ background: brokerColor(b.broker) }} />
+                    <span className="text-ink font-medium truncate">{b.broker}</span>
+                    <span className="text-ink-faint text-2xs shrink-0">({b.count}개 종목)</span>
+                  </div>
+                  <span className="tabular text-ink shrink-0 ml-2">
+                    ₩{Math.round(b.total).toLocaleString()} · {b.pct.toFixed(2)}%
+                  </span>
                 </div>
-                <span className="tabular shrink-0 ml-2">{b.pct.toFixed(1)}%</span>
+                {b.accounts.map((a) => (
+                  <div key={a.account} className="flex justify-between pl-4 mt-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-2 h-2 shrink-0" style={{ background: accountShade(a.broker, a.localIdx) }} />
+                      <span className="text-ink-dim truncate">{a.display}</span>
+                      <span className="text-ink-faint text-2xs shrink-0">({a.count})</span>
+                    </div>
+                    <span className="tabular text-ink-dim text-2xs shrink-0 ml-2">
+                      ₩{Math.round(a.value).toLocaleString()} · {a.pct.toFixed(2)}%
+                    </span>
+                  </div>
+                ))}
               </div>
             ))}
-            <div className="border-t border-line mt-2 pt-2 text-ink-faint text-2xs uppercase tracking-widest">Total</div>
-            <div className="text-ink tabular">₩{stats.totalValue.toLocaleString()}</div>
+            <div className="border-t border-line mt-1 pt-2 flex justify-between text-2xs uppercase tracking-widest">
+              <span className="text-ink-faint">Total</span>
+              <span className="text-amber tabular normal-case">₩{Math.round(stats.totalValue).toLocaleString()}</span>
+            </div>
           </div>
         </div>
       </Panel>
 
       {/* Concentration bar */}
-      <Panel title="Concentration · top positions" meta="HHI risk">
-        <div className="p-3 h-[230px]">
+      <Panel title="Concentration · top positions" meta="포트폴리오 비중 (%)">
+        <div className="p-3 h-[260px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats.topWeights} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
+            <BarChart data={stats.topWeights} layout="vertical" margin={{ top: 5, right: 50, left: 0, bottom: 20 }}>
               <CartesianGrid stroke="#1f2630" strokeDasharray="0" horizontal={false} />
-              <XAxis type="number" tick={{ fill: '#4a5568', fontSize: 10 }} stroke="#4a5568" />
+              <XAxis
+                type="number"
+                tick={{ fill: '#6b7280', fontSize: 10 }}
+                stroke="#4a5568"
+                tickFormatter={(v) => `${v}%`}
+                label={{ value: '비중 (%)', position: 'insideBottom', offset: -8, fill: '#6b7280', fontSize: 10 }}
+              />
               <YAxis dataKey="name" type="category" tick={{ fill: '#ffa500', fontSize: 10 }} stroke="#4a5568" width={110} interval={0} />
               <Tooltip
                 contentStyle={{ background: '#11151c', border: '1px solid #1f2630', fontSize: 11, fontFamily: 'JetBrains Mono' }}
                 labelStyle={{ color: '#6b7280' }} itemStyle={{ color: '#d4d8e0' }}
-                formatter={(v) => [`${Number(v).toFixed(1)}%`, 'weight']}
+                formatter={(v) => [`${Number(v).toFixed(2)}%`, '비중']}
               />
-              <Bar dataKey="weight" fill="#ffa500" />
+              <Bar dataKey="weight" fill="#ffa500">
+                <LabelList
+                  dataKey="weight"
+                  position="right"
+                  formatter={(v: unknown) => {
+                    const n = Number(v)
+                    return Number.isFinite(n) ? `${n.toFixed(1)}%` : ''
+                  }}
+                  fill="#d4d8e0"
+                  fontSize={10}
+                />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -129,24 +201,44 @@ export function AnalysisPage() {
   )
 }
 
-function computeStats(holdings: { symbol: string; name: string; market: string; broker: string; value: number; returnPct: number; weightPct: number }[], equity: { date: string; value: number }[]) {
+function computeStats(holdings: { symbol: string; name: string; market: string; broker: string; accountType: string; value: number; returnPct: number; weightPct: number }[], equity: { date: string; value: number }[]) {
   const totalValue = holdings.reduce((s, h) => s + h.value, 0) || 1
   // Re-compute weight from value (in case prop weightPct missing)
   const withW = holdings.map((h) => ({ ...h, w: (h.value / totalValue) * 100 }))
 
-  const byBrokerMap = new Map<string, { value: number; count: number }>()
+  // 증권사 → 계좌 계층 집계
+  const brokerAccountMap = new Map<string, Map<string, { value: number; count: number }>>()
   withW.forEach((h) => {
-    const cur = byBrokerMap.get(h.broker) ?? { value: 0, count: 0 }
-    byBrokerMap.set(h.broker, { value: cur.value + h.value, count: cur.count + 1 })
+    if (!brokerAccountMap.has(h.broker)) brokerAccountMap.set(h.broker, new Map())
+    const accMap = brokerAccountMap.get(h.broker)!
+    const cur = accMap.get(h.accountType) ?? { value: 0, count: 0 }
+    accMap.set(h.accountType, { value: cur.value + h.value, count: cur.count + 1 })
   })
-  const byBroker = Array.from(byBrokerMap.entries())
-    .map(([broker, v]) => ({
-      broker,
-      value: v.value,
-      count: v.count,
-      pct: (v.value / totalValue) * 100,
-    }))
-    .sort((a, b) => b.value - a.value)
+
+  const byBrokerHierarchy = Array.from(brokerAccountMap.entries()).map(([broker, accMap]) => {
+    const total = Array.from(accMap.values()).reduce((s, v) => s + v.value, 0)
+    const count = Array.from(accMap.values()).reduce((s, v) => s + v.count, 0)
+    const accounts = Array.from(accMap.entries())
+      .map(([account, v]) => ({
+        account,
+        display: accountDisplay(account),
+        value: v.value,
+        count: v.count,
+        pct: (v.value / totalValue) * 100,
+        broker,
+        localIdx: 0,   // 채울 자리, 아래에서 정렬 후 부여
+      }))
+      .sort((a, b) => b.value - a.value)
+      .map((a, idx) => ({ ...a, localIdx: idx }))
+    return { broker, total, count, pct: (total / totalValue) * 100, accounts }
+  }).sort((a, b) => b.total - a.total)
+
+  // Pie용 평탄 데이터 (내부 도넛)
+  const byBroker = byBrokerHierarchy.map((b) => ({
+    broker: b.broker, value: b.total, count: b.count, pct: b.pct,
+  }))
+  // Pie용 평탄 데이터 (외부 도넛, 같은 broker 끼리 인접 정렬 유지)
+  const byBrokerAccount = byBrokerHierarchy.flatMap((b) => b.accounts)
 
   const topWeights = [...withW]
     .sort((a, b) => b.w - a.w)
@@ -228,6 +320,8 @@ function computeStats(holdings: { symbol: string; name: string; market: string; 
     bestDay,
     bestDayDate,
     byBroker,
+    byBrokerAccount,
+    byBrokerHierarchy,
     topWeights,
     winners,
     losers,
