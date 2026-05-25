@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Panel } from '../ui/Panel'
 import type { EquityPoint } from '../../lib/types'
 
@@ -12,6 +12,8 @@ interface CellData {
 }
 
 export function MonthlyHeatmapPanel({ equityCurve }: { equityCurve: EquityPoint[] }) {
+  const [hovered, setHovered] = useState<CellData | null>(null)
+
   const { years, cells, maxAbs, ytdByYear } = useMemo(() => {
     const points = equityCurve
       .filter((p) => p.fullDate)
@@ -70,8 +72,12 @@ export function MonthlyHeatmapPanel({ equityCurve }: { equityCurve: EquityPoint[
     )
   }
 
+  const hoverMeta = hovered && hovered.hasData
+    ? `${hovered.year}-${String(hovered.month + 1).padStart(2, '0')}: ${hovered.delta >= 0 ? '+' : ''}₩${Math.round(hovered.delta).toLocaleString()}`
+    : `${years.length} year${years.length !== 1 ? 's' : ''}`
+
   return (
-    <Panel title="Monthly Heatmap · 월별 수익변동" meta={`${years.length} year${years.length !== 1 ? 's' : ''}`}>
+    <Panel title="Monthly Heatmap · 월별 수익변동" meta={hoverMeta}>
       <div className="p-3 overflow-x-auto">
         <table className="text-2xs tabular border-collapse">
           <thead>
@@ -106,9 +112,10 @@ export function MonthlyHeatmapPanel({ equityCurve }: { equityCurve: EquityPoint[
                     return (
                       <td key={c.month} className="px-1 py-1.5">
                         <div
-                          className="h-7 border border-line-dim cursor-help"
+                          className="h-7 border border-line-dim"
                           style={{ backgroundColor: bg }}
-                          title={`${c.year}-${String(c.month + 1).padStart(2, '0')}: ${c.delta >= 0 ? '+' : ''}${Math.round(c.delta).toLocaleString()}원`}
+                          onMouseEnter={() => setHovered(c)}
+                          onMouseLeave={() => setHovered((prev) => (prev === c ? null : prev))}
                         />
                       </td>
                     )
@@ -123,7 +130,7 @@ export function MonthlyHeatmapPanel({ equityCurve }: { equityCurve: EquityPoint[
         </table>
       </div>
       <div className="px-3 pb-3 text-2xs text-ink-faint leading-relaxed">
-        각 셀 = 그 달 누적수익 변화 (= 월말값 − 전월말값). 색 진하기 = |변화| / 최대값. 셀 hover → 정확한 ₩ 금액. YTD = 그 해 누적 변화 합
+        각 셀 = 그 달 누적수익 변화 (= 월말값 − 전월말값). 색 진하기 = |변화| / 최대값. 셀 hover → 패널 우측 메타에 정확한 ₩ 금액 표시. YTD = 그 해 누적 변화 합
       </div>
     </Panel>
   )
