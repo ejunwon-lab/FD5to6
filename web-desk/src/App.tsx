@@ -31,7 +31,6 @@ function App() {
       case 'analysis':    return <AnalysisPage />
       case 'indicators':  return <IndicatorsPage />
       case 'tradelog':    return <ActivityPage />
-      case 'realized':    return <ActivityPage />
       default:            return <PlaceholderPage title={active} />
     }
   })()
