@@ -48,13 +48,16 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
             </div>
           </div>
           <div className="text-right shrink-0">
+            {/* 1. 현재가 */}
             <p className="font-bold text-xl text-ink tabular leading-none">
-              ₩{Math.round(h.currentPrice).toLocaleString()}
+              {Math.round(h.currentPrice).toLocaleString()}원
             </p>
+            {/* 2. 현재 상승액 / 상승률 */}
             <p className={`text-sm font-medium tabular mt-1.5 ${isUp ? 'text-gain' : 'text-loss'}`}>
-              {h.changePct}
+              {isUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 / {h.changePct}
             </p>
-            <p className={`text-xs tabular mt-1 ${isUp ? 'text-gain' : 'text-loss'}`}>
+            {/* 3. 금일 상승액 — 현재가와 동일 크기 (text-xl bold) */}
+            <p className={`text-xl font-bold tabular mt-1 leading-tight ${isUp ? 'text-gain' : 'text-loss'}`}>
               {isUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 × {h.shares.toLocaleString()}주 = {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString()}원
             </p>
           </div>
