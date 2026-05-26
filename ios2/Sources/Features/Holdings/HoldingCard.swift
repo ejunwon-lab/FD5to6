@@ -165,6 +165,14 @@ struct HoldingCard: View {
                     Text(holding.currentPrice.krwFullFormatted)
                         .font(.subheadline).fontWeight(.semibold)
                         .foregroundColor(.primary)
+                    // 1주변동 / 등락률
+                    Text("\(holding.change >= 0 ? "+" : "")\(Int(holding.change.rounded()).formatted(.number))원 / \(holding.changePct)")
+                        .font(.caption2)
+                        .foregroundColor(holding.change >= 0 ? .green : .red)
+                    // 1주변동 × 수량 = 종목 전체 변동
+                    Text("\(holding.change >= 0 ? "+" : "")\(Int(holding.change.rounded()).formatted(.number))원 × \(Int(holding.quantity).formatted(.number))주 = \((holding.change * holding.quantity) >= 0 ? "+" : "")\(Int((holding.change * holding.quantity).rounded()).formatted(.number))원")
+                        .font(.system(size: 10))
+                        .foregroundColor(holding.change >= 0 ? .green : .red)
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
