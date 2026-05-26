@@ -54,6 +54,9 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
             <p className={`text-sm font-medium tabular mt-1.5 ${isUp ? 'text-gain' : 'text-loss'}`}>
               {h.changePct}
             </p>
+            <p className={`text-xs tabular mt-1 ${isUp ? 'text-gain' : 'text-loss'}`}>
+              {isUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 × {h.shares.toLocaleString()}주 = {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString()}원
+            </p>
           </div>
           <span className="text-ink-faint text-sm mt-1">{isExpanded ? '▲' : '▼'}</span>
         </div>
