@@ -66,7 +66,7 @@ last updated: 2026-05-25
 | 함수 | 반환 타입 | 내용 |
 |---|---|---|
 | `newMobileGetStockDetail(code)` | StockDetailResponse | 종목별 positions·summary·transactions·priceHistory·stats |
-| `newMobileGetMonthlyRealized()` | MonthlyRealizedResponse | 실현손익 **행 단위 14필드** (entries: date·month·code·name·category·broker·account·quantity·sellPrice·sellAmount·avgBuyPrice·buyCost·fee·profit·returnPct). 매도일 desc 정렬. KPI·월별 집계는 클라이언트 derive |
+| `newMobileGetMonthlyRealized()` | MonthlyRealizedResponse | 실현손익. **응답 두 형태 같이** 보냄 — `entries[]`: 행 단위 14필드 (date·month·code·name·category·broker·account·quantity·sellPrice·sellAmount·avgBuyPrice·buyCost·fee·profit·returnPct, 매도일 desc — 데스크 ActivityPage용) + `monthly[]`: 월별 집계 (month·count·winCount·profit·profitRate·winRate — web·iOS Analysis 후방 호환) |
 | `newMobileGetProfitHistory()` | TrendHistoryResponse | 수익 추이 (entries: date·totalProfit) ← *추이 기록* |
 | `newMobileGetIndicators()` | IndicatorsResponse | 참고지표 (key·name·category·value·change·changePct) |
 | `newMobileGetIndicatorHistory()` | IndicatorHistoryResponse | **참고지표 시계열** (*참고지표_히스토리* 시트 wide JSON: keys + entries[{date, KOSPI, SPX, ...}]). 벤치마크 outperformance 차트용 — 날짜 asc 정렬, name→key 매핑 |
