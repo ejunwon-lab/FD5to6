@@ -270,12 +270,12 @@ function newMobileGetStockDetail(code) {
       transactions.sort((a, b) => a.date.localeCompare(b.date));
     }
 
-    // 3) 가격 시계열
+    // 3) 가격 시계열 — 주말·공휴일 drop (시트는 이미 정리됐어도 안전망)
     const priceHistory = [];
     if (priceColInfo) {
       const { dates, prices } = priceColInfo;
       for (let i = 0; i < dates.length; i++) {
-        if (dates[i].length === 10 && prices[i] > 0) {
+        if (dates[i].length === 10 && prices[i] > 0 && _isTradingDateStr(dates[i])) {
           priceHistory.push({ date: dates[i], price: prices[i] });
         }
       }
@@ -403,6 +403,7 @@ function newMobileGetProfitHistory() {
     for (const row of data) {
       const d = toDateStr(row[0]);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      if (!_isTradingDateStr(d)) continue;   // 주말·공휴일 drop (errors.md 2026-05-17 패턴)
       entries.push({ date: d, totalProfit: toN(row[9]) });   // AD = idx 9
     }
     return JSON.stringify({ success: true, entries: entries.slice(-180) });
@@ -453,7 +454,7 @@ function newMobileGetIndicatorHistory() {
         entry[keys[i]] = Number(r[colIdxByKey[i]]) || 0;
       }
       return entry;
-    }).filter(e => e.date);
+    }).filter(e => e.date && _isTradingDateStr(e.date));  // 주말·공휴일 drop
 
     entries.sort((a, b) => a.date.localeCompare(b.date));
 
