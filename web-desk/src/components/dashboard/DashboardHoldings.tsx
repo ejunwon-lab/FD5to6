@@ -206,8 +206,8 @@ export function DashboardHoldings({ holdings }: Props) {
       {viewMode === 'list' && (
       <div className="overflow-x-auto">
       {/* Header row */}
-      <div className="grid items-center text-2xs uppercase tracking-widest text-ink-faint border-b border-line px-3 py-1.5 min-w-[1100px]"
-           style={{ gridTemplateColumns: '1.8fr 1.4fr 60px 90px 1.1fr 1.3fr 1.4fr 60px 90px' }}>
+      <div className="grid items-center text-2xs uppercase tracking-widest text-ink-faint border-b border-line px-3 py-1.5 min-w-[1240px]"
+           style={{ gridTemplateColumns: '1.8fr 1.4fr 60px 90px 1.1fr 2.2fr 1.4fr 60px 90px' }}>
         <span>Stock</span>
         <span>Account · Broker</span>
         <span className="text-right">Shares</span>
@@ -220,7 +220,7 @@ export function DashboardHoldings({ holdings }: Props) {
       </div>
 
       {/* Rows */}
-      <div className="divide-y divide-line-dim min-w-[1100px]">
+      <div className="divide-y divide-line-dim min-w-[1240px]">
         {filtered.map((h) => {
           const heldDays = h.buyDate ? Math.max(0, Math.floor((Date.now() - new Date(h.buyDate).getTime()) / 86_400_000)) : null
           const dayUp = h.dayChange >= 0
@@ -230,7 +230,7 @@ export function DashboardHoldings({ holdings }: Props) {
             <div
               key={`${h.symbol}-${h.accountType}`}
               className="grid items-center px-3 py-2 hover:bg-bg-hover text-xs"
-              style={{ gridTemplateColumns: '1.8fr 1.4fr 60px 90px 1.1fr 1.3fr 1.4fr 60px 90px' }}
+              style={{ gridTemplateColumns: '1.8fr 1.4fr 60px 90px 1.1fr 2.2fr 1.4fr 60px 90px' }}
             >
               {/* Name (main) + Market badge + Symbol (보조) */}
               <div className="flex items-center gap-2 min-w-0">
@@ -253,10 +253,12 @@ export function DashboardHoldings({ holdings }: Props) {
               </div>
               {/* Value */}
               <div className="text-right tabular text-ink font-medium">₩{h.value.toLocaleString()}</div>
-              {/* Day change */}
+              {/* Day change — 카드와 동일: 1주변동/등락률 + 1주변동 × 수량 = 종목 전체 */}
               <div className={`text-right tabular ${dayUp ? 'text-gain' : 'text-loss'}`}>
-                <div>{dayUp ? '+' : ''}{h.dayChange.toLocaleString()}</div>
-                <div className="text-2xs opacity-80">{dayUp ? '+' : ''}{h.dayChangePct.toFixed(2)}%</div>
+                <div>{dayUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 / {dayUp ? '+' : ''}{h.dayChangePct.toFixed(2)}%</div>
+                <div className="text-2xs opacity-80">
+                  {dayUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 × {h.shares.toLocaleString()}주 = {dayUp ? '+' : ''}{Math.round(h.dayChange).toLocaleString()}원
+                </div>
               </div>
               {/* Total P&L */}
               <div className={`text-right tabular ${totalUp ? 'text-gain' : 'text-loss'}`}>
@@ -284,8 +286,8 @@ export function DashboardHoldings({ holdings }: Props) {
 
       {/* Footer totals (필터 적용 시 강조) */}
       {selectedAccount !== '전체' && (
-        <div className="border-t border-line px-3 py-2 grid text-xs min-w-[1100px]"
-             style={{ gridTemplateColumns: '1.8fr 1.4fr 60px 90px 1.1fr 1.3fr 1.4fr 60px 90px' }}>
+        <div className="border-t border-line px-3 py-2 grid text-xs min-w-[1240px]"
+             style={{ gridTemplateColumns: '1.8fr 1.4fr 60px 90px 1.1fr 2.2fr 1.4fr 60px 90px' }}>
           <span className="text-ink-faint uppercase tracking-widest text-2xs">소계 · {accountDisplay(accountBrokerMap[selectedAccount] ?? '', selectedAccount)}</span>
           <span></span><span></span><span></span>
           <span className="text-right tabular font-medium">₩{stats.value.toLocaleString()}</span>
