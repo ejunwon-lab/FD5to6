@@ -76,7 +76,12 @@ export function HoldingCard({ holding: h, sortKey, isExpanded, onExpand, onDetai
             <div className="flex items-center gap-2">
               <div className="text-right">
                 <p className="font-bold text-base">{krwFull(h.currentPrice)}</p>
-                <p className={`text-xs font-medium ${profitTextClass(h.change)}`}>{h.changePct}</p>
+                <p className={`text-xs font-medium ${profitTextClass(h.change)}`}>
+                  {h.change >= 0 ? '+' : ''}{Math.round(h.change).toLocaleString()}원 / {h.changePct}
+                </p>
+                <p className={`text-[10px] ${profitTextClass(h.change)}`}>
+                  {h.change >= 0 ? '+' : ''}{Math.round(h.change).toLocaleString()}원 × {h.quantity.toLocaleString()}주 = {(h.change * h.quantity) >= 0 ? '+' : ''}{Math.round(h.change * h.quantity).toLocaleString()}원
+                </p>
               </div>
               <span className="text-gray-300 dark:text-gray-600 text-xs">{isExpanded ? '▲' : '▼'}</span>
             </div>

@@ -320,24 +320,24 @@ function newMobileGetStockDetail(code) {
 }
 
 // ══════════════════════════════════════════════════════
-//  실현손익 행 단위 (*실현손익* 시트 14컬럼 풀 노출)
-//  - 응답: { entries: [{date,month,code,name,category,broker,account,
-//                       quantity,sellPrice,sellAmount,avgBuyPrice,buyCost,
-//                       fee,profit,returnPct}] }
-//  - 정렬: 매도일 내림차순
-//  - KPI/월별 집계는 클라이언트에서 derive
+//  실현손익 (*실현손익* 시트 14컬럼 풀 노출)
+//  - 응답:
+//    · entries[]: 행 단위 14필드 (데스크 ActivityPage용 — 매도일 desc)
+//    · monthly[]: 월별 집계 (web·iOS Analysis용 — 후방 호환)
+//  - 두 형태 모두 같이 보내 모든 클라이언트가 자기에게 맞는 키 선택
 // ══════════════════════════════════════════════════════
 function newMobileGetMonthlyRealized() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const pnlSheet = ss.getSheetByName(NS.REALIZED_PNL);
     if (!pnlSheet || pnlSheet.getLastRow() < 2) {
-      return JSON.stringify({ success: true, entries: [] });
+      return JSON.stringify({ success: true, entries: [], monthly: [] });
     }
     const tz = ss.getSpreadsheetTimeZone();
     const rows = pnlSheet.getRange(2, 1, pnlSheet.getLastRow() - 1, 14).getValues()
       .filter(r => r[0] && String(r[0]) !== '합계');
 
+    // ── 행 단위 entries (데스크 ActivityPage) ──
     const entries = rows.map(r => {
       const dateStr = r[0] instanceof Date
         ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd')
@@ -360,10 +360,33 @@ function newMobileGetMonthlyRealized() {
         returnPct:   Number(r[13]) || 0,
       };
     });
-
     entries.sort((a, b) => b.date.localeCompare(a.date));
 
-    return JSON.stringify({ success: true, entries });
+    // ── 월별 집계 monthly (web·iOS — 기존 호환) ──
+    const map = {};
+    rows.forEach(r => {
+      const dateStr = r[0] instanceof Date
+        ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd')
+        : String(r[0]).slice(0, 10);
+      const m = dateStr.slice(0, 7);
+      if (!map[m]) map[m] = { month: m, count: 0, winCount: 0, profit: 0, buyAmount: 0 };
+      const p   = Number(r[12]) || 0;
+      const buy = Number(r[10]) || 0;
+      map[m].count++;
+      map[m].profit    += p;
+      map[m].buyAmount += buy;
+      if (p > 0) map[m].winCount++;
+    });
+    const monthly = Object.keys(map).sort().map(m => ({
+      month:      m,
+      count:      map[m].count,
+      winCount:   map[m].winCount,
+      profit:     map[m].profit,
+      profitRate: map[m].buyAmount > 0 ? map[m].profit / map[m].buyAmount * 100 : 0,
+      winRate:    map[m].count > 0 ? map[m].winCount / map[m].count * 100 : 0,
+    }));
+
+    return JSON.stringify({ success: true, entries, monthly });
   } catch (e) {
     Logger.log('newMobileGetMonthlyRealized 오류: ' + e);
     return JSON.stringify({ success: false, error: String(e) });
