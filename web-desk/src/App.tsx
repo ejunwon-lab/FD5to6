@@ -4,6 +4,7 @@ import { Ticker } from './components/shell/Ticker'
 import { Sidebar, type NavKey } from './components/shell/Sidebar'
 import { Footer } from './components/shell/Footer'
 import { DashboardPage } from './components/dashboard/DashboardPage'
+import { TodayPage } from './components/today/TodayPage'
 import { HoldingsPage } from './components/holdings/HoldingsPage'
 import { AnalysisPage } from './components/analysis/AnalysisPage'
 import { IndicatorsPage } from './components/indicators/IndicatorsPage'
@@ -23,6 +24,7 @@ function PlaceholderPage({ title }: { title: string }) {
 
 const SHORTCUTS: Record<string, NavKey> = {
   d: 'dashboard',
+  y: 'today',
   h: 'holdings',
   a: 'analysis',
   i: 'indicators',
@@ -59,6 +61,7 @@ function App() {
   const page = (() => {
     switch (active) {
       case 'dashboard':   return <DashboardPage />
+      case 'today':       return <TodayPage />
       case 'holdings':    return <HoldingsPage />
       case 'analysis':    return <AnalysisPage />
       case 'indicators':  return <IndicatorsPage />
