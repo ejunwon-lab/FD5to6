@@ -2,6 +2,19 @@
 
 ---
 
+## 2026-05-26
+
+### 시계열 그래프에 주말·공휴일이 표시되는 문제 (errors.md 2026-05-17 같은 패턴 확장)
+- **증상**: 대시보드/데스크 차트 (equityCurve·IndicatorHistory·priceHistory) X축에 토·일·공휴일이 그대로 노출되어 시각 노이즈 + Benchmark 차트 등에서 date 매칭 어긋남
+- **원인**: GAS 응답에서 비거래일 행을 drop하지 않음. 2026-05-17에 *현재가_이력*은 처리됐지만 다른 시계열 endpoint는 미처리
+- **해결**: 3개 시계열 endpoint에 `_isTradingDateStr(dateStr)` (Holidays.js의 *휴장일* 시트 + 토/일 체크) filter 추가 — 시트는 그대로, 응답에서만 drop
+  - `newMobileGetProfitHistory` (추이 기록 → equityCurve)
+  - `newMobileGetIndicatorHistory` (참고지표_히스토리)
+  - `newMobileGetStockDetail` priceHistory (안전망)
+- **영향**: 4개 클라이언트 (web-desk·web·iOS·Telegram) 모두 자동 혜택. *추이 기록* 시트 자체는 보존 → 데이터 손실 0
+
+---
+
 ## 2026-05-23
 
 ### Telegram webhook 간헐 실패 — Telegram이 GAS 302 redirect를 안 따라감 (Cloudflare Worker proxy로 해결)
