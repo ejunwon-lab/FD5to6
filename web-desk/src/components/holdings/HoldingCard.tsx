@@ -53,6 +53,9 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
             <div className={`text-xs tabular ${isUp ? 'text-gain' : 'text-loss'}`}>
               {isUp ? '▲' : '▼'} {h.changePct}
             </div>
+            <div className={`text-2xs tabular mt-0.5 ${isUp ? 'text-gain' : 'text-loss'}`}>
+              {isUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 × {h.shares.toLocaleString()}주 = {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString()}원
+            </div>
           </div>
           <span className="text-ink-faint text-xs shrink-0 mt-0.5">{isExpanded ? '▲' : '▼'}</span>
         </div>
