@@ -56,8 +56,8 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
             <p className={`text-sm font-medium tabular mt-1.5 ${isUp ? 'text-gain' : 'text-loss'}`}>
               {isUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 / {h.changePct}
             </p>
-            {/* 3. 금일 상승액 — 현재가와 동일 크기 (text-xl bold) */}
-            <p className={`text-xl font-bold tabular mt-1 leading-tight ${isUp ? 'text-gain' : 'text-loss'}`}>
+            {/* 3. 금일 상승액 — 둘째 줄과 동일 크기 */}
+            <p className={`text-sm font-medium tabular mt-1 leading-tight ${isUp ? 'text-gain' : 'text-loss'}`}>
               {isUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 × {h.shares.toLocaleString()}주 = {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString()}원
             </p>
           </div>
