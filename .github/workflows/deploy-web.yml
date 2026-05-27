@@ -42,4 +42,5 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: web/dist
+          keep_files: true  # desk/ 등 서브 deployment 보존 (web 루트만 갱신)
           commit_message: 'deploy: update web app'
