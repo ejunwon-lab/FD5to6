@@ -1,11 +1,12 @@
 export function Footer() {
+  // 사이드바 단축키와 일관 (App.tsx SHORTCUTS)
   const keys = [
-    ['F1', 'HELP'],
-    ['F2', 'QUOTE'],
-    ['F3', 'NEWS'],
-    ['F4', 'CHART'],
-    ['F5', 'REFRESH'],
-    ['/', 'SEARCH'],
+    ['D', 'DASHBOARD'],
+    ['Y', 'TODAY'],
+    ['H', 'HOLDINGS'],
+    ['A', 'ANALYSIS'],
+    ['I', 'INDICATORS'],
+    ['T', 'TRADE LOG'],
   ]
   return (
     <div className="h-7 bg-bg-deep border-t border-line flex items-center px-3 sm:px-4 text-xxs text-ink-faint gap-3 sm:gap-6 overflow-hidden">
