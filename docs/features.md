@@ -1,6 +1,6 @@
 # 기능 현황
 
-last updated: 2026-05-25
+last updated: 2026-05-28
 
 ## ✅ 완료
 
@@ -37,6 +37,13 @@ last updated: 2026-05-25
 - 양방향: "갱신" 메시지 → 가격+보유현황 갱신 후 손익 회신 (워치 답글 가능)
 - 자동 푸시: 거래일 09:00~16:00, 매시 :00/:20/:40 근처 (3개 트리거)
 - 보안: webhook URL secret query + chat_id 화이트리스트 이중 검증, `update_id` 중복 제거, `LockService` 동시 처리 차단
+
+### 시장 리포트 — Claude Routines (2026-05-28 GAS측 구축)
+- 흐름: claude.ai routine (08:00·17:00 KST) → WebFetch 데이터 수집·분석 → GAS `doPost action=addMarketReport` → *시장리포트_큐* 시트 → GAS 트리거 (08:05·17:05) → Telegram 발송
+- 큐 시트가 로그 + retry 큐 역할. 발송 상태(대기/발송완료/실패)·에러 메시지 보존
+- 인증: 기존 TG_WEBHOOK_SECRET 재사용 (POST body or query)
+- 셋업 가이드: `docs/market-report-routines.md` (routine 프롬프트 그대로 복붙)
+- 클라이언트 비용: Anthropic Max 무료 한도 안 (15 routines/day, 우린 2개 사용)
 
 ## 🔄 미검증 (구현은 됐으나 실제 동작 확인 필요)
 

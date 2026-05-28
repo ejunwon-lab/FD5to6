@@ -25,6 +25,10 @@ function onOpen() {
     .addSeparator()
     .addItem('📱 Telegram — 20분 푸시 ON', 'tgSetupPushTrigger')
     .addItem('🔕 Telegram — 푸시 OFF', 'tgDeletePushTrigger')
+    .addSeparator()
+    .addItem('📊 시장 리포트 — 08:05·17:05 트리거 ON', 'tgSetupReportQueueTrigger')
+    .addItem('🗑️ 시장 리포트 트리거 OFF', 'tgDeleteReportQueueTrigger')
+    .addItem('📤 시장 리포트 — 큐 즉시 발송', 'tgFlushReportQueueNow')
     .addToUi();
 
   // 시트 열 때 *대시보드* 자동 활성화
@@ -68,8 +72,24 @@ function _handleCashReserveTimestamp(e) {
   }
 }
 
-// Web App POST endpoint — 현재는 Telegram webhook 전용
+// Web App POST endpoint — Telegram webhook + Claude Routine 시장 리포트 큐
 function doPost(e) {
+  try {
+    // action 우선 분기 (Routine → 시장 리포트 큐)
+    let action = e && e.parameter && e.parameter.action;
+    if (!action && e && e.postData && e.postData.contents) {
+      try {
+        const j = JSON.parse(e.postData.contents);
+        action = j.action;
+      } catch (_) { /* form-encoded이면 무시 */ }
+    }
+    if (action === 'addMarketReport') {
+      return _tgHandleMarketReportPost(e);
+    }
+  } catch (err) {
+    Logger.log('doPost action 분기 오류: ' + err.message);
+  }
+  // action 없으면 기존 Telegram webhook으로 처리
   return handleTelegramWebhook(e);
 }
 

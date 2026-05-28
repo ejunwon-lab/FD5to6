@@ -529,3 +529,184 @@ function tgTestSend() {
   Logger.log(text);
   tgSendMessage(text);
 }
+
+// ═════════════════════════════════════════════════════════════
+//  시장 리포트 큐 (Claude Routines → 시트 → Telegram)
+// ═════════════════════════════════════════════════════════════
+//
+// 흐름:
+//   1) claude.ai routine이 08:00 KST에 미국 시장 분석 → GAS Web App POST
+//      action=addMarketReport, secret=TG_WEBHOOK_SECRET, type=US, title, body
+//   2) doPost → _handleMarketReportPost → *시장리포트_큐* 시트에 "대기" 행 추가
+//   3) GAS 시간 트리거 08:05·17:05 → tgFlushReportQueue
+//      → 시트에서 "대기" 행 → Telegram 발송 → "발송완료" 마킹
+//
+// 시트 *시장리포트_큐* 스키마:
+//   [0]작성시각 [1]구분(US/KR) [2]대상날짜 [3]제목 [4]본문 [5]발송상태 [6]발송시각 [7]에러
+//
+// 인증: 기존 TG_WEBHOOK_SECRET 재사용 (1개 더 만들지 않음)
+
+const TG_REPORT = {
+  SHEET:        '시장리포트_큐',
+  TRIGGER:      'tgFlushReportQueue',
+  STATUS_WAIT:  '대기',
+  STATUS_DONE:  '발송완료',
+  STATUS_FAIL:  '실패',
+  HEADER: ['작성시각', '구분', '대상날짜', '제목', '본문', '발송상태', '발송시각', '에러'],
+};
+
+/** *시장리포트_큐* 시트 보장 (없으면 생성·헤더 설정) */
+function _tgEnsureReportQueueSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(TG_REPORT.SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(TG_REPORT.SHEET);
+    sh.getRange(1, 1, 1, TG_REPORT.HEADER.length).setValues([TG_REPORT.HEADER]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.setColumnWidth(5, 600);  // 본문 컬럼 넓게
+  }
+  return sh;
+}
+
+/**
+ * Web App POST 핸들러 — Routine이 분석한 리포트를 큐에 적재.
+ * 입력 (form-encoded 또는 JSON):
+ *   secret    — TG_WEBHOOK_SECRET와 일치해야 함
+ *   action    — 'addMarketReport'
+ *   type      — 'US' | 'KR'
+ *   title     — 짧은 헤드라인 (1줄)
+ *   body      — Telegram 발송용 Markdown 본문
+ *   asOfDate  — (선택) 대상 날짜 yyyy-MM-dd
+ */
+function _tgHandleMarketReportPost(e) {
+  try {
+    // 1. secret 검증 (param 우선, postData JSON fallback)
+    const expectedSecret = _tgSecret();
+    let secret = e && e.parameter && e.parameter.secret;
+    let type = e && e.parameter && e.parameter.type;
+    let title = e && e.parameter && e.parameter.title;
+    let body = e && e.parameter && e.parameter.body;
+    let asOfDate = e && e.parameter && e.parameter.asOfDate;
+    // JSON 본문 fallback (Routine이 contentType: application/json으로 보낼 때)
+    if (!body && e && e.postData && e.postData.contents) {
+      try {
+        const j = JSON.parse(e.postData.contents);
+        secret = secret || j.secret;
+        type = type || j.type;
+        title = title || j.title;
+        body = body || j.body;
+        asOfDate = asOfDate || j.asOfDate;
+      } catch (_) { /* form-encoded이면 무시 */ }
+    }
+    if (!expectedSecret || secret !== expectedSecret) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'forbidden' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    if (type !== 'US' && type !== 'KR') {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'invalid type (US|KR)' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    if (!body || typeof body !== 'string') {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'body required' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    const tz = 'Asia/Seoul';
+    const now = new Date();
+    const sh = _tgEnsureReportQueueSheet();
+    sh.appendRow([
+      Utilities.formatDate(now, tz, 'yyyy-MM-dd HH:mm:ss'),
+      type,
+      asOfDate || '',
+      String(title || '').slice(0, 200),
+      body,
+      TG_REPORT.STATUS_WAIT,
+      '',
+      '',
+    ]);
+    return ContentService.createTextOutput(JSON.stringify({ success: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    Logger.log('_tgHandleMarketReportPost 오류: ' + err.message);
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(err) }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * 큐 비우기 — "대기" 상태 행을 모두 Telegram에 발송하고 마킹.
+ * 트리거 (08:05·17:05) + 메뉴 수동 실행 둘 다 사용.
+ */
+function tgFlushReportQueue() {
+  const tz = 'Asia/Seoul';
+  const sh = _tgEnsureReportQueueSheet();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) {
+    Logger.log('tgFlushReportQueue: 큐 비어 있음');
+    return;
+  }
+  const data = sh.getRange(2, 1, lastRow - 1, TG_REPORT.HEADER.length).getValues();
+  let sent = 0;
+  let failed = 0;
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const status = row[5];
+    if (status !== TG_REPORT.STATUS_WAIT) continue;
+    const body = row[4];
+    if (!body) continue;
+    const rowIdx = i + 2;
+    try {
+      const res = tgSendMessage(String(body));
+      const stamp = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
+      // tgSendMessage가 null이면 (token/chatId 미설정) 실패 처리
+      if (res === null) {
+        sh.getRange(rowIdx, 6, 1, 3).setValues([[TG_REPORT.STATUS_FAIL, stamp, '봇 토큰 또는 chat_id 미설정']]);
+        failed++;
+      } else {
+        sh.getRange(rowIdx, 6, 1, 3).setValues([[TG_REPORT.STATUS_DONE, stamp, '']]);
+        sent++;
+      }
+    } catch (err) {
+      const stamp = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
+      sh.getRange(rowIdx, 6, 1, 3).setValues([[TG_REPORT.STATUS_FAIL, stamp, String(err).slice(0, 500)]]);
+      failed++;
+    }
+  }
+  Logger.log('tgFlushReportQueue: 발송 ' + sent + '건, 실패 ' + failed + '건');
+}
+
+/**
+ * 시장 리포트 큐 트리거 등록 — 매일 08:05·17:05 KST에 tgFlushReportQueue.
+ * GAS timeBased는 분 단위 정확도 ±15분이라 :05로 잡으면 :00~:20 사이 실행됨 → Routine 08:00 끝난 뒤 안전.
+ */
+function tgSetupReportQueueTrigger() {
+  tgDeleteReportQueueTrigger();
+  // 08시·17시 한국시간 매일
+  ScriptApp.newTrigger(TG_REPORT.TRIGGER)
+    .timeBased()
+    .atHour(8)
+    .nearMinute(5)
+    .everyDays(1)
+    .create();
+  ScriptApp.newTrigger(TG_REPORT.TRIGGER)
+    .timeBased()
+    .atHour(17)
+    .nearMinute(5)
+    .everyDays(1)
+    .create();
+  Logger.log('✅ 시장 리포트 큐 트리거 등록 완료 (매일 08:05·17:05 KST 근처)');
+}
+
+/** 시장 리포트 큐 트리거 해제 */
+function tgDeleteReportQueueTrigger() {
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === TG_REPORT.TRIGGER) {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  Logger.log('✅ 시장 리포트 큐 트리거 해제 완료');
+}
+
+/** 메뉴/에디터에서 수동으로 큐 즉시 발송 (디버깅·재시도) */
+function tgFlushReportQueueNow() {
+  tgFlushReportQueue();
+}
