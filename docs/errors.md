@@ -2,6 +2,18 @@
 
 ---
 
+## 2026-05-28
+
+### `deploy-web.yml` 수동 trigger 후 `/desk/` 폴더 통째로 삭제 (404)
+- **증상**: web (PWA) 만 배포했는데 `https://ejunwon-lab.github.io/FD5to6/desk/` 가 404. desk hash 자체가 fetch 안 됨
+- **원인**: `peaceiris/actions-gh-pages@v4` 의 *기본 동작*은 `publish_dir` 내용으로 gh-pages 브랜치 *전체 덮어쓰기*. `deploy-web-desk.yml` 은 `keep_files: true` + `destination_dir: desk` 로 desk/ 하위만 갱신·기존 보존인데, `deploy-web.yml` 은 *둘 다 없이* gh-pages 루트 덮어쓰기 → desk/ 폴더 통째 삭제
+- **해결**:
+  - `deploy-web.yml` 에 `keep_files: true` 추가 → 향후 web 배포 시 desk/ 등 서브 deployment 보존
+  - `deploy-web-desk` workflow 수동 trigger (`gh workflow run deploy-web-desk.yml --ref main`) → `/desk/` 복원
+- **참고 사고 (별건)**: `peaceiris/actions-gh-pages@v4` action 다운로드가 `codeload.github.com` 일시 장애로 3회 fail. 30~60분 두고 재시도하니 회복. *GitHub 인프라 일시 장애 패턴* — 같은 commit SHA가 캐시 미스되면 가끔 발생, 시간 두고 재시도가 정답
+
+---
+
 ## 2026-05-26
 
 ### 시계열 그래프에 주말·공휴일이 표시되는 문제 (errors.md 2026-05-17 같은 패턴 확장)
