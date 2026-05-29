@@ -39,12 +39,13 @@ last updated: 2026-05-28
 
 ### Step 3. Routine에 줄 정보 확보
 
-claude.ai에서 routine을 만들 때 프롬프트에 박을 두 값:
+claude.ai에서 routine을 만들 때 프롬프트에 박을 값들:
 
 | 변수 | 어디서 |
 |---|---|
-| `WEB_APP_URL` | Apps Script → Deploy → Manage deployments → Web app URL (`.../exec`로 끝남) |
+| `WORKER_URL` | Cloudflare Worker URL (예: `https://tg-portfolio-proxy.halcyon-public.workers.dev`). Apps Script Properties의 `TG_WORKER_URL` 또는 어제 워커 셋업 시 받은 URL |
 | `SECRET` | Apps Script → Project Settings → Script Properties → `TG_WEBHOOK_SECRET` 값 (또는 GAS 에디터에서 `tgShowSecret()` 실행 → Logger 확인) |
+| ~~`WEB_APP_URL`~~ | ⚠️ **routine에선 직접 사용 X**. claude.ai routine IP가 `script.google.com`에서 차단됨 (errors.md 2026-05-29 참조). routine은 Worker 경유. WEB_APP_URL은 GAS 자체 셋업·트리거에만 사용 |
 
 > SECRET은 비밀이므로 claude.ai routine 프롬프트에만 박고, 코드/문서엔 절대 커밋하지 않는다.
 
@@ -127,13 +128,16 @@ AAPL  ...
 {2~3 단락. 분석가 톤. 오늘 시장의 의미(섹터 로테이션·매크로 신호 등) + 보유 포트폴리오에 어떤 시사점. 단정적 매수/매도 권유 금지.}
 ```
 
-## 발송
+## 발송 (Cloudflare Worker proxy 경유 — 직접 GAS 금지)
 
-위 본문을 GAS Web App에 POST:
+⚠️ **중요**: claude.ai routine 실행 환경 IP는 `script.google.com`에서 차단됨 (403 Host not in allowlist). **반드시 Cloudflare Worker proxy 경유**.
 
-URL: `{{WEB_APP_URL}}`
+URL: `{{WORKER_URL}}` (예: `https://tg-portfolio-proxy.halcyon-public.workers.dev`)
 Method: POST
-Content-Type: application/json
+Headers:
+- `Content-Type: application/json`
+- `X-Telegram-Bot-Api-Secret-Token: {{SECRET}}` ← Worker가 이 헤더로 인증
+
 Body:
 ```
 {
@@ -146,7 +150,7 @@ Body:
 }
 ```
 
-응답이 `{"success": true}`면 완료. 아니면 에러를 보고하세요.
+Worker가 body를 GAS Web App으로 forward (302 redirect 자동 처리). 응답 `{"success":true}`면 완료.
 
 ## 휴장일 처리
 
@@ -230,11 +234,14 @@ SK하이닉스 ...
 {2~3 단락. 수급·업종·이슈를 엮어 오늘 시장의 의미 + 보유 포트폴리오 시사점. 분석가 톤. 매수/매도 권유 금지.}
 ```
 
-## 발송
+## 발송 (Cloudflare Worker proxy 경유 — US와 동일)
 
-URL: `{{WEB_APP_URL}}`
+URL: `{{WORKER_URL}}`
 Method: POST
-Content-Type: application/json
+Headers:
+- `Content-Type: application/json`
+- `X-Telegram-Bot-Api-Secret-Token: {{SECRET}}`
+
 Body:
 ```
 {

@@ -4,6 +4,15 @@
 
 ## 2026-05-29
 
+### claude.ai routines → GAS Web App 403 "Host not in allowlist"
+- **증상**: claude.ai routine 환경에서 `script.google.com`에 GET/POST 모두 403 "Host not in allowlist" 응답. GAS doPost 도달 전 Google 인프라 차원 거부. 어제 등록한 시장 리포트 routine 2개가 리포트 작성 후 POST 단계에서 실패
+- **원인**: claude.ai routine 실행 컨테이너(Anthropic 클라우드)의 IP 대역이 Google Apps Script Web App의 allowlist에 없음. **GAS 코드·인증·oauthScopes 모두 무관** — Anthropic IP 자체 차단. routine 외 환경(로컬·Cloudflare·일반 인터넷)에선 정상 동작
+- **해결**: 기존 Cloudflare Worker (`apps-script-v2/cloudflare-worker/worker.js`)를 routine → GAS proxy로 재사용. Worker는 globally distributed라 Google allowlist에 포함된 IP에서 forward. Worker 코드 변경 0줄 — 이미 단순 forward 구조 (헤더 검증 후 body 그대로 GAS로). routine 프롬프트의 POST URL을 GAS `/exec`에서 Worker URL로 변경 + `X-Telegram-Bot-Api-Secret-Token` 헤더 추가하면 끝
+- **교훈**:
+  - **claude.ai routine은 GAS Web App을 직접 호출할 수 없다.** 우회 proxy (Cloudflare Worker 등) 필수
+  - 이미 있는 Telegram Worker proxy를 다른 용도(시장 리포트 적재)로도 재사용 가능 — 같은 인증 체계 + 단순 forward 구조 덕분
+  - 새 외부 시스템에서 GAS doPost를 호출하는 모든 경우 같은 문제 가능성 — IP allowlist 차단을 우선 의심
+
 ### "You do not have permission to call UrlFetchApp.fetch. Required permissions: http"
 - **증상**: 시트 ⚡ 전체 업데이트 또는 트리거 실행 시 마지막 갱신 실패 메시지에 `Required permissions: http`. 시각 09:13에 발생 (정규 트리거 슬롯 아님 — 사용자 수동 클릭 추정)
 - **원인**: `appsscript.json`에 `oauthScopes`가 명시되어 있지 않으면 GAS가 스코프를 *자동 추론*. 평소엔 작동하나 **새 deployment 생성·권한 동의 흐름 리셋 시 추론 스코프에서 `script.external_request`(UrlFetchApp 권한)가 누락되는 경우 발생**. 2026-05-28 시장 리포트 큐 인프라 추가로 새 deployment 생성한 것이 트리거
