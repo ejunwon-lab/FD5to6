@@ -2,6 +2,18 @@
 
 ---
 
+## 2026-05-29
+
+### "You do not have permission to call UrlFetchApp.fetch. Required permissions: http"
+- **증상**: 시트 ⚡ 전체 업데이트 또는 트리거 실행 시 마지막 갱신 실패 메시지에 `Required permissions: http`. 시각 09:13에 발생 (정규 트리거 슬롯 아님 — 사용자 수동 클릭 추정)
+- **원인**: `appsscript.json`에 `oauthScopes`가 명시되어 있지 않으면 GAS가 스코프를 *자동 추론*. 평소엔 작동하나 **새 deployment 생성·권한 동의 흐름 리셋 시 추론 스코프에서 `script.external_request`(UrlFetchApp 권한)가 누락되는 경우 발생**. 2026-05-28 시장 리포트 큐 인프라 추가로 새 deployment 생성한 것이 트리거
+- **해결**: `appsscript.json`에 `oauthScopes` 명시 (`spreadsheets`·`script.external_request`·`script.scriptapp`·`calendar.readonly`·`userinfo.email`) + `push_safe.py` 재배포 + 사용자가 Apps Script 에디터에서 UrlFetchApp 호출 함수 1회 실행해 권한 재승인
+- **교훈**:
+  - 새 deployment 생성 시 권한 동의 흐름이 리셋될 수 있음. `oauthScopes` 명시는 GAS 프로젝트 기본값으로 둘 것
+  - "Required permissions" 메시지가 보이면 스코프 누락 또는 동의 만료 — `appsscript.json` 점검이 first stop
+
+---
+
 ## 2026-05-28
 
 ### `deploy-web.yml` 수동 trigger 후 `/desk/` 폴더 통째로 삭제 (404)
