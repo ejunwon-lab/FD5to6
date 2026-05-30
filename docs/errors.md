@@ -4,6 +4,19 @@
 
 ## 2026-05-29
 
+### routine이 prompt 무시하고 가이드 파일의 옛 URL 사용 → "Worker가 IP 차단"으로 오진단
+- **증상**: routine prompt에 Worker URL + "GAS 직접 호출 금지" 명시했는데도 1차 update 후 run에서 또 403 받음. routine 보고: "Cloudflare Worker가 routine IP를 차단"
+- **원인**:
+  - routine이 `docs/market-report-routines.md` Read 후 가이드의 GAS URL(`script.google.com/.../exec`)을 사용 — prompt Step 4의 Worker URL을 무시
+  - 받은 403의 응답 본문은 `"Host not in allowlist"` ← **GAS가 응답하는 문자열**. Worker는 secret 불일치 시 `'forbidden'` 응답하므로 다름
+  - 즉 routine이 호출한 곳은 GAS이고, 그것을 Worker 탓으로 잘못 진단·보고
+- **검증**: 로컬에서 같은 Worker URL로 curl POST → 200 OK · 시트 적재 정상. Worker는 IP allowlist 없음 (worker.js 코드에 `request.headers.get` secret 검증만 있음)
+- **해결**: routine prompt 강화 — (a) "절대 규칙" 섹션 맨 위에 GAS URL 금지 명시, (b) "가이드 Read 권장 안 함, prompt 절대 우선", (c) 가이드 파일 자체도 Worker URL로 갱신해 충돌 제거, (d) 실패 보고 시 *실제 호출한 URL* 명시 의무화
+- **교훈**:
+  - **routine prompt가 외부 파일을 Read하게 두면 prompt vs 파일 충돌 발생 가능**. self-contained 권장. 가이드 Read는 보조 정도로만
+  - **routine의 실패 진단 보고를 곧이곧대로 믿지 말 것** — Claude가 자기가 한 행동을 잘못 분석할 수 있음. 응답 본문·실제 호출 URL을 명시하라고 prompt에서 강제
+  - 응답 403의 본문 문자열이 어느 layer에서 왔는지(Worker `'forbidden'` vs GAS `"Host not in allowlist"`) 비교가 layered proxy 디버깅의 결정적 단서
+
 ### claude.ai routines → GAS Web App 403 "Host not in allowlist"
 - **증상**: claude.ai routine 환경에서 `script.google.com`에 GET/POST 모두 403 "Host not in allowlist" 응답. GAS doPost 도달 전 Google 인프라 차원 거부. 어제 등록한 시장 리포트 routine 2개가 리포트 작성 후 POST 단계에서 실패
 - **원인**: claude.ai routine 실행 컨테이너(Anthropic 클라우드)의 IP 대역이 Google Apps Script Web App의 allowlist에 없음. **GAS 코드·인증·oauthScopes 모두 무관** — Anthropic IP 자체 차단. routine 외 환경(로컬·Cloudflare·일반 인터넷)에선 정상 동작
