@@ -16,6 +16,21 @@
 
 export default {
   async fetch(request, env) {
+    // === DIAG: incoming ===
+    const cfRay = request.headers.get('cf-ray') || '';
+    const cfIpCountry = request.headers.get('cf-ipcountry') || '';
+    const cfConnectingIp = request.headers.get('cf-connecting-ip') || '';
+    const cfColo = request.cf && request.cf.colo ? request.cf.colo : '';
+    const incomingUA = request.headers.get('user-agent') || '';
+    console.log('=== INCOMING ===', JSON.stringify({
+      method: request.method,
+      cfRay,
+      cfColo,
+      cfIpCountry,
+      cfConnectingIp,
+      ua: incomingUA,
+    }));
+
     // 1. POST만 허용
     if (request.method !== 'POST') {
       return new Response('only POST', { status: 405 });
@@ -29,24 +44,42 @@ export default {
     // 3. Telegram의 secret_token 헤더 검증
     const got = request.headers.get('X-Telegram-Bot-Api-Secret-Token');
     if (got !== env.SECRET) {
+      console.log('=== AUTH FAIL ===', JSON.stringify({ expected_len: (env.SECRET || '').length, got_len: (got || '').length, match: got === env.SECRET }));
       return new Response('forbidden', { status: 403 });
     }
 
     // 4. body 그대로 GAS로 forward (302 redirect를 spec 대로 follow)
     const body = await request.text();
     const gasUrl = env.GAS_URL + (env.GAS_URL.indexOf('?') === -1 ? '?' : '&') + 'secret=' + env.SECRET;
+    const bodyPreview = body.length > 200 ? body.slice(0, 200) + '...' : body;
+    console.log('=== FORWARD TO GAS ===', JSON.stringify({
+      gasHost: new URL(env.GAS_URL).host,
+      bodyLen: body.length,
+      bodyPreview,
+    }));
 
     try {
+      // User-Agent를 일반 클라이언트처럼 명시 — Cloudflare default UA가 GAS에서 거부될 가능성 제거
       const r = await fetch(gasUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (compatible; MarketReportProxy/1.0)',
+          'Accept': 'application/json, text/plain, */*',
+        },
         body,
         redirect: 'follow',
       });
-      // GAS의 응답을 Telegram에 그대로 반환
       const text = await r.text();
+      const respPreview = text.length > 300 ? text.slice(0, 300) + '...' : text;
+      console.log('=== GAS RESPONSE ===', JSON.stringify({
+        status: r.status,
+        finalUrl: r.url,
+        bodyPreview: respPreview,
+      }));
       return new Response(text, { status: r.status });
     } catch (e) {
+      console.log('=== UPSTREAM ERROR ===', e.message);
       return new Response('upstream error: ' + e.message, { status: 502 });
     }
   },
