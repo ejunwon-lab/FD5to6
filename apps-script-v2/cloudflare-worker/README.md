@@ -1,6 +1,17 @@
-# Cloudflare Worker — Telegram → GAS proxy
+# Cloudflare Worker — 두 가지 용도
 
-GAS의 302 redirect를 Telegram이 못 따라가서 발생하는 간헐적 webhook 실패를 우회. Worker가 spec 준수 fetch로 redirect를 정상 처리하여 Telegram에 200을 직결.
+이 Worker는 **POST body에 따라 두 가지 경로**로 동작합니다 (단일 endpoint, 단일 인증).
+
+## (A) Telegram webhook → GAS doPost proxy
+- 워치/사용자 → Telegram bot → 이 Worker → GAS doPost
+- GAS의 302 redirect를 Telegram이 못 따라가는 간헐 실패를 Worker가 spec 준수 fetch로 우회
+- 분기 조건: body가 JSON이 아니거나 `action` 필드 없음
+
+## (B) routine 시장 리포트 → Telegram Bot API 직접 발송 ★ 2026-05-31 추가
+- claude.ai routine → 이 Worker → Telegram Bot API → 사용자 채팅
+- **이유**: claude.ai routine 환경 IP가 GAS에서 403 차단됨 (Google anti-abuse). Cloudflare 미국 PoP의 outbound IP도 같이 차단. Worker가 GAS 우회 불가 → Telegram Bot API 직접 호출이 유일한 해결
+- 분기 조건: body가 JSON + `action == "addMarketReport"`
+- 부수효과: 시트 *시장리포트_큐* 자동 적재 없음 (Telegram 채팅이 이력)
 
 ## 설치 (one-time, ~20분)
 
@@ -20,10 +31,12 @@ GAS의 302 redirect를 Telegram이 못 따라가서 발생하는 간헐적 webho
 1. Worker 상세 페이지 → **Settings** → **Variables and Secrets**
 2. **Add variable** 두 개 추가, 둘 다 **Encrypt** 체크:
 
-| Variable name | Value | 어디서 얻나 |
-|---|---|---|
-| `SECRET` | GAS의 `TG_WEBHOOK_SECRET` 값 (32자 hex) | GAS 에디터에서 `tgShowSecret` 함수 실행 후 로그 확인 |
-| `GAS_URL` | GAS /exec URL (query string 없이) | GAS의 "배포 관리"에서 활성 deployment의 URL 복사 |
+| Variable name | Value | 어디서 얻나 | 용도 |
+|---|---|---|---|
+| `SECRET` | GAS의 `TG_WEBHOOK_SECRET` 값 (32자 hex) | GAS 에디터에서 `tgShowSecret` 함수 실행 후 로그 확인 | (A)·(B) 공통 인증 |
+| `GAS_URL` | GAS /exec URL (query string 없이) | GAS의 "배포 관리"에서 활성 deployment의 URL 복사 | (A) GAS forward |
+| `TG_BOT_TOKEN` | Telegram 봇 토큰 (`1234:ABC...`) | GAS Properties의 `TG_BOT_TOKEN` 또는 BotFather에서 받은 값 | (B) Telegram 발송 |
+| `TG_CHAT_ID` | chat ID 단일 또는 콤마 구분 리스트 (`123,456`) | GAS Properties의 `TG_CHAT_ID` 또는 `tgListChatIds` 실행 결과 | (B) Telegram 발송 |
 
 3. **Save and deploy**
 
