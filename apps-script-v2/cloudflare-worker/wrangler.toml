@@ -1,0 +1,8 @@
+name = "tg-portfolio-proxy"
+main = "worker.js"
+compatibility_date = "2024-09-01"
+account_id = "58b7ba00aac5094f1a051e93910f89ae"
+
+# 환경변수는 wrangler secret put 으로 별도 설정:
+#   SECRET, GAS_URL, TG_BOT_TOKEN, TG_CHAT_ID
+# (SECRET·GAS_URL은 기존에 이미 설정됨)
