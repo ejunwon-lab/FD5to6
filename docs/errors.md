@@ -4,6 +4,24 @@
 
 ## 2026-05-29
 
+### Cloudflare PoP IP가 GAS Web App에서 차단 — Worker → GAS 우회 영구 불가 (확정)
+- **증상**: routine → Worker URL POST → Worker가 GAS forward 시도 → `HTTP 403 Host not in allowlist`. User-Agent 명시·헤더 정리 등 어떤 코드 수정으로도 우회 불가.
+- **원인 (확정)**:
+  - Worker는 *호출자에 가장 가까운 Cloudflare PoP*에서 실행되며, fetch outbound는 그 PoP의 IP에서 나감
+  - routine은 미국 (Anthropic 서버)에서 호출 → Worker가 미국 PoP에서 실행 → 미국 outbound IP로 GAS 호출 → **Google anti-abuse가 차단**
+  - 사용자 한국 노트북 curl 호출 → Worker가 서울 PoP에서 실행 → 한국 IP로 GAS 호출 → 정상 통과
+  - 같은 Worker 코드인데 *실행 PoP에 따라* GAS 응답이 다름. PoP·outbound IP는 강제 변경 불가
+- **시도한 fix들 (모두 실패)**: User-Agent를 Mozilla로 변경, Accept 헤더 추가, redirect follow 명시 — IP 문제라 헤더 무관
+- **해결 (2026-05-31 채택)**: Worker가 routine 시장 리포트 요청을 받으면 **GAS 대신 Telegram Bot API 직접 호출**. Telegram API는 모든 IP 허용 → 미국 PoP에서도 정상 발송. 시트 자동 적재는 포기 (Telegram 채팅이 이력)
+- **부수 영향**:
+  - Worker는 두 가지 경로 분기: body action이 `addMarketReport`면 Telegram 발송, 그 외(워치 webhook 등)는 기존 GAS forward
+  - 워치 손익 알림(워치→Telegram→Worker→GAS)은 한국 IP 경로라 그대로 작동
+  - 시트 *시장리포트_큐* 큐 시스템은 *사용자 수동 발송용*으로만 유지 (메뉴 즉시 발송)
+- **교훈**:
+  - **Cloudflare Workers의 fetch egress IP는 *호출자 위치 따라 결정* 되고 강제 변경 불가**. 지역 기반 차단 우회 옵션은 유료 (Static Egress IP) 또는 다른 인프라(GCP/AWS 한국 region) 셋업
+  - "Host not in allowlist" 응답은 Google App Engine/Apps Script anti-abuse의 표준 메시지. *우리 측 코드·설정 모두 정상이어도 IP 만으로 차단됨*
+  - 인프라 진단 시 "내 호출은 되는데 다른 곳 호출은 안 됨" 패턴은 **outbound IP 차이를 먼저 의심** (UA·헤더보다 우선)
+
 ### routine이 prompt 무시하고 가이드 파일의 옛 URL 사용 → "Worker가 IP 차단"으로 오진단
 - **증상**: routine prompt에 Worker URL + "GAS 직접 호출 금지" 명시했는데도 1차 update 후 run에서 또 403 받음. routine 보고: "Cloudflare Worker가 routine IP를 차단"
 - **원인**:
