@@ -15,6 +15,7 @@ apps-script-v2/Secret.js
 
 # Cloudflare Wrangler cache (deploy state, build artifacts)
 apps-script-v2/cloudflare-worker/.wrangler/
+.wrangler/
 
 # Python
 __pycache__/
