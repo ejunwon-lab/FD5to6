@@ -13,6 +13,9 @@ xcuserdata/
 # Apps Script
 apps-script-v2/Secret.js
 
+# Cloudflare Wrangler cache (deploy state, build artifacts)
+apps-script-v2/cloudflare-worker/.wrangler/
+
 # Python
 __pycache__/
 *.pyc
