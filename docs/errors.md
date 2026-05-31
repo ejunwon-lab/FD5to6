@@ -4,6 +4,27 @@
 
 ## 2026-05-29
 
+### claude.ai routine → Cloudflare Worker도 차단됨 (Anthropic 샌드박스 TLS Inspection 차단 — 최종 진단)
+- **증상**: routine이 Worker URL POST 시 `HTTP 403 Host not in allowlist` + Cloudflare 헤더 `x-deny-reason: host_not_allowed`. Worker 코드의 IP 검사 없는데도 403.
+- **결정적 진단**: routine 환경에서 curl verbose 로그 분석 → TLS 인증서 issuer `O=Anthropic; CN=sandbox-egress-production TLS Inspection CA`
+  - 즉 Anthropic 샌드박스가 **모든 HTTPS outbound를 TLS Inspection proxy로 가로챔**
+  - **Cloudflare가 그 Anthropic proxy IP를 anti-abuse로 차단** → 모든 Worker 진입을 *Worker 실행 전*에 거부
+- **원인 확정**:
+  - GAS 차단(어제 1차 진단) + Worker 차단(오늘 2차 진단) 둘 다 동일 메커니즘
+  - Worker 코드 어떻게 수정해도 무용 — Cloudflare 진입 단계에서 403
+  - "Worker proxy로 우회" 가설은 *PoP IP 문제*로 추측했으나 실제론 *Anthropic sandbox egress CA 자체*가 차단 대상
+  - 한국 IP 노트북 curl은 일반 IP라 통과 — 미국 routine 환경만 차단
+- **해결 (2026-05-31 최종 채택)**: **routine이 Telegram Bot API를 직접 호출**. Telegram API endpoint(`api.telegram.org`)는 Anthropic 샌드박스 통과 가능 (직접 검증). Worker·GAS 모두 거치지 않음
+  - routine prompt에 BOT_TOKEN + CHAT_IDS 박음 + Python urllib로 sendMessage (Markdown → fallback plain text)
+  - 시트 *시장리포트_큐* 자동 적재 X — Telegram 채팅이 이력. 시트 큐는 사용자 수동 발송용으로만 유지
+  - Worker proxy는 Telegram→GAS webhook(워치 손익) 용으로 그대로 유지 (그건 한국 IP 경로라 정상)
+- **추가 발견 — 데이터 수집 단계**: Yahoo Finance도 routine 환경 IP를 403 차단. **한국 경제매체(인포맥스·한경·매경·머니투데이)의 '뉴욕증시 마감' 종합 기사**가 routine 환경에서 통과하는 깨끗한 소스. Stooq.com이 raw 숫자 백업.
+- **교훈**:
+  - claude.ai routine은 일반 클라이언트가 아닌 *Anthropic 샌드박스 환경*에서 실행. 그 환경의 outbound는 Anthropic TLS Inspection proxy를 거침. 일부 anti-abuse 시스템(Cloudflare, Google, Yahoo 등)이 그 proxy IP를 차단
+  - **"내 호출은 OK인데 routine은 fail" 패턴 시 = outbound proxy 차이 우선 의심**. UA·헤더·코드보다 먼저
+  - Web automation에서 *우회 가능한 endpoint*: 명확히 공개 API + IP/UA 검사 약한 곳 (Telegram Bot API 등)
+  - 가설 검증 시 routine 환경에서 *curl -v* 또는 *TLS 인증서 검증*이 결정적 — 우리는 7차 시도 후에야 발견
+
 ### Cloudflare PoP IP가 GAS Web App에서 차단 — Worker → GAS 우회 영구 불가 (확정)
 - **증상**: routine → Worker URL POST → Worker가 GAS forward 시도 → `HTTP 403 Host not in allowlist`. User-Agent 명시·헤더 정리 등 어떤 코드 수정으로도 우회 불가.
 - **원인 (확정)**:

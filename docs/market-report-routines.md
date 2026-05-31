@@ -146,29 +146,41 @@ TSLA   +X.XX% ▲
 
 > 보유 종목 1~수 종 단위 변동률은 *🎯 보유 종목* 섹션이 아닌 *🎯 보유 포트 의견*에서 등급+근거로 다룬다. 단순 등락 나열은 M7·Top Movers로 대체 (시장 흐름이 더 의미 있음). 보유 종목 회사 단위 뉴스(±2%)는 *📰 시장 이슈* 다음 별도 섹션이 필요하면 추가.
 
-## 발송 (Cloudflare Worker proxy 경유 — 직접 GAS 금지)
+## 발송 — Telegram Bot API 직접 호출 (2026-05-31 최종 채택)
 
-⚠️ **중요**: claude.ai routine 실행 환경 IP는 `script.google.com`에서 차단됨 (403 Host not in allowlist). **반드시 Cloudflare Worker proxy 경유**.
+⚠️ **routine 환경에서 Cloudflare Worker URL도 GAS URL도 막혔습니다** — Anthropic 샌드박스 TLS Inspection IP를 Cloudflare가 anti-abuse로 차단 (errors.md 2026-05-31 참조). Worker proxy 가설은 폐기.
 
-URL: `{{WORKER_URL}}` (예: `https://tg-portfolio-proxy.halcyon-public.workers.dev`)
-Method: POST
-Headers:
-- `Content-Type: application/json`
-- `X-Telegram-Bot-Api-Secret-Token: {{SECRET}}` ← Worker가 이 헤더로 인증
+**해결**: routine이 Telegram Bot API endpoint를 직접 호출. `api.telegram.org`는 Anthropic 샌드박스에서 통과 가능.
 
-Body:
+```python
+import json, urllib.request, urllib.error, ssl
+
+TOKEN = "<TG_BOT_TOKEN>"
+CHAT_IDS = ["<chat_id_1>", "<chat_id_2>"]
+body = "<리포트 전체 본문>"
+
+ctx = ssl.create_default_context()
+ctx.check_hostname = False
+ctx.verify_mode = ssl.CERT_NONE
+url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+
+for chat_id in CHAT_IDS:
+    payload = {"chat_id": chat_id, "text": body, "parse_mode": "Markdown"}
+    req = urllib.request.Request(url, json.dumps(payload).encode(), {"Content-Type": "application/json"})
+    try:
+        urllib.request.urlopen(req, context=ctx).read()
+    except urllib.error.HTTPError as e:
+        if e.code == 400:
+            # Markdown parse 실패 → plain text fallback
+            payload2 = {"chat_id": chat_id, "text": body}
+            req2 = urllib.request.Request(url, json.dumps(payload2).encode(), {"Content-Type": "application/json"})
+            urllib.request.urlopen(req2, context=ctx).read()
 ```
-{
-  "action": "addMarketReport",
-  "secret": "{{SECRET}}",
-  "type": "US",
-  "asOfDate": "{전일 미국 시장 거래일 yyyy-MM-dd}",
-  "title": "US Market Wrap — {한 줄 핵심}",
-  "body": "{위에서 작성한 리포트 전체 본문}"
-}
-```
 
-Worker가 body를 GAS Web App으로 forward (302 redirect 자동 처리). 응답 `{"success":true}`면 완료.
+**부수 영향**:
+- 시트 *시장리포트_큐* 자동 적재 X (Telegram 채팅이 이력 + 검색 가능)
+- 시트 큐는 *사용자 수동 발송용*으로 유지 (🛠️ 유지보수 → 📤 시장 리포트 큐 즉시 발송)
+- Cloudflare Worker는 *Telegram → GAS webhook*(워치 손익 알림)용으로 그대로 유지 — 한국 IP 경로라 정상 동작
 
 ## 휴장일 처리
 
