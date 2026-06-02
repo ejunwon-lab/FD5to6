@@ -1,0 +1,164 @@
+name: Market Report (US/KR)
+
+# 거래일 한국시간 08:00·17:00 KST에 분석 + Telegram 발송
+# - US: 일~목 UTC 23:05 = 월~금 KST 08:05 (전날 미국 마감 리포트)
+# - KR: 월~금 UTC 08:05 = 월~금 KST 17:05 (당일 한국 마감 리포트)
+# - workflow_dispatch로 수동 실행도 가능
+
+on:
+  schedule:
+    - cron: '5 23 * * 0-4'   # KST 월~금 08:05 (US)
+    - cron: '5 8 * * 1-5'    # KST 월~금 17:05 (KR)
+  workflow_dispatch:
+    inputs:
+      type:
+        description: 'Report type'
+        type: choice
+        options: [us, kr, both]
+        default: both
+
+permissions:
+  contents: write   # docs/reports/ commit·push 용
+
+jobs:
+  us-report:
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '5 23 * * 0-4') ||
+      (github.event_name == 'workflow_dispatch' && (inputs.type == 'us' || inputs.type == 'both'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Load US prompt into env
+        run: |
+          {
+            echo "CLAUDE_PROMPT<<PROMPT_EOF_$$"
+            cat .github/scripts/us-prompt.md
+            echo ""
+            echo "PROMPT_EOF_$$"
+          } >> "$GITHUB_ENV"
+
+      - name: Generate US report (Claude Code)
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: ${{ env.CLAUDE_PROMPT }}
+          claude_args: |
+            --allowedTools WebFetch,Bash,Read,Write
+            --max-turns 25
+            --model claude-sonnet-4-6
+
+      - name: Determine report file path
+        id: path
+        run: |
+          DATE_KST=$(TZ='Asia/Seoul' date +%Y-%m-%d)
+          REPORT=docs/reports/US-${DATE_KST}.md
+          echo "date_kst=${DATE_KST}" >> $GITHUB_OUTPUT
+          echo "report=${REPORT}" >> $GITHUB_OUTPUT
+          if [ -f "$REPORT" ]; then
+            echo "found=yes" >> $GITHUB_OUTPUT
+            echo "✓ found $REPORT"
+            wc -c "$REPORT"
+          else
+            echo "found=no" >> $GITHUB_OUTPUT
+            echo "✗ not found $REPORT (Claude가 파일을 생성하지 않음 — 휴장 또는 실패)"
+            ls -la docs/reports/ 2>/dev/null || true
+          fi
+
+      - name: Send to Telegram
+        if: steps.path.outputs.found == 'yes'
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
+        run: |
+          python3 .github/scripts/send_telegram.py "${{ steps.path.outputs.report }}"
+
+      - name: Commit report (이력 보존)
+        if: steps.path.outputs.found == 'yes'
+        run: |
+          git config user.email 'actions@github.com'
+          git config user.name 'Market Report Bot'
+          git add docs/reports/
+          if git diff --cached --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "US report ${{ steps.path.outputs.date_kst }} [skip ci]"
+            git push
+          fi
+
+  kr-report:
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '5 8 * * 1-5') ||
+      (github.event_name == 'workflow_dispatch' && (inputs.type == 'kr' || inputs.type == 'both'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Load KR prompt into env
+        run: |
+          {
+            echo "CLAUDE_PROMPT<<PROMPT_EOF_$$"
+            cat .github/scripts/kr-prompt.md
+            echo ""
+            echo "PROMPT_EOF_$$"
+          } >> "$GITHUB_ENV"
+
+      - name: Generate KR report (Claude Code)
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: ${{ env.CLAUDE_PROMPT }}
+          claude_args: |
+            --allowedTools WebFetch,Bash,Read,Write
+            --max-turns 25
+            --model claude-sonnet-4-6
+
+      - name: Determine report file path
+        id: path
+        run: |
+          DATE_KST=$(TZ='Asia/Seoul' date +%Y-%m-%d)
+          REPORT=docs/reports/KR-${DATE_KST}.md
+          echo "date_kst=${DATE_KST}" >> $GITHUB_OUTPUT
+          echo "report=${REPORT}" >> $GITHUB_OUTPUT
+          if [ -f "$REPORT" ]; then
+            echo "found=yes" >> $GITHUB_OUTPUT
+            echo "✓ found $REPORT"
+            wc -c "$REPORT"
+          else
+            echo "found=no" >> $GITHUB_OUTPUT
+            echo "✗ not found $REPORT (휴장 또는 실패)"
+            ls -la docs/reports/ 2>/dev/null || true
+          fi
+
+      - name: Send to Telegram
+        if: steps.path.outputs.found == 'yes'
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
+        run: |
+          python3 .github/scripts/send_telegram.py "${{ steps.path.outputs.report }}"
+
+      - name: Commit report
+        if: steps.path.outputs.found == 'yes'
+        run: |
+          git config user.email 'actions@github.com'
+          git config user.name 'Market Report Bot'
+          git add docs/reports/
+          if git diff --cached --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "KR report ${{ steps.path.outputs.date_kst }} [skip ci]"
+            git push
+          fi
