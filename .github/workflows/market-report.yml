@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: write   # docs/reports/ commit·push 용
+  id-token: write   # claude-code-action OIDC 인증용 (필수)
 
 jobs:
   us-report:
