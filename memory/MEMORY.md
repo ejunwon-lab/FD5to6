@@ -28,3 +28,5 @@
 - [숫자 풀 표시](feedback_number_display.md) — 모든 UI에서 숫자 절대 축약 금지 (억/만/M/K 금지), 항상 toLocaleString() 풀
 - [종목명이 메인](feedback_stock_name_primary.md) — 종목명이 메인 표시, 종목코드는 보조 (작고 흐리게)
 - [인덱스 문서 자동 갱신](feedback_index_docs_auto_update.md) — 함수/스키마/트리거/기능/결정/에러 변경 시 같은 turn에서 인덱스 문서 자동 갱신 (사용자 지시 불필요)
+- [routine 샌드박스 한계](feedback_routine_sandbox_limits.md) — claude.ai routines outbound 차단, 자동화는 GitHub Actions 1순위
+- [시장 리포트 파이프라인](project_market_report_pipeline.md) — GitHub Actions + Claude CLI(Max OAuth) + Telegram, 매 거래일 08:05·17:05 자동 (2026-06-03 정착)
