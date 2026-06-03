@@ -1,6 +1,6 @@
 # 시스템 아키텍처 — FD5to6
 
-last updated: 2026-05-28
+last updated: 2026-06-03
 
 JUN & SOO 주식 포트폴리오 시스템의 전체 그림.
 **작업 시작 전 이 문서를 먼저 본다** — 코드 위치는 `code-map.md`, 기능 체크리스트는 `features.md`, API 응답 필드는 `api-reference.md`, 설계 결정 이유는 `decisions.md`.

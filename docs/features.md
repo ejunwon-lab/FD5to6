@@ -1,6 +1,6 @@
 # 기능 현황
 
-last updated: 2026-05-28
+last updated: 2026-06-03
 
 ## ✅ 완료
 
@@ -38,8 +38,17 @@ last updated: 2026-05-28
 - 자동 푸시: 거래일 09:00~16:00, 매시 :00/:20/:40 근처 (3개 트리거)
 - 보안: webhook URL secret query + chat_id 화이트리스트 이중 검증, `update_id` 중복 제거, `LockService` 동시 처리 차단
 
-### 시장 리포트 — Claude Routines (2026-05-28 GAS측 구축)
-- 흐름: claude.ai routine (08:00·17:00 KST) → WebFetch 데이터 수집·분석 → GAS `doPost action=addMarketReport` → *시장리포트_큐* 시트 → GAS 트리거 (08:05·17:05) → Telegram 발송
+### 시장 리포트 — GitHub Actions (2026-06-03 최종 정착)
+- 흐름: GitHub Actions cron (KST 월~금 08:05 US / 17:05 KR) → `claude -p` CLI (Max OAuth 인증, 비용 0) → 한국 매체·Stooq WebFetch + 분석 → `docs/reports/{US|KR}-YYYY-MM-DD.md` Write → Telegram Bot API 직접 발송 (두 chat_id) → git auto-commit
+- 구성: `.github/workflows/market-report.yml`, `.github/scripts/{us,kr}-prompt.md`, `.github/scripts/send_telegram.py`
+- secrets: `CLAUDE_CODE_OAUTH_TOKEN` (claude setup-token 발급), `TG_BOT_TOKEN`, `TG_CHAT_IDS`
+- 리포트 형식: 지수 7종 + 섹터 (XLK→테크 등 약자 한국어 풀어쓰기) + M7 + Top Movers + 시장 이슈 + 종합 코멘트 3단락 + 보유 포트 의견(유지/관망/비중확대/비중축소). KR은 수급(외인/기관/개인) + 업종 + 보유종목 그룹별 추가
+- claude.ai routines 2개는 `enabled: false`로 disable (routine 환경의 outbound allowlist 격리 — TLS Inspection으로 모든 외부 API 차단됨이 errors.md 2026-05-31에 확정)
+- 이력: `docs/reports/` 디렉토리에 매일 영구 보존 (Market Report Bot author)
+
+### 시장 리포트 큐 (GAS, 수동 발송용으로 유지) — 2026-05-28 구축
+- *시장리포트_큐* 시트 + `_tgHandleMarketReportPost` doPost + `tgFlushReportQueue` + 메뉴 `📤 큐 즉시 발송`
+- 자동 cron은 GitHub Actions가 담당. GAS 큐는 *사용자가 직접 시트에 행 추가 + 메뉴 클릭* 시나리오용 (테스트·재발송)
 - 큐 시트가 로그 + retry 큐 역할. 발송 상태(대기/발송완료/실패)·에러 메시지 보존
 - 인증: 기존 TG_WEBHOOK_SECRET 재사용 (POST body or query)
 - 셋업 가이드: `docs/market-report-routines.md` (routine 프롬프트 그대로 복붙)
