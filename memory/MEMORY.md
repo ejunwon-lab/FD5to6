@@ -31,4 +31,4 @@
 - [routine 샌드박스 한계](feedback_routine_sandbox_limits.md) — claude.ai routines outbound 차단, 자동화는 GitHub Actions 1순위
 - [시장 리포트 파이프라인](project_market_report_pipeline.md) — GitHub Actions + Claude CLI(Max OAuth) + Telegram, 매 거래일 08:05·17:05 자동 (2026-06-03 정착)
 - [용어 — "텔레그램 푸시"](feedback_telegram_push_naming.md) — "워치 푸시" 금지, 장중 손익 알림은 "텔레그램 푸시"
-- [내 변경은 내가 검증 후 넘긴다](feedback_self_verify_before_handoff.md) — 버그 만들어 사용자에게 테스트시키지 말 것, gh/curl로 직접 확인
+- [내가 할 수 있는 건 내가 한다](feedback_self_verify_before_handoff.md) — 떠넘기기 전 "직접 가능?" 점검, gh/curl로 검증, 못 하는 것만 이유 붙여 넘김
