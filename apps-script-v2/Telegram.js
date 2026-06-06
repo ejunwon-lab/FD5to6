@@ -633,6 +633,33 @@ function _tgHandleMarketReportPost(e) {
 }
 
 /**
+ * 장중 텔레그램 푸시 — GitHub Actions cron 전용 엔드포인트 (action=pushPnL).
+ * GAS 시간 트리거(best-effort라 수시간 누락)를 대체. GH가 신뢰 가능한 시계가 되고
+ * GAS는 요청받을 때만 동작. 거래일·시간대·락 게이트는 tgPushPnL이 자체 수행하므로
+ * 휴장·장외엔 자동 skip(중복 휴장 로직 불필요).
+ */
+function _tgHandlePushPost(e) {
+  try {
+    const expectedSecret = _tgSecret();
+    let secret = e && e.parameter && e.parameter.secret;
+    if (!secret && e && e.postData && e.postData.contents) {
+      try { secret = JSON.parse(e.postData.contents).secret; } catch (_) { /* form-encoded */ }
+    }
+    if (!expectedSecret || secret !== expectedSecret) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'forbidden' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    tgPushPnL();   // 거래일·09:00~16:00·락 자체 체크 → KIS 갱신 + 손익 계산 + 발송 (또는 skip)
+    return ContentService.createTextOutput(JSON.stringify({ success: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    Logger.log('_tgHandlePushPost 오류: ' + err.message);
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(err) }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
  * 큐 비우기 — "대기" 상태 행을 모두 Telegram에 발송하고 마킹.
  * 트리거 (08:05·17:05) + 메뉴 수동 실행 둘 다 사용.
  */

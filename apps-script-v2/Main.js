@@ -86,6 +86,9 @@ function doPost(e) {
     if (action === 'addMarketReport') {
       return _tgHandleMarketReportPost(e);
     }
+    if (action === 'pushPnL') {
+      return _tgHandlePushPost(e);   // GitHub Actions cron → 장중 텔레그램 푸시 (GAS 트리거 대체)
+    }
   } catch (err) {
     Logger.log('doPost action 분기 오류: ' + err.message);
   }
