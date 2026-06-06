@@ -9,7 +9,11 @@ metadata:
 
 매 거래일 자동 발송되는 시장 리포트 시스템 (2026-06-03 정착, 운영 중).
 
-**흐름**: GitHub Actions cron (KST 월~금 08:05 US / 17:05 KR) → `claude -p` CLI (Max OAuth) → 한국 매체·Stooq WebFetch + 분석 → `docs/reports/{US|KR}-YYYY-MM-DD.md` Write → Telegram Bot API 직접 발송 (두 chat_id) → git auto-commit
+**원칙 (2026-06-06 확장)**: *GitHub Actions = 유일한 신뢰 시계, GAS = 요청 구동 워커*. GAS 시간 트리거는 best-effort라 수시간 누락됨([[feedback_telegram_push_naming]] 관련 errors.md 2026-06-05) → 텔레그램 발송 스케줄을 전부 GH Actions로 통일.
+
+**흐름 (시장 리포트)**: GitHub Actions cron (US KST 08:02·08:42 / KR 17:02·17:42, 40분 간격 2회) → `claude -p` CLI (Max OAuth) → 한국 매체·Stooq WebFetch + 분석 → `docs/reports/{US|KR}-YYYY-MM-DD.md` Write → Telegram Bot API 직접 발송 (두 chat_id) → git auto-commit. **2회 시도 + 중복방지**(체크아웃 시 오늘 파일 있으면 guard로 skip)로 "창 안 반드시 도착" 보장. GH cron 한 틱 누락돼도 커버.
+
+**흐름 (장중 텔레그램 푸시 = "워치 푸시" 아님)**: `telegram-push.yml` cron(KST 월~금 09:05~15:45 매시 :05/:25/:45) → GAS 웹앱 `action=pushPnL` POST(secret=`TG_WEBHOOK_SECRET`) → `_tgHandlePushPost`→`tgPushPnL`(거래일·시간·락 자체 게이트 + KIS 갱신 + 발송). **GAS `tgPushPnL` 시간 트리거 3개는 폐기**. 신규 secrets: `GAS_WEB_APP_URL`, `TG_WEBHOOK_SECRET`. 휴장/장외엔 tgPushPnL이 내부 skip(GH에 휴장 로직 중복 X).
 
 **구성**:
 - `.github/workflows/market-report.yml` — cron 2개 + workflow_dispatch
