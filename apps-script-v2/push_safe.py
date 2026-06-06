@@ -23,25 +23,45 @@ CLASPRC   = Path.home() / ".clasprc.json"
 
 
 def get_token() -> str:
-    data  = json.loads(CLASPRC.read_text())
-    token = list(data["tokens"].values())[0]
+    data = json.loads(CLASPRC.read_text())
 
-    if token.get("expiry_date", 0) / 1000 - time.time() < 60:
-        params = {
-            "client_id":     token["client_id"],
-            "client_secret": token["client_secret"],
-            "refresh_token": token["refresh_token"],
+    # ~/.clasprc.json 두 형식 지원:
+    #  A (구): {"tokens": {key: {client_id, client_secret, refresh_token, access_token, expiry_date}}}
+    #  B (clasp v2): {"token": {access_token, refresh_token, expiry_date}, "oauth2ClientSettings": {clientId, clientSecret}}
+    if "tokens" in data:
+        key = list(data["tokens"].keys())[0]
+        tok = data["tokens"][key]
+        client_id, client_secret = tok["client_id"], tok["client_secret"]
+    elif "token" in data:
+        key = None
+        tok = data["token"]
+        oc = data.get("oauth2ClientSettings", {})
+        client_id, client_secret = oc["clientId"], oc["clientSecret"]
+    else:
+        print("❌ ~/.clasprc.json 형식 인식 실패 (tokens/token 키 없음) — clasp login 재시도")
+        sys.exit(1)
+
+    if tok.get("expiry_date", 0) / 1000 - time.time() < 60:
+        r = requests.post("https://oauth2.googleapis.com/token", data={
+            "client_id":     client_id,
+            "client_secret": client_secret,
+            "refresh_token": tok["refresh_token"],
             "grant_type":    "refresh_token",
-        }
-        r   = requests.post("https://oauth2.googleapis.com/token", data=params)
+        })
         new = r.json()
-        token["access_token"] = new["access_token"]
-        token["expiry_date"]  = int((time.time() + new["expires_in"]) * 1000)
-        data["tokens"][list(data["tokens"].keys())[0]] = token
+        if "access_token" not in new:
+            print(f"❌ 토큰 갱신 실패: {new}")
+            sys.exit(1)
+        tok["access_token"] = new["access_token"]
+        tok["expiry_date"]  = int((time.time() + new["expires_in"]) * 1000)
+        if key is not None:
+            data["tokens"][key] = tok
+        else:
+            data["token"] = tok
         CLASPRC.write_text(json.dumps(data, indent=2))
         print("  (token refreshed)")
 
-    return token["access_token"]
+    return tok["access_token"]
 
 
 def syntax_check(script_dir: Path) -> bool:
