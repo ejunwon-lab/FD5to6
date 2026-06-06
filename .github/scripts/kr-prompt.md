@@ -24,18 +24,21 @@
 
 ## Step 1. 데이터 수집
 
-### 1-A. 지수·환율 — Yahoo Finance JSON API (최우선)
+### 1-A. 지수·환율 (최우선)
 
-WebFetch: `https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?interval=1d&range=5d`
-`chart.result[0].meta`: `regularMarketPrice`=현재가, `chartPreviousClose`=전일종가 → **등락률(%) = (현재가−전일종가)/전일종가×100**
-- `^KS11`(KOSPI) · `^KQ11`(KOSDAQ) · `^KS200`(코스피200) · `KRW=X`(USD/KRW)
+**KOSPI·KOSDAQ — Naver 모바일 API** (가격·등락률·거래대금):
+- 가격/등락률: `https://m.stock.naver.com/api/index/KOSPI/basic` (KOSDAQ은 `.../index/KOSDAQ/basic`) → `closePrice`(지수)·`fluctuationsRatio`(등락률%)·`compareToPreviousClosePrice`(전일대비 pt)
+- 거래대금: `https://m.stock.naver.com/api/index/KOSPI/integration` → `totalInfos` 배열의 `대금`(단위 백만원, 예: `48,519,528백만` → ÷100,000 ≈ **48.5조**)
 
-### 1-B. 보유 종목 16개 가격 — Naver 모바일 API (JSON, 최우선)
+**KOSPI200·환율 — Yahoo** `https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?interval=1d&range=5d` (`meta.regularMarketPrice`·`meta.chartPreviousClose`, 등락률=(현재가−전일)/전일×100):
+- `^KS200`(코스피200) · `KRW=X`(USD/KRW)
 
-WebFetch: `https://m.stock.naver.com/api/stock/{code}/integration`
-- `{code}`는 위 보유 리스트의 코드 그대로 (영숫자 코드 0047A0·0163Y0도 동일하게 작동).
-- 응답 JSON에서 **현재가(`closePrice`)·등락률(`fluctuationsRatio`)·전일대비(`compareToPreviousClosePrice`)** 추출. `totalInfos` 배열의 `전일`(lastClosePrice)도 참고.
-- 국내주식 5종 + ETF 11종 전부 수집.
+### 1-B. 보유 종목 16개 가격 — Naver 모바일 API `/basic` (JSON, 최우선)
+
+WebFetch: `https://m.stock.naver.com/api/stock/{code}/basic`
+- `{code}`는 위 보유 리스트 코드 그대로 (영숫자 0047A0·0163Y0, 코스닥 코드 모두 동일 작동 — 확인됨).
+- JSON 최상위에서 **`closePrice`(현재가)·`fluctuationsRatio`(등락률%)·`compareToPreviousClosePrice`(전일대비)** 추출.
+- 국내주식 5종 + ETF 11종 전부. (⚠️ `/integration`이 아니라 **`/basic`** — integration엔 현재가 필드 없음)
 
 ### 1-C. Top Movers — Naver 모바일 API (JSON)
 

@@ -1,0 +1,33 @@
+name: _data-probe (임시 진단)
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe exact KR endpoints (US IP)
+        run: |
+          chk() {
+            local name="$1" url="$2" field="$3"
+            curl -sS -L --max-time 20 -A 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' \
+              -H 'Referer: https://m.stock.naver.com/' -o /tmp/p.txt -w "[$name] HTTP=%{http_code}" "$url" 2>/dev/null
+            if [ -n "$field" ] && grep -q "$field" /tmp/p.txt; then echo " ✓ '$field' 존재"; else echo " (snip: $(cut -c1-90 /tmp/p.txt))"; fi
+          }
+          echo "### KR 지수 (Naver basic/integration) ###"
+          chk "KOSPI-basic"  "https://m.stock.naver.com/api/index/KOSPI/basic" "closePrice"
+          chk "KOSPI-integ"  "https://m.stock.naver.com/api/index/KOSPI/integration" "대금"
+          chk "KOSDAQ-basic" "https://m.stock.naver.com/api/index/KOSDAQ/basic" "closePrice"
+          echo "### 보유종목 /basic (숫자·영숫자·코스닥) ###"
+          chk "삼성전자"   "https://m.stock.naver.com/api/stock/005930/basic" "fluctuationsRatio"
+          chk "차이나ETF"  "https://m.stock.naver.com/api/stock/0047A0/basic" "fluctuationsRatio"
+          chk "실리콘투"   "https://m.stock.naver.com/api/stock/257720/basic" "fluctuationsRatio"
+          echo "### Top Movers ###"
+          chk "up"   "https://m.stock.naver.com/api/stocks/up?page=1&pageSize=5" "fluctuationsRatio"
+          chk "down" "https://m.stock.naver.com/api/stocks/down?page=1&pageSize=5" "fluctuationsRatio"
+          echo "### Yahoo KOSPI200/환율 ###"
+          chk "KS200" "https://query1.finance.yahoo.com/v8/finance/chart/%5EKS200?interval=1d&range=5d" "regularMarketPrice"
+          chk "KRW=X" "https://query1.finance.yahoo.com/v8/finance/chart/KRW=X?interval=1d&range=5d" "regularMarketPrice"
+          echo "### 수급/업종 (서버렌더 페이지) ###"
+          chk "수급-investorDeal" "https://finance.naver.com/sise/investorDealTrendDay.naver" ""
+          chk "업종-sise_group"   "https://finance.naver.com/sise/sise_group.naver?type=upjong" ""
+          echo "probe 완료"
