@@ -26,9 +26,11 @@ jobs:
             echo "⏭️ GAS_WEB_APP_URL / TG_WEBHOOK_SECRET 시크릿 미설정 — soft skip (롤아웃 전이면 정상)"
             exit 0
           fi
-          # GAS 웹앱은 302 → script.googleusercontent.com 리다이렉트 → -L 필수
+          # GAS 웹앱은 POST→302→script.googleusercontent.com echo 리다이렉트.
+          # ⚠️ -X POST 금지: 리다이렉트까지 POST로 따라가면 echo가 405 반환.
+          #    --data가 초기 요청을 POST로 만들고(doPost 실행), -L은 302를 GET으로 따라가 결과 회수.
           code=$(curl -sS -L -o /tmp/resp.txt -w '%{http_code}' \
-            -X POST "$GAS_WEB_APP_URL" \
+            "$GAS_WEB_APP_URL" \
             -H 'Content-Type: application/json' \
             --data "{\"action\":\"pushPnL\",\"secret\":\"${TG_WEBHOOK_SECRET}\"}")
           echo "HTTP ${code}"
