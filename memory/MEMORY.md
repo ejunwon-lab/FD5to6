@@ -30,3 +30,5 @@
 - [인덱스 문서 자동 갱신](feedback_index_docs_auto_update.md) — 함수/스키마/트리거/기능/결정/에러 변경 시 같은 turn에서 인덱스 문서 자동 갱신 (사용자 지시 불필요)
 - [routine 샌드박스 한계](feedback_routine_sandbox_limits.md) — claude.ai routines outbound 차단, 자동화는 GitHub Actions 1순위
 - [시장 리포트 파이프라인](project_market_report_pipeline.md) — GitHub Actions + Claude CLI(Max OAuth) + Telegram, 매 거래일 08:05·17:05 자동 (2026-06-03 정착)
+- [용어 — "텔레그램 푸시"](feedback_telegram_push_naming.md) — "워치 푸시" 금지, 장중 손익 알림은 "텔레그램 푸시"
+- [내 변경은 내가 검증 후 넘긴다](feedback_self_verify_before_handoff.md) — 버그 만들어 사용자에게 테스트시키지 말 것, gh/curl로 직접 확인

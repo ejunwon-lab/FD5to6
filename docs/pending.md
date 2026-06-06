@@ -6,7 +6,7 @@
 
 ## 🟢 예정 작업
 
-- **🔴 텔레그램 푸시 GitHub Actions 이전 — 롤아웃 사용자 작업 (2026-06-06)** — 코드 배포 완료(GAS doPost `action=pushPnL` + `_tgHandlePushPost` + `telegram-push.yml` + market-report 2회 안전망). **원인**: GAS 시간 트리거가 best-effort라 2026-06-05 11:13~14:45 약 3.5h 모든 시간트리거 누락(에러 아님, 발화 자체 부재 — errors.md 참조). **사용자 4단계**: ① GAS 새 deployment(Manage deployments → 활성 ✏️ → New version → Deploy, URL 유지) — doPost `pushPnL` 라이브화 ② GitHub repo Secrets에 `GAS_WEB_APP_URL`(exec URL) + `TG_WEBHOOK_SECRET`(GAS Script Property 값, `tgShowSecret()`로 확인) 추가 ③ 시트 🛠️ 유지보수 → 🔕 Telegram 푸시 OFF (구 GAS 트리거 3개 제거, 중복 발송 방지) ④ 다음 거래일(2026-06-09 월) 09:05~ GH Actions탭 `Telegram Push` 그린 + 텔레그램 손익 푸시 20분 간격 도착 확인
+- **🟡 텔레그램 푸시 GitHub Actions 이전 — 월요일 자동 작동 확인만 남음 (2026-06-06)** — **거의 완료.** 코드 배포(GAS doPost `action=pushPnL` + `_tgHandlePushPost`, deployment v9에 반영) + `telegram-push.yml`(curl `-X POST` 버그 수정 완료, errors.md 2026-06-06) + market-report 2회 안전망 전부 완료. **검증 완료**: ① GitHub→GAS 배선 — `gh`로 직접 실행해 `HTTP 200 {"success":true}` 확인 ② GAS→텔레그램 발송 — `ㄱㄱ`로 실제 도착(자동 푸시와 동일 `tgSendMessage` 경로) ③ 구 GAS 트리거 OFF 완료(사용자 🔕 클릭). **남은 것(Claude 몫)**: 2026-06-09(월) 09:05~ 자동 푸시가 **:05/:25/:45**에만 오고(구 :00/:20/:40 부재) + Actions `Telegram Push` 그린 확인 — `gh run list`로 교차 확인. (원인: GAS 시간 트리거 best-effort 누락, 2026-06-05 11:13~14:45 3.5h 공백)
 - **대시보드 우측 상단 버튼 정리** — 버튼 역할 재정의 논의 완료, 실제 UI/레이블 정리 작업 예정
 - **iOS 공휴일 전일 수익 표시 버그** — DashboardView.swift 수정 완료, Xcode 빌드 후 확인 필요
 - **새 시스템 → iOS 연결** — mobileGetPortfolio 데이터 소스를 *포지션*/*가격_히스토리* 기반으로 전환 (Phase 3)
