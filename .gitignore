@@ -21,3 +21,7 @@ apps-script-v2/cloudflare-worker/.wrangler/
 __pycache__/
 *.pyc
 .env
+
+# Machine-local settings & backups
+**/settings.local.json
+*.bak
