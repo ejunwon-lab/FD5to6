@@ -15,7 +15,7 @@ if ! git pull; then
 fi
 
 # 2. memory 복원: repo memory/ → ~/.claude 라이브 디렉토리
-MEM_DST="$HOME/.claude/projects/$(echo "$ROOT" | sed 's:[ /]:-:g')/memory"
+MEM_DST="$HOME/.claude/projects/$(printf '%s' "$ROOT" | sed 's/[^a-zA-Z0-9]/-/g')/memory"
 mkdir -p "$MEM_DST"
 cp memory/*.md "$MEM_DST"/ 2>/dev/null && echo "✓ memory 복원 완료" || echo "⚠ memory 파일 없음 — 건너뜀"
 

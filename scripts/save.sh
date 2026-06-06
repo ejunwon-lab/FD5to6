@@ -14,7 +14,7 @@ cd "$(dirname "$0")/.." || exit 1
 ROOT="$(pwd)"
 
 # 1. memory 미러: ~/.claude 라이브 디렉토리 → repo memory/
-MEM_SRC="$HOME/.claude/projects/$(echo "$ROOT" | sed 's:[ /]:-:g')/memory"
+MEM_SRC="$HOME/.claude/projects/$(printf '%s' "$ROOT" | sed 's/[^a-zA-Z0-9]/-/g')/memory"
 if [ -d "$MEM_SRC" ]; then
   cp "$MEM_SRC"/*.md memory/ 2>/dev/null && echo "✓ memory 미러 완료" || echo "⚠ memory 파일 없음 — 건너뜀"
 else
