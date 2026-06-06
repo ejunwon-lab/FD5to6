@@ -1,0 +1,58 @@
+name: _data-probe (임시 진단)
+
+# GitHub Actions 러너(미국 IP)에서 어떤 데이터 소스가 접근 가능한지 진단.
+# 리포트 데이터 미수집 원인(Naver 등 한국 소스 외국 IP 차단) 확인용. 끝나면 삭제.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe data sources
+        run: |
+          probe() {
+            local name="$1" url="$2"
+            local code
+            code=$(curl -sS -L --max-time 20 -A 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' \
+              -o /tmp/p.txt -w '%{http_code}' "$url" 2>/dev/null || echo "ERR")
+            local snip
+            snip=$(tr -d '\0' < /tmp/p.txt | tr '\n' ' ' | sed 's/  */ /g' | cut -c1-160)
+            echo "──────────────────────────────────────────"
+            echo "[$name] HTTP=$code"
+            echo "  $snip"
+          }
+
+          echo "##### US — Yahoo v8 chart API (JSON, 미국 IP라 잘 될 것) #####"
+          for s in '%5EVIX' '%5ESOX' '%5ETNX' 'DX-Y.NYB' '%5EGSPC' '%5ENDX' '%5EDJI'; do
+            probe "yahoo $s" "https://query1.finance.yahoo.com/v8/finance/chart/$s?interval=1d&range=5d"
+          done
+
+          echo ""
+          echo "##### US — Stooq CSV (light quote) #####"
+          for s in '%5Evix' '%5Esox' '10usy.b' 'dx.f' '%5Espx'; do
+            probe "stooq-csv $s" "https://stooq.com/q/l/?s=$s&f=sd2t2ohlcv&h&e=csv"
+          done
+
+          echo ""
+          echo "##### KR 지수/환율 — Yahoo (미국 IP에서 되나?) #####"
+          for s in '%5EKS11' '%5EKQ11' 'KRW=X' '005930.KS' '000660.KS' '438100.KS'; do
+            probe "yahoo-kr $s" "https://query1.finance.yahoo.com/v8/finance/chart/$s?interval=1d&range=5d"
+          done
+
+          echo ""
+          echo "##### KR 시장데이터 — Naver (미국 IP 차단 확인) #####"
+          probe "naver-sise"     "https://finance.naver.com/sise/"
+          probe "naver-deal"     "https://finance.naver.com/sise/sise_deal_rank.naver"
+          probe "naver-upjong"   "https://finance.naver.com/sise/sise_group.naver?type=upjong"
+          probe "naver-item-삼전" "https://finance.naver.com/item/main.naver?code=005930"
+          probe "naver-marketidx" "https://finance.naver.com/marketindex/"
+
+          echo ""
+          echo "##### KR 대안 — KRX/기타 #####"
+          probe "stooq-kospi"  "https://stooq.com/q/l/?s=%5Ekospi&f=sd2t2ohlcv&h&e=csv"
+          probe "stooq-etf"    "https://stooq.com/q/l/?s=438100.kr&f=sd2t2ohlcv&h&e=csv"
+          probe "investing-kr" "https://www.investing.com/indices/kospi"
+          echo "──────────────────────────────────────────"
+          echo "probe 완료"
