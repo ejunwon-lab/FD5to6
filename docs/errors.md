@@ -2,6 +2,15 @@
 
 ---
 
+## 2026-06-06
+
+### GAS 웹앱에 `curl -X POST`로 호출 시 HTTP 405 + Drive "페이지 없음"
+- **증상**: GitHub Actions가 GAS 웹앱 `action=pushPnL` 호출 시 `HTTP 405` + `<title>Page Not Found</title> Sorry, unable to open the file at this time` (Google Drive 에러 HTML). GET은 `오류: 다음 스크립트 함수(doGet)를 찾을 수 없습니다`(=URL 정상, 익명 접근 OK, doGet만 없음).
+- **원인**: GAS 웹앱은 POST→**302 리다이렉트**→`script.googleusercontent.com/.../echo`로 결과 회수. `curl -L -X POST`는 `-X POST`가 **리다이렉트까지 POST로 강제** → echo 엔드포인트가 POST 거부 → 405 + Drive 페이지. doPost 자체는 초기 요청에서 이미 실행됨(결과만 못 받음).
+- **해결**: `-X POST` **제거**. `--data`만 쓰면 초기 요청은 POST(doPost 실행), `-L`은 302를 GET으로 따라가 결과 회수. → `curl -sS -L --data '{...}' -H 'Content-Type: application/json' "$URL"` → `HTTP 200 {"success":...}`.
+- **검증**: 더미 secret POST → `{"success":false,"error":"forbidden"}`(URL·라우팅·새 코드 다 정상 확인). [[feedback_gas_curl_diagnosis]] 계열.
+- **교훈**: GAS 웹앱 POST는 절대 `-X POST` 쓰지 말 것. Drive "페이지 없음"은 *URL 오류*처럼 보이지만 실제론 *리다이렉트 메서드* 문제일 수 있음 — GET으로 URL 생존 먼저 확인.
+
 ## 2026-06-05
 
 ### 텔레그램 푸시가 11:14 이후 종일 끊김 — GAS 시간 트리거 best-effort 누락
