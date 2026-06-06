@@ -4,38 +4,35 @@
 
 - AVGO — 브로드컴 (Broadcom, AI 반도체·네트워킹)
 
-## Step 1. 데이터 수집 (WebFetch)
+## Step 1. 데이터 수집
 
-**우선 — 한국 경제매체 '뉴욕증시 마감' 종합 기사**
+### 1-A. 정확한 숫자 — Yahoo Finance JSON API (최우선, 반드시 사용)
 
-새벽 6~7시 KST에 한국 매체가 미국 시장 마감 요약 기사를 게재합니다. 한 기사에 지수·섹터·M7·이슈가 모두 정리됩니다.
+각 심볼을 WebFetch:
+```
+https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?interval=1d&range=5d
+```
+응답 JSON의 `chart.result[0].meta`에서:
+- `regularMarketPrice` = 현재가(종가)
+- `chartPreviousClose` (없으면 `previousClose`) = 전일 종가
+- **등락률(%) = (regularMarketPrice − chartPreviousClose) / chartPreviousClose × 100**
 
-WebFetch 대상 (1~2건 충분):
+수집 심볼:
+1. **지수 7종**: `^GSPC`(S&P500) · `^NDX`(나스닥100) · `^DJI`(다우) · `^SOX`(필라델피아 반도체) · `^VIX`(변동성) · `DX-Y.NYB`(달러인덱스) · `^TNX`(미 10년 국채금리, 값이 이미 %)
+2. **M7**: `AAPL` `MSFT` `GOOGL` `AMZN` `META` `NVDA` `TSLA`
+3. **섹터 ETF 11종**: `XLK`(테크) `XLF`(금융) `XLE`(에너지) `XLV`(헬스케어) `XLY`(임의소비재) `XLP`(필수소비재) `XLI`(산업재) `XLB`(소재) `XLU`(유틸리티) `XLRE`(부동산) `XLC`(커뮤니케이션) → 등락률 정렬해 강세 3 / 약세 3
+4. **보유**: `AVGO`
+
+> ⚠️ Yahoo JSON은 미국 IP(GitHub Actions)에서 안정적으로 200을 반환함. **지수·M7·섹터·AVGO 숫자는 반드시 이 API로 채울 것.** "미확보"로 비우지 말 것 — 한 심볼 실패 시 `range=1d`로 재시도.
+
+### 1-B. Top Movers + 시장 이슈 + 색깔 — 한국 경제매체 (보조)
+
+Yahoo는 "그날 화제 종목 리스트"를 안 주므로, 아래에서 **Top Movers(강세/약세 화제주)**와 **시장 이슈(Fed·매크로·실적·지정학)**, 코멘트 색깔을 보강:
 - 연합인포맥스: https://news.einfomax.co.kr/news/articleList.html?sc_section_code=S1N4
-- 한경: https://www.hankyung.com/globalmarket/
-- 매경: https://www.mk.co.kr/news/world/
-- 머니투데이: https://news.mt.co.kr/newsList.html?sec_no=05
+- 한경 글로벌마켓: https://www.hankyung.com/globalmarket/
+목록에서 '뉴욕증시 마감' 최근 1건 본문 fetch. Top Movers·이슈 2~3건·실적 코멘트 추출.
 
-기사 목록에서 '뉴욕증시' 또는 '마감' 가장 최근 1~2건 → 본문 fetch.
-
-추출 데이터:
-1. **지수 7종**: S&P500, NASDAQ100/나스닥, 다우, 필라델피아반도체(SOX), VIX, 달러인덱스(DXY), 미 10년 국채금리
-2. **섹터 동향**: 강세 3 / 약세 3 (테크·금융·에너지·헬스·임소·필소·산업·소재·유틸·부동산·통신)
-3. **M7**: AAPL·MSFT·GOOGL·AMZN·META·NVDA·TSLA 등락
-4. **Top Movers**: 그날 강세/약세 화제 종목
-5. **시장 이슈**: Fed·매크로·실적·지정학 2~3건
-6. **AVGO 등락** (별도 검색 필요 시)
-
-**백업 — Stooq.com** (한국 매체에 일부 수치 누락 시)
-- S&P500: https://stooq.com/q/?s=^spx&i=d
-- NASDAQ100: https://stooq.com/q/?s=^ndx&i=d
-- Dow: https://stooq.com/q/?s=^dji&i=d
-- SOX: https://stooq.com/q/?s=^sox&i=d
-- VIX: https://stooq.com/q/?s=^vix&i=d
-- DXY: https://stooq.com/q/?s=dx.f&i=d
-- AVGO: https://stooq.com/q/?s=avgo.us&i=d
-
-WebFetch 총 5~7회 이내. 30초+ 응답 없으면 다음 소스로. 일부 데이터 누락 시 "데이터 미확보"로 표기 후 진행.
+WebFetch 총 ~20회 이내(지수/M7/섹터 심볼 + 기사 1~2건). 숫자는 1-A가 정본, 기사는 맥락용.
 
 ## Step 2. 리포트 작성 (Telegram MarkdownV1)
 
@@ -49,9 +46,9 @@ WebFetch 총 5~7회 이내. 30초+ 응답 없으면 다음 소스로. 일부 데
 S&P500   XXXX.XX   +X.XX% ▲   (코멘트, 예: 신고가)
 NDX      XXXX.XX   +X.XX% ▲
 Dow      XXXX.XX   +X.XX% ▲
-SOX      +X.XX% ▲             (필라델피아 반도체)
-VIX      XX.XX                (변동성, 저변동/고변동)
-DXY      XX.XX   +X.XX%       (달러인덱스)
+SOX      XXXX.XX   +X.XX% ▲   (필라델피아 반도체)
+VIX      XX.XX     +X.XX%     (변동성, 저변동/고변동)
+DXY      XX.XX     +X.XX%     (달러인덱스)
 US10Y    X.XX%                (미 10년 국채금리)
 ` ``` `
 
@@ -93,7 +90,7 @@ AVGO · **{등급}** — 1줄 근거 (등급: **유지 / 관망 / 비중확대 /
 
 ## Step 3. 휴장일 처리
 
-미국 휴장일이면 한국 매체가 이미 "뉴욕증시 휴장" 언급. 짧게:
+미국 휴장일이면 Yahoo `regularMarketTime`이 전일이고 한국 매체가 "뉴욕증시 휴장" 언급. 짧게:
 
 ```
 🌅 *US Market Wrap* · _YYYY-MM-DD(요일) 휴장_
@@ -109,17 +106,11 @@ AVGO · **{등급}** — 1줄 근거 (등급: **유지 / 관망 / 비중확대 /
 docs/reports/US-{YYYY-MM-DD}.md
 ```
 
-여기서 `{YYYY-MM-DD}`는 *오늘 한국 날짜* (workflow 실행 시각 기준). UTC 기준이 아닌 KST.
-
-파일 안에는 *리포트 본문만* (Markdown). 다른 메타데이터·작업 로그 X.
+`{YYYY-MM-DD}` = *오늘 한국 날짜* (workflow 실행 시각 KST 기준). 파일엔 *리포트 본문만*.
 
 ## Step 5. 완료 보고 (stdout)
 
-저장 끝나면 stdout에 한 줄:
-
-> ✅ US 리포트 저장 완료 — docs/reports/US-YYYY-MM-DD.md, 본문 N자
-
-실패 시:
-> ❌ US 리포트 저장 실패 — {사유}
+성공: `✅ US 리포트 저장 완료 — docs/reports/US-YYYY-MM-DD.md, 본문 N자`
+실패: `❌ US 리포트 저장 실패 — {사유}`
 
 **Telegram 발송은 이 prompt에서 하지 마세요.** 다음 step에서 GitHub Actions가 처리합니다.
