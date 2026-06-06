@@ -22,22 +22,38 @@
 - 447660 — PLUS 애플채권혼합
 - 0163Y0 — KoAct 코스닥액티브
 
-가격 URL:
-- 영숫자 코드(0047A0·0163Y0): 네이버 `https://finance.naver.com/item/main.naver?code={code}`
-- 일반 6자리 숫자: 네이버 또는 Stooq
+## Step 1. 데이터 수집
 
-## Step 1. 데이터 수집 (WebFetch)
+### 1-A. 지수·환율 — Yahoo Finance JSON API (최우선)
 
-1. **지수**: KOSPI·KOSDAQ·KOSPI200선물 종가·등락·거래대금 — 네이버 `https://finance.naver.com/sise/`
-2. **환율** USD/KRW: 네이버 `https://finance.naver.com/marketindex/`
-3. **수급**: 네이버 `https://finance.naver.com/sise/sise_deal_rank.naver` — 코스피·코스닥 외인/기관/개인 순매수(억원). 가능하면 5일 추세
-4. **업종**: 네이버 `https://finance.naver.com/sise/sise_group.naver?type=upjong` — 강세 3 / 약세 3
-5. **Top Movers**: 네이버 상승/하락 Top 각 3 (사유 포함)
-6. **시장 헤드라인** 2~3개 (한경·매경·연합인포맥스·머니투데이)
-7. **보유 종목 16개 등락**
-8. **조건부**: 국내주식 5개 중 ±2% 이상 종목만 네이버 뉴스에서 회사 단위 검색
+WebFetch: `https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?interval=1d&range=5d`
+`chart.result[0].meta`: `regularMarketPrice`=현재가, `chartPreviousClose`=전일종가 → **등락률(%) = (현재가−전일종가)/전일종가×100**
+- `^KS11`(KOSPI) · `^KQ11`(KOSDAQ) · `^KS200`(코스피200) · `KRW=X`(USD/KRW)
 
-WebFetch 총 7회 이내. 30초+ 응답 없으면 스킵 + 부족 명시.
+### 1-B. 보유 종목 16개 가격 — Naver 모바일 API (JSON, 최우선)
+
+WebFetch: `https://m.stock.naver.com/api/stock/{code}/integration`
+- `{code}`는 위 보유 리스트의 코드 그대로 (영숫자 코드 0047A0·0163Y0도 동일하게 작동).
+- 응답 JSON에서 **현재가(`closePrice`)·등락률(`fluctuationsRatio`)·전일대비(`compareToPreviousClosePrice`)** 추출. `totalInfos` 배열의 `전일`(lastClosePrice)도 참고.
+- 국내주식 5종 + ETF 11종 전부 수집.
+
+### 1-C. Top Movers — Naver 모바일 API (JSON)
+
+- 강세: `https://m.stock.naver.com/api/stocks/up?page=1&pageSize=10`
+- 약세: `https://m.stock.naver.com/api/stocks/down?page=1&pageSize=10`
+- 응답 `stocks[]`의 `stockName`·`fluctuationsRatio`·`closePrice`로 강세 3 / 약세 3.
+
+### 1-D. 수급·업종 — Naver 서버렌더 페이지 (WebFetch, 표 추출)
+
+- **수급**(외국인/기관/개인 순매수): `https://finance.naver.com/sise/investorDealTrendDay.naver` — 표에서 코스피/코스닥 외인·기관·개인 (억원).
+- **업종** 강세/약세: `https://finance.naver.com/sise/sise_group.naver?type=upjong` — 등락률 정렬, 강세 3 / 약세 3.
+> 위 두 페이지는 서버렌더 표라 추출 가능. 만약 특정 수치를 못 뽑으면 그 칸만 "N/A"로 표기하고 진행 — *리포트 전체를 실패시키지 말 것*. 업종을 못 뽑으면 Top Movers·보유종목 흐름으로 섹터 강약을 1줄 추론.
+
+### 1-E. 뉴스
+
+- 시장 헤드라인 2~3개 + 보유 국내주식 5종 중 ±2% 이상 종목 회사 뉴스: 연합인포맥스 https://news.einfomax.co.kr/news/articleList.html?sc_section_code=S1N1 · 한경 https://www.hankyung.com/finance
+
+> ⚠️ 가격·지수·종목·ETF 숫자(1-A·1-B·1-C)는 JSON API라 안정적. **"미수집"으로 비우지 말 것.** 한 심볼 실패 시 `range=1d` 재시도.
 
 ## Step 2. 리포트 작성 (Telegram MarkdownV1)
 
@@ -48,7 +64,7 @@ WebFetch 총 7회 이내. 30초+ 응답 없으면 스킵 + 부족 명시.
 ` ``` `
 KOSPI         XXXX.XX  +X.XX% ▲   거래대금 NN조
 KOSDAQ        XXXX.XX  +X.XX% ▲   거래대금 NN조
-KOSPI200선물   XXXX.XX  +X.XX% ▲
+KOSPI200      XXXX.XX  +X.XX% ▲
 USD/KRW       X,XXX원  (+/-N원)
 ` ``` `
 
@@ -81,7 +97,7 @@ SK하이닉스    +X.XX% ▲
 AI·반도체 ETF 6종: 평균 +X.X% — {시장 흐름 동조/역행}
 코스닥 액티브: -X.X%
 미국 추종 ETF 3종: +X.X% (전일 미국 영향)
-중국·기타: +X.X%
+중국·기타(0047A0): +X.X%
 
 *📰 시장 이슈*
 • 이슈 1 — 1줄
@@ -113,23 +129,15 @@ AI·반도체 ETF 6종 · **{등급}** — 한국 반도체 사이클 동조
 (등급: **유지 / 관망 / 비중확대 / 비중축소** 중 택 1. 단정적 매수/매도 권유 금지)
 ```
 
-가시성: 섹션 헤더 `*굵게*`, 데이터 표 ``` 코드블록, 코멘트 일반 + `_이탤릭_`.
+가시성: 섹션 헤더 `*굵게*`, 데이터 표 ``` 코드블록, 코멘트 일반 + `_이탤릭_`. 숫자는 풀 표기(축약 금지).
 
 ## Step 3. 휴장일 처리
 
-한국 휴장일이면 **파일 저장 안 함, stdout에 "휴장" 한 줄만 출력**. (GitHub Actions가 파일 없으면 발송 스킵)
-
-휴장 판단: KOSPI 변동률=0 + 거래대금 비정상으로 낮음 (예: 평소의 1/10 이하).
+한국 휴장일이면 Yahoo `^KS11`의 `regularMarketTime`이 전일이고 등락률 0 + 거래대금 비정상 저조. 이 경우 **파일 저장 안 함, stdout에 "휴장" 한 줄만 출력**.
 
 ## Step 4. 파일 저장 (발송 X)
 
-리포트 본문을 다음 파일에 **Write** 도구로 저장:
-
-```
-docs/reports/KR-{YYYY-MM-DD}.md
-```
-
-`{YYYY-MM-DD}` = 오늘 한국 날짜 (KST 기준).
+리포트 본문을 **Write** 도구로 `docs/reports/KR-{YYYY-MM-DD}.md` 에 저장. `{YYYY-MM-DD}` = 오늘 KST 날짜. 파일엔 본문만.
 
 ## Step 5. 완료 보고 (stdout)
 
