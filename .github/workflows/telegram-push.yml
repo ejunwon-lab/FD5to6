@@ -1,0 +1,37 @@
+name: Telegram Push (intraday P&L)
+
+# 장중 텔레그램 손익 푸시 — GAS 시간 트리거(best-effort라 수시간 누락) 대체.
+# GitHub Actions가 신뢰 가능한 시계가 되어 20분마다 GAS 웹앱(action=pushPnL)을 호출.
+# GAS의 tgPushPnL이 거래일·09:00~16:00·락을 자체 체크 → 휴장/장외엔 자동 skip.
+#
+# cron(UTC): 5,25,45분 / UTC 00~06시 / 월~금
+#   = KST 09:05 ~ 15:45, 매시 :05/:25/:45 (한국 장중, :00 혼잡 회피)
+# GH cron은 ±10분 지터·드물게 한 틱 누락 가능 — 다음 틱이 메우므로 수시간 공백 없음.
+
+on:
+  schedule:
+    - cron: '5,25,45 0-6 * * 1-5'
+  workflow_dispatch:   # 수동 1회 발송 테스트
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger GAS pushPnL
+        env:
+          GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
+          TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
+        run: |
+          if [ -z "$GAS_WEB_APP_URL" ] || [ -z "$TG_WEBHOOK_SECRET" ]; then
+            echo "⏭️ GAS_WEB_APP_URL / TG_WEBHOOK_SECRET 시크릿 미설정 — soft skip (롤아웃 전이면 정상)"
+            exit 0
+          fi
+          # GAS 웹앱은 302 → script.googleusercontent.com 리다이렉트 → -L 필수
+          code=$(curl -sS -L -o /tmp/resp.txt -w '%{http_code}' \
+            -X POST "$GAS_WEB_APP_URL" \
+            -H 'Content-Type: application/json' \
+            --data "{\"action\":\"pushPnL\",\"secret\":\"${TG_WEBHOOK_SECRET}\"}")
+          echo "HTTP ${code}"
+          echo "응답: $(cat /tmp/resp.txt)"
+          # GAS가 {"success":true} 반환 시 통과. 휴장/장외도 success:true(내부 skip)
+          test "$code" = "200" && grep -q '"success":true' /tmp/resp.txt
