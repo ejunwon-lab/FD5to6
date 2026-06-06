@@ -6,7 +6,9 @@
 
 ## 🟢 예정 작업
 
-- **🟡 텔레그램 푸시 GitHub Actions 이전 — 월요일 자동 작동 확인만 남음 (2026-06-06)** — **거의 완료.** 코드 배포(GAS doPost `action=pushPnL` + `_tgHandlePushPost`, deployment v9에 반영) + `telegram-push.yml`(curl `-X POST` 버그 수정 완료, errors.md 2026-06-06) + market-report 2회 안전망 전부 완료. **검증 완료**: ① GitHub→GAS 배선 — `gh`로 직접 실행해 `HTTP 200 {"success":true}` 확인 ② GAS→텔레그램 발송 — `ㄱㄱ`로 실제 도착(자동 푸시와 동일 `tgSendMessage` 경로) ③ 구 GAS 트리거 OFF 완료(사용자 🔕 클릭). **남은 것(Claude 몫)**: 2026-06-09(월) 09:05~ 자동 푸시가 **:05/:25/:45**에만 오고(구 :00/:20/:40 부재) + Actions `Telegram Push` 그린 확인 — `gh run list`로 교차 확인. (원인: GAS 시간 트리거 best-effort 누락, 2026-06-05 11:13~14:45 3.5h 공백)
+- **🟡 텔레그램 푸시 GitHub Actions 이전 — 월요일 자동 작동 확인만 남음 (2026-06-06)** — **거의 완료.** 코드 배포(GAS doPost `action=pushPnL` + `_tgHandlePushPost`, deployment v9에 반영) + `telegram-push.yml`(curl `-X POST` 버그 수정 완료, errors.md 2026-06-06) + market-report 2회 안전망 전부 완료. **검증 완료**: ① GitHub→GAS 배선 — `gh`로 직접 실행해 `HTTP 200 {"success":true}` 확인 ② GAS→텔레그램 발송 — `ㄱㄱ`로 실제 도착(자동 푸시와 동일 `tgSendMessage` 경로) ③ 구 GAS 트리거 OFF 완료(사용자 🔕 클릭). **남은 것(Claude 몫)**: 2026-06-08(월) 09:05~ 자동 푸시가 **:05/:25/:45**에만 오고(구 :00/:20/:40 부재) + Actions `Telegram Push` 그린 확인 — `gh run list`로 교차 확인. (원인: GAS 시간 트리거 best-effort 누락, 2026-06-05 11:13~14:45 3.5h 공백) ※ 6/6 토=현충일, 6/8 월이 다음 거래일
+
+- **🟡 시장 리포트 데이터 수집 전면 개편 (2026-06-06)** — **거의 완료.** 기존 리포트의 대량 "미수집"(VIX·SOX·US10Y / KR 수급·업종·Top Movers·ETF가격)은 *차단이 아니라 잘못된 소스*(Naver는 200이나 JS렌더라 WebFetch 추출 실패)였음. **수정**: ① US `us-prompt.md` → **Yahoo v8 JSON API**(지수 7종·M7·섹터·AVGO) ② KR `kr-prompt.md` → 지수·거래대금 **Naver 모바일 API**(`/index/{KOSPI|KOSDAQ}/basic`+`/integration`) · 보유종목 16개 **`/stock/{code}/basic`**(영숫자ETF 포함) · Top Movers `/stocks/up|down` · KOSPI200·환율 Yahoo · 수급/업종 서버렌더 페이지. **검증 완료**: US dry-run에서 VIX·SOX·US10Y 전부 채워짐 확인(발송·커밋 X) + KR 엔드포인트 전부 미국 IP에서 200·필드 확인(프로브). market-report.yml에 `dry_run` 입력 추가(테스트 시 발송·commit 스킵). **남은 것**: 6/8(월) KR 실작동에서 수급·업종(서버렌더 HTML) WebFetch 추출 + 전체 채움 최종 확인.
 - **대시보드 우측 상단 버튼 정리** — 버튼 역할 재정의 논의 완료, 실제 UI/레이블 정리 작업 예정
 - **iOS 공휴일 전일 수익 표시 버그** — DashboardView.swift 수정 완료, Xcode 빌드 후 확인 필요
 - **새 시스템 → iOS 연결** — mobileGetPortfolio 데이터 소스를 *포지션*/*가격_히스토리* 기반으로 전환 (Phase 3)
