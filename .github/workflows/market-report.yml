@@ -24,6 +24,10 @@ on:
         type: choice
         options: [us, kr, both]
         default: both
+      dry_run:
+        description: '테스트: 리포트 생성만, 텔레그램 발송·commit 안 함'
+        type: boolean
+        default: false
 
 permissions:
   contents: write   # docs/reports/ commit·push 용
@@ -84,6 +88,7 @@ jobs:
             echo "found=yes" >> $GITHUB_OUTPUT
             echo "✓ found $REPORT"
             wc -c "$REPORT"
+            echo "----- REPORT 본문 -----"; cat "$REPORT"; echo "----- END -----"
           else
             echo "found=no" >> $GITHUB_OUTPUT
             echo "✗ not found $REPORT (Claude가 파일을 생성하지 않음 — 휴장 또는 실패)"
@@ -91,7 +96,7 @@ jobs:
           fi
 
       - name: Send to Telegram
-        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes'
+        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
@@ -99,7 +104,7 @@ jobs:
           python3 .github/scripts/send_telegram.py "${{ steps.path.outputs.report }}"
 
       - name: Commit report (이력 보존)
-        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes'
+        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
         run: |
           git config user.email 'actions@github.com'
           git config user.name 'Market Report Bot'
@@ -166,6 +171,7 @@ jobs:
             echo "found=yes" >> $GITHUB_OUTPUT
             echo "✓ found $REPORT"
             wc -c "$REPORT"
+            echo "----- REPORT 본문 -----"; cat "$REPORT"; echo "----- END -----"
           else
             echo "found=no" >> $GITHUB_OUTPUT
             echo "✗ not found $REPORT (휴장 또는 실패)"
@@ -173,7 +179,7 @@ jobs:
           fi
 
       - name: Send to Telegram
-        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes'
+        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
@@ -181,7 +187,7 @@ jobs:
           python3 .github/scripts/send_telegram.py "${{ steps.path.outputs.report }}"
 
       - name: Commit report
-        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes'
+        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
         run: |
           git config user.email 'actions@github.com'
           git config user.name 'Market Report Bot'
