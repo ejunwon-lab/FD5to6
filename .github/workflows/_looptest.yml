@@ -1,0 +1,48 @@
+name: _LoopTest (F 메커니즘 사전검증 — 임시)
+
+# 목적: "단일 잡 self-loop" 메커니즘(F) 사전 증명용 임시 워크플로.
+#  - GitHub Actions 잡이 sleep 루프로 오래 돌며 정시에 GAS를 반복 호출하나?
+#  - 각 호출이 GAS에 실제 연결되어 200 + success:true 받나?
+# 장외(현재 20시대)엔 tgPushPnL이 내부 skip → 텔레그램 발송 0건이라 무해.
+# ⚠️ 이 워크플로는 검증 후 제거한다 (schedule 없음, 수동 dispatch 전용).
+
+on:
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: '반복 횟수'
+        default: '5'
+      interval_sec:
+        description: '간격(초)'
+        default: '60'
+
+jobs:
+  looptest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Self-loop calling GAS pushPnL
+        env:
+          GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
+          TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
+          ITER: ${{ github.event.inputs.iterations }}
+          GAP: ${{ github.event.inputs.interval_sec }}
+        run: |
+          if [ -z "$GAS_WEB_APP_URL" ] || [ -z "$TG_WEBHOOK_SECRET" ]; then
+            echo "❌ 시크릿 미설정 — 테스트 불가"; exit 1
+          fi
+          start=$(date -u +%s)
+          echo "=== LoopTest 시작 $(date -u '+%H:%M:%S') UTC | iter=$ITER gap=${GAP}s ==="
+          for i in $(seq 1 "$ITER"); do
+            now=$(date -u +%s)
+            offset=$((now - start))
+            code=$(curl -sS -L -o /tmp/r.txt -w '%{http_code}' \
+              "$GAS_WEB_APP_URL" \
+              -H 'Content-Type: application/json' \
+              --data "{\"action\":\"pushPnL\",\"secret\":\"${TG_WEBHOOK_SECRET}\"}")
+            ok=$(grep -q '"success":true' /tmp/r.txt && echo OK || echo FAIL)
+            printf 'iter=%s  t+%ss  %s UTC  HTTP=%s  %s  resp=%s\n' \
+              "$i" "$offset" "$(date -u '+%H:%M:%S')" "$code" "$ok" "$(cat /tmp/r.txt)"
+            if [ "$i" -lt "$ITER" ]; then sleep "$GAP"; fi
+          done
+          echo "=== LoopTest 끝 $(date -u '+%H:%M:%S') UTC | 총 $(( $(date -u +%s) - start ))s ==="
