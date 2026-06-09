@@ -92,9 +92,10 @@ A. scheduledDailyUpdate          — 매일 17:30 (장 마감 후 정리)
 B. scheduledHourlyUpdate         — 거래일 09:30~16:30 매시 :30 (±5분, 8회/일)
                                     → updateAllNew (위 A 흐름)
                                     → LockService로 충돌 시 skip
-C. tgPushPnL                     — 거래일 09:00~16:00 매시 :00/:20/:40
+C. tgPushPnL                     — 거래일 09:00~16:00, GitHub Actions(telegram-push.yml)가 5분마다 poke
+                                    → 18분 dedup으로 ~20분 카덴스(F 구조, 2026-06-09)
                                     → updateNewPriceHistory + updatePositionFromLedger
-                                    → Telegram 워치 푸시 (자동 손익 알림)
+                                    → Telegram 텔레그램 푸시 (자동 손익 알림)
 D. scheduledHolidaySync          — 매년 12월 휴장일 동기화 (구글 공휴일 캘린더)
 E. tgFlushReportQueue            — 매일 08:05·17:05 KST (시장 리포트 큐)
                                     → claude.ai routine이 *시장리포트_큐* 시트에 적재한 "대기" 행
@@ -177,7 +178,7 @@ iOS / web / web-desk
 |---|---|---|---|---|
 | `scheduledDailyUpdate` | 매일 17:30 (±15분) | — | `updateAllNew` | 없음 (장 마감 후) |
 | `scheduledHourlyUpdate` | 매 30분 (everyMinutes) | **거래일 + 09:25~16:35 + minute 25~35** | `updateAllNew` | LockService.tryLock(2000) |
-| `tgPushPnL` | 매시 :00/:20/:40 (3개 트리거) | **거래일 + 09:00~16:00** | 가격+보유현황 갱신 후 Telegram 푸시 | LockService.tryLock(1000) |
+| `tgPushPnL` | GitHub Actions 5분 poke(F 구조) | **거래일 + 09:00~16:00 + 18분 dedup** | 가격+보유현황 갱신 후 Telegram 푸시 (~20분 카덴스) | LockService.tryLock(1000) + `tg_lastPushEpoch` |
 | `scheduledHolidaySync` | 매년 12월 | — | 구글 공휴일 캘린더 → 휴장일 시트 | 없음 |
 | `tgFlushReportQueue` | 매일 08:05·17:05 KST (2개 트리거) | — (큐 비어 있으면 즉시 종료) | *시장리포트_큐* 시트의 "대기" 행 → Telegram 발송 → 마킹 | 없음 (큐가 직렬화) |
 
