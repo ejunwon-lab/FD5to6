@@ -19,11 +19,26 @@ MEM_DST="$HOME/.claude/projects/$(printf '%s' "$ROOT" | sed 's/[^a-zA-Z0-9]/-/g'
 mkdir -p "$MEM_DST"
 cp memory/*.md "$MEM_DST"/ 2>/dev/null && echo "✓ memory 복원 완료" || echo "⚠ memory 파일 없음 — 건너뜀"
 
-# 3. 전역 CLAUDE.md 없으면 복사
-if [ ! -f "$HOME/.claude/CLAUDE.md" ]; then
-  mkdir -p "$HOME/.claude"
-  cp config/global-claude.md "$HOME/.claude/CLAUDE.md" 2>/dev/null \
-    && echo "✓ 전역 CLAUDE.md 복사" || echo "⚠ config/global-claude.md 없음"
+# 3. 전역 CLAUDE.md 동기화 (repo config = 단일 원본 SSOT, 항상 갱신)
+GLOBAL_DST="$HOME/.claude/CLAUDE.md"
+mkdir -p "$HOME/.claude"
+if [ -f config/global-claude.md ]; then
+  # 첫 동기화에서 머신 고유 내용 손실 방지: .bak이 없고 기존과 다르면 1회 백업
+  if [ -f "$GLOBAL_DST" ] && [ ! -f "$GLOBAL_DST.bak" ] \
+     && ! diff -q config/global-claude.md "$GLOBAL_DST" >/dev/null 2>&1; then
+    cp "$GLOBAL_DST" "$GLOBAL_DST.bak"
+    echo "✓ 기존 전역 CLAUDE.md → CLAUDE.md.bak 백업 (1회, 손실 방지)"
+  fi
+  cp config/global-claude.md "$GLOBAL_DST" && echo "✓ 전역 CLAUDE.md 동기화"
+else
+  echo "⚠ config/global-claude.md 없음"
+fi
+
+# 4. 전역 skill 동기화 (config/skills/* → ~/.claude/skills/)
+if [ -d config/skills ]; then
+  mkdir -p "$HOME/.claude/skills"
+  cp -R config/skills/. "$HOME/.claude/skills/" 2>/dev/null \
+    && echo "✓ 전역 skill 동기화" || echo "⚠ 전역 skill 복사 실패"
 fi
 
 echo "── 기계적 단계 완료 → 이제 docs/pending.md 요약 ──"
