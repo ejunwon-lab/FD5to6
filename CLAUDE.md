@@ -130,6 +130,21 @@ cp config/global-claude.md ~/.claude/CLAUDE.md
 
 증거를 같은 turn에 보이면 사용자가 즉시 검증·반박 가능 — 추측이 숨을 곳이 없어진다.
 
+## 변경 전 설계 절차 (이 repo의 위험 변경 트리거)
+
+원칙·4항목 체크리스트·출력 형식은 **전역 CLAUDE.md "변경 전 설계 절차" + `/design-check` skill** 참조. 여기서는 이 프로젝트에서 **코딩 전 `/design-check`가 필수인 구체 경로**만 매핑한다.
+
+| 전역 트리거 | 이 repo 해당 |
+|---|---|
+| 배포 서버코드 | `apps-script-v2/*.js`의 doPost/doGet·트리거 함수(`scheduled*`·`tgPushPnL`·`_tgHandle*Post` 등) |
+| CI/스케줄 파이프라인 | `.github/workflows/*` (`market-report.yml`·`telegram-push.yml`) |
+| 권한·인증 | `appsscript.json`(oauthScopes·webapp.access), GAS Properties 시크릿 |
+| 외부 API | KIS·Naver·Yahoo·Telegram·CalendarApp 호출 추가/변경 |
+
+- 과거 에러 검색 대상: `docs/errors.md` (텔레그램만 5건 — 4건은 코딩 전 추론·문서로 알 수 있었음, errors.md 2026-06-09)
+- 설계 노트 산출물: `docs/plans/YYYY-MM-DD-주제.md`
+- **2단계 전략**: 현재 규칙 + skill(자율 적용). 다음 위험 변경에서 효과(코딩 전 에러 차단)를 증명한 뒤, PreToolUse hook으로 위험 경로 Edit 시 강제 게이트 추가.
+
 ## 변경 검증 절차
 
 코드를 고친 뒤 "X 고침"으로 끝내지 **않는다.** 변경 보고는 반드시 아래 **"## 검증"** 섹션을 포함한다 (누락 = 미완료).

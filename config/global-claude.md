@@ -1,44 +1,81 @@
-# 전역 Claude 설정
+# 전역 Claude 설정 (사용자: junwon.lee@mz.co.kr)
 
-## Claude 프로젝트 자동 감지
+이 파일은 **모든 폴더**에서 작동하는 보편 규칙이다. 프로젝트별 지식은 각 프로젝트의 CLAUDE.md에 둔다.
 
-현재 작업 디렉토리 경로에 `Claude`와 연도(예: `2026`)가 포함되어 있으면 아래 키워드와 절차가 자동 적용된다.
+> 이 파일이 전역 설정의 **단일 원본(SSOT)**이다. `~/.claude/CLAUDE.md`는 `실행@`(run.sh)이 여기서 복사하는 캐시이므로 **직접 수정하지 말 것** — 다음 `실행@`에 덮어쓰여진다. 전역 규칙 변경은 항상 이 파일에서.
 
-해당 경로 패턴: `/Documents/Claude XXXX_mini/PROJECTNAME/`
+## 기본 동작
+- **한국어로 응답**한다.
+- **bash 명령 실행 여부를 묻지 않는다** — 바로 실행한다 (사용자 명시 요청).
+- 파일 참조는 클릭 가능한 마크다운 링크로 표기한다.
+
+## 의사결정 원칙 (전역 적용)
+사용자가 아이디어·방향·변경을 제안하면 **즉시 실행하지 않는다.**
+반드시 아래 순서를 따른다:
+1. **장단점 분석** — 기술적·운영적 관점에서 간결하게 정리
+2. **권고안 제시** — 분석 결과를 바탕으로 추천 방향 한 줄로 명시
+3. **사용자 결정 대기** — 사용자가 진행 의사를 밝힌 후에만 실행
+
+단, 사용자가 명시적으로 "바로 해", "진행해", "해줘" 등 즉시 실행을 요청한 경우는 예외로 한다.
+
+## 변경 전 설계 절차 (코딩 전 게이트)
+
+**원칙**: 에러를 사후에 잡는 것보다 **코딩 전에 추론으로 거르는 게 토큰·신뢰 둘 다 싸다.** 재작업 루프(디버깅→재코딩→재배포→재검증) 1회 ≫ 코딩 전 설계 1회.
+
+### 위험 변경 트리거 (하나라도 해당하면 코딩 전 설계 패스 필수)
+- 배포·실행되는 **서버 사이드 코드** (요청 핸들러·스케줄 작업·트리거 진입점)
+- **CI/CD·스케줄 파이프라인** 정의 (cron·워크플로·배포 스크립트)
+- **권한·인증·접근 설정** (스코프·공개 범위·시크릿·토큰)
+- **외부 API/서비스 호출** 추가·변경
+
+→ 순수 함수·UI·문서·로컬 스크립트는 트리거 **아님**(과한 설계는 토큰 낭비). 모호하면 "외부 의존이 결과를 바꾸나?"로 판단.
+
+### 코딩 전 설계 노트 (위험 변경 시 `/design-check` skill로 작성)
+ultrathink로 아래를 **코딩 시작 전에** 구체적으로 적는다 (추상적 "잘 될 것" 금지):
+1. **외부 동작 가정 + 근거** — 기대는 외부 동작(리다이렉트·권한·발화 보장·응답 형식)을 한 줄씩, 각각 *문서/사실*로 뒷받침하거나 `[검증 필요]` 표시.
+2. **과거 에러 검색** — 프로젝트에 에러 로그가 있으면 같은 영역/외부 의존이 과거 터졌는지 검색. 터졌으면 그 원인을 이번 설계가 어떻게 피하는지 명시.
+3. **추론 가능 vs 실환경 전용 분리** — 머리로 아는 것(여기서 거름)과 실제 실행 환경에서만 드러나는 것(스모크/실측으로 받음)을 가른다. ⚠️ 실환경 전용 사실을 다른 환경(로컬·다른 IP) 테스트로 "검증 완료"라 하지 말 것.
+4. **검증 방법 사전 정의** — 어디서·무엇을·예상값.
+
+산출물은 프로젝트에 계획 폴더(`docs/plans/` 등)가 있으면 거기 저장, 없으면 응답에 인라인. 코딩은 이 노트 통과 후에만.
 
 ---
 
 ## 세션 키워드 (자동 적용)
 
+작업 디렉토리가 `Claude` + 연도(예: `Claude 2026`)를 포함하면 아래 키워드가 적용된다.
+
 | 키워드 | 동작 |
 |---|---|
 | `실행@` | git pull + memory 복원 + `docs/pending.md` 읽고 현황 요약 |
-| `저장!` | 현재 작업 내용 docs 업데이트 + memory 백업 + git add/commit/push |
-| `중간 저장해` | 현재 작업 내용을 `docs/pending.md`에 업데이트 |
+| `저장!` | 작업 내용 docs 갱신 + memory 백업 + git add/commit/push |
+| `중간 저장해` | 현재 작업을 `docs/pending.md`에만 업데이트 (commit 안 함) |
 | `동기화해` | memory 백업 + git add/commit/push |
 
----
+### 프로젝트 슬러그 계산 (공통)
+메모리 경로는 현재 디렉토리에서 자동 계산한다. Claude Code의 슬러그 규칙과 동일하게 **영숫자 외 모든 문자를 `-`로** 치환한다:
+```bash
+PROJECT_DIR="$PWD"
+PROJECT_SLUG=$(printf '%s' "$PROJECT_DIR" | sed 's/[^a-zA-Z0-9]/-/g')
+MEM_DIR="$HOME/.claude/projects/$PROJECT_SLUG/memory"
+```
+예: `/Users/halcyon_m1/Documents/Claude 2026/FD5to6` → `-Users-halcyon-m1-Documents-Claude-2026-FD5to6`
 
-## 실행@ 절차
-
-1. `git pull`
-2. memory 복원 (경로는 현재 프로젝트 기준으로 자동 계산):
+### 실행@ 절차
+0. 하네스 변경 확인 및 자동 반영:
    ```bash
-   PROJECT_DIR=$(pwd)
-   PROJECT_SLUG=$(echo "$PROJECT_DIR" | sed 's|/|-|g' | sed 's|^-||')
-   cp "$PROJECT_DIR/memory/"* ~/.claude/projects/$PROJECT_SLUG/memory/ 2>/dev/null || true
+   cd ~/claude-2026 && git fetch --quiet 2>/dev/null
+   git status | grep -q "behind" && git pull --quiet && echo "[하네스 업데이트됨]" || true
    ```
+1. `git pull`
+2. memory 복원: `mkdir -p "$MEM_DIR" && cp "$PROJECT_DIR/memory/"* "$MEM_DIR/" 2>/dev/null || true`
 3. `docs/pending.md` 읽고 현황 한 문단 요약
 
----
-
-## 저장! 절차
-
-1. 현재 작업 내용을 `docs/pending.md`에 업데이트
-2. memory 백업:
-   ```bash
-   PROJECT_DIR=$(pwd)
-   PROJECT_SLUG=$(echo "$PROJECT_DIR" | sed 's|/|-|g' | sed 's|^-||')
-   cp ~/.claude/projects/$PROJECT_SLUG/memory/* "$PROJECT_DIR/memory/" 2>/dev/null || true
-   ```
-3. `git add . && git commit -m "저장" && git push`
+### 저장! 절차
+1. 작업 내용을 `docs/pending.md`(+ 필요한 docs)에 반영
+2. 이번 세션에서 완료/확인한 항목을 `docs/changelog.md`에 append:
+   - 형식: `## YYYY-MM-DD` 헤더(당일 첫 항목일 때만) + `- 항목` 한 줄씩
+   - 파일이 없으면 생성, 있으면 맨 아래에 추가
+   - 완료된 것만 기록 (확인·점검·논의 포함, 단순 대화 제외)
+3. memory 백업: `mkdir -p "$PROJECT_DIR/memory" && cp "$MEM_DIR/"* "$PROJECT_DIR/memory/" 2>/dev/null || true`
+4. `git add . && git commit -m "저장!" && git push`
