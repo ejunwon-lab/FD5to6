@@ -160,6 +160,18 @@ function tgPushPnL() {
       return;
     }
     try {
+      // 4. dedup — 직전 발송 후 18분 미만이면 skip.
+      //    F 구조: GitHub 잡이 5분마다 poke(겹치는 잡·중복 시작 틱 포함)해도
+      //    카덴스는 GAS가 단일 권위로 결정 → ~20분 간격(09:00~16:00 ≈ 22회) 유지.
+      //    슬롯을 발송 *전에* 선점 → 중복 발송 + KIS 과호출 동시 차단.
+      const props = _tgProps();
+      const lastMs = Number(props.getProperty('tg_lastPushEpoch') || 0);
+      const elapsedMin = (Date.now() - lastMs) / 60000;
+      if (elapsedMin < 18) {
+        Logger.log('tgPushPnL: 직전 발송 ' + elapsedMin.toFixed(1) + '분 전 — dedup skip');
+        return;   // finally가 lock 해제
+      }
+      props.setProperty('tg_lastPushEpoch', String(Date.now()));   // 슬롯 선점(발송 전)
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       updateNewPriceHistory(ss);
       updatePositionFromLedger();
@@ -180,6 +192,7 @@ function tgRefreshAndPush() {
     updateNewPriceHistory(ss);
     updatePositionFromLedger();
     tgSendMessage(_tgFormatPnL());
+    _tgProps().setProperty('tg_lastPushEpoch', String(Date.now()));   // 수동 발송도 슬롯 갱신 → 직후 자동 poke 중복 방지
   } catch (e) {
     Logger.log('tgRefreshAndPush 오류: ' + e.message);
     try { tgSendMessage('⚠️ 갱신 실패: ' + e.message); } catch (_) {}

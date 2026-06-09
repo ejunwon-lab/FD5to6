@@ -9,8 +9,9 @@
 - **결정적 단서**: 실행 시각이 격자(`:05/:25/:45`)·윈도우(UTC 00:05~06:45)에서 벗어남. `09:53Z`는 cron 최대시각 06:45Z를 3시간 초과 → GitHub이 누락분을 지연·coalesce 실행한 흔적. 2 거래일 연속 ~2/21 = 우연 아님.
 - **원인**: **GitHub Actions `schedule` 이벤트도 best-effort** — 정시 발화 보장 없음, 고부하 시 지연·드롭. [[feedback_routine_sandbox_limits]] 계열의 "외부 스케줄러 신뢰성" 문제.
 - **함정 (중요)**: 2026-06-05 errors에서 *GAS 트리거 best-effort* 문제의 해결책으로 GitHub Actions를 "신뢰 시계"로 도입했는데, **그 GitHub Actions cron이 같은 종류의 누락**을 보임. 즉 best-effort 스케줄러를 다른 best-effort 스케줄러로 바꾼 것.
-- **해결**: 미정 (진단 단계). 후보(Cloudflare Worker Cron·외부 cron 서비스·횟수 축소)는 **실측 트라이얼 전까지 가설**. 채택 전 1 거래일 로그 전용 트라이얼로 적중률 측정 → 숫자 게이트.
-- **교훈**: "스케줄 cron이 있다" ≠ "정시에 돈다". GAS든 GitHub든 무료 스케줄러는 발화 보장 없음 — 도입 후 **실행 로그로 적중률을 측정**해야 신뢰성 주장 가능. 측정 없는 "잘 됨"은 추측.
+- **해결 (2026-06-09, F 구조 채택)**: 프레임 전환 — "21번 정시 외부 시계 찾기" → **"외부 의존을 21→1로 줄이기".** GitHub은 "잡 시작"만 담당하고, 잡 내부 `sleep` 루프가 5분마다 GAS `pushPnL` poke. 루프 내부 sleep은 OS 시계라 정시(실측 run 27202390183으로 증명). 카덴스·휴장·중복은 GAS `tgPushPnL`의 **18분 dedup**(`tg_lastPushEpoch`)이 단일 권위로 결정 → ~20분. redundancy 3종(중복 시작 틱·2 shift·겹치는 잡)으로 시작 드롭·6h 상한·러너 사망 흡수, GAS dedup이 겹침 무해화. **연결 위험 0**(GitHub→GAS는 입증, PoP 403은 ANYONE_ANONYMOUS라 stale). 설계: `docs/plans/2026-06-09-텔레그램-스케줄러-신뢰성.md`. **잔여 실측(6/10)**: GitHub의 일일 *시작* 적중 + 6h 루프 사망 빈도.
+- **함정 회피 (Cloudflare)**: "Cloudflare cron으로 교체" 후보는 errors.md 2026-05-31 **PoP IP→GAS 403** 전례 때문에 *연결 게이트* 미통과 위험 → best-effort(견딜만)를 0건 전달(치명)과 맞바꾸는 함정. F는 연결 입증된 GitHub을 유지하므로 이 함정 회피.
+- **교훈**: "스케줄 cron이 있다" ≠ "정시에 돈다". GAS든 GitHub든 무료 스케줄러는 발화 보장 없음 — 도입 후 **실행 로그로 적중률을 측정**해야 신뢰성 주장 가능. 측정 없는 "잘 됨"은 추측. + best-effort 시계를 못 고치겠으면 **의존 횟수 자체를 줄여라**(N번 정시 → 1번 시작 + 내부 정시 루프).
 
 ### KR 시장 리포트 2차 run push 충돌 + cron ~4.5h 지연
 - **증상**: 6/8 KR 리포트 run `27138650428` 실패 — `git push` rejected (`! [rejected] main -> main (fetch first)`).
