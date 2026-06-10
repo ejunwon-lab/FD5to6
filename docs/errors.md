@@ -20,6 +20,13 @@
 - **해결 (2026-06-10)**: `tgPushPnL`·`tgRefreshAndPush`를 부분 갱신 대신 **`updateAllNew()`**(시간 트리거·⚡버튼과 동일 전체 경로) 호출. `logToTrendSheet`는 시간 트리거가 이미 하루 8회 부르는 idempotent 함수라 푸시(~22회)도 안전. v11 배포(push_safe + API로 버전 고정 배포 v10→v11). dedup(18분)으로 빈도는 동일.
 - **교훈**: "푸시가 X를 갱신한다" ≠ "푸시가 보여주는 값 Y가 X에서 온다". 표시 필드의 *실제 출처 시트*를 역추적해야 함. 부분 갱신 최적화는 표시 값이 그 부분에서만 오는지 확인 후에만. walk-through(합계←AD2←logToTrendSheet←updateAllNew)가 이걸 잡음.
 
+### `git push 2>&1 | tail -1`이 push 실패를 가림 — dry_run이 옛 코드로 돎 (2026-06-10)
+- **증상**: KR 리포트 새 프롬프트를 commit·push했다고 믿고 dry_run 검증했는데 **옛 형식**이 생성됨. 본문이 직전 리포트와 동일.
+- **원인**: 커밋 명령을 `(git push -q 2>&1 | tail -1 || fallback)`로 작성. **파이프의 exit code는 마지막 명령(`tail`)의 것** → `git push`가 non-fast-forward로 *거부돼도* `tail` 성공(0)이라 `|| fallback`이 안 돌고 "pushed"가 찍힘. origin/main은 옛 커밋 그대로 → 워크플로가 옛 prompt 체크아웃.
+- **검증**: `git rev-parse origin/main` ≠ 로컬 HEAD, `git show origin/main:파일 | grep -c 신규문자열` = 0으로 확정.
+- **해결**: push는 파이프 없이 `git push origin main; echo "exit=$?"`로 **실제 exit code 확인**. 또는 `set -o pipefail`. 원격 반영은 **fetch 후 origin/main 내용 직접 grep**으로 검증(주장 검증 절차).
+- **교훈**: "커밋·push 했다"는 사실 주장 → 같은 턴에 `git rev-parse origin/main` + 원격 파일 grep으로 검증. 파이프로 감싼 git 명령의 exit code 신뢰 금지.
+
 ### KR 시장 리포트 2차 run push 충돌 + cron ~4.5h 지연
 - **증상**: 6/8 KR 리포트 run `27138650428` 실패 — `git push` rejected (`! [rejected] main -> main (fetch first)`).
 - **원인**: 2회 안전망(`2 8`/`42 8` UTC = 17:02/17:42 KST)이 둘 다 GH 스케줄러 지연으로 `12:38Z`/`12:47Z`(21:38/21:47 KST)에 **~4.5h 늦게**, 9분 차로 거의 동시 실행. 1차(`27138171789`)가 파일 커밋하기 전에 2차도 "파일 없음"으로 판단해 재생성·push → 1차가 먼저 push해 2차 rejected. 리포트는 1차가 정상 전달·커밋(사용자 영향 없음).
