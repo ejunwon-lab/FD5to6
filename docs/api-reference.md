@@ -1,6 +1,6 @@
 # API Reference — GAS 모바일 엔드포인트 데이터 계약
 
-last updated: 2026-05-25
+last updated: 2026-06-10
 
 `apps-script-v2/MobileAPI.js`의 `newMobile*` 함수가 iOS(`ios2`)·웹(`web`)에 돌려주는 JSON 계약.
 **"어떤 필드가 이상하다"** 류 버그는 코드를 뒤지기 전에 이 표에서 필드 → 계산 위치를 먼저 찾는다.
@@ -73,6 +73,7 @@ last updated: 2026-05-25
 | `newMobileUpdateCurrentPrice()` | — | 현재가 갱신 트리거 |
 | `newMobileUpdateHistory()` | — | *현재가_이력* 갱신 트리거 |
 | `newMobileUpdateAll()` | — | 통합 갱신 트리거 |
+| `getPortfolioMetrics()` (doPost `action=portfolioMetrics`+secret) | `{success, assetClassWeights:{분류:%}, holdings:[{name,category,weight}], mdd:음수%}` | **상대 지표만 — 원화 절대액 미포함** (public KR 리포트용). 비중 분모=보유현황 평가금액 합, MDD=*추이 기록* 일별 총자산(Q열) peak-to-trough(자산액 기준·입출금 포함) |
 
 상세 필드는 web `src/models/types.ts`의 `StockDetailResponse`·`MonthlyRealizedResponse` 등 참조.
 

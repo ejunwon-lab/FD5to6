@@ -135,13 +135,15 @@ function _tgFormatPnL() {
  * 자동 푸시 (트리거에서 호출) — 거래일 09:00~16:00만.
  * 항상 KIS 가격 갱신 + 보유현황 재계산 후 발송 (최신 손익 보장).
  * 사용자 ㄱㄱ 처리 중이면 lock 못 잡고 skip — 사용자 갱신이 곧 알림 발송하므로 중복 안 옴.
+ * @return {string} 결과 코드 — 'sent' | 'skip-holiday' | 'skip-offhours' | 'skip-lock' | 'skip-dedup' | 'error:…'
+ *   (_tgHandlePushPost가 에코 → GitHub 루프 로그만으로 발송/스킵 적중률 측정, 2026-06-10 관측성)
  */
 function tgPushPnL() {
   try {
     // 1. 거래일이 아니면 푸시 생략 (주말·공휴일 = *휴장일* 시트 기준)
     if (!_mIsTradingDay()) {
       Logger.log('tgPushPnL: 비거래일 — 푸시 생략');
-      return;
+      return 'skip-holiday';
     }
     // 2. 09:00 ~ 16:00 시간대만 푸시 (그 외 트리거는 생략)
     const tz = 'Asia/Seoul';
@@ -151,13 +153,13 @@ function tgPushPnL() {
     const mins = hour * 60 + minute;
     if (mins < 9 * 60 || mins > 16 * 60) {
       Logger.log('tgPushPnL: 장외 시간 (' + hour + ':' + minute + ') — 푸시 생략');
-      return;
+      return 'skip-offhours';
     }
     // 3. 락 — 사용자 갱신과 겹치면 skip (사용자 갱신이 곧 알림 발송함)
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(1000)) {
       Logger.log('tgPushPnL: 다른 갱신 처리 중 — skip');
-      return;
+      return 'skip-lock';
     }
     try {
       // 4. dedup — 직전 발송 후 18분 미만이면 skip.
@@ -169,19 +171,21 @@ function tgPushPnL() {
       const elapsedMin = (Date.now() - lastMs) / 60000;
       if (elapsedMin < 18) {
         Logger.log('tgPushPnL: 직전 발송 ' + elapsedMin.toFixed(1) + '분 전 — dedup skip');
-        return;   // finally가 lock 해제
+        return 'skip-dedup';   // finally가 lock 해제
       }
       props.setProperty('tg_lastPushEpoch', String(Date.now()));   // 슬롯 선점(발송 전)
       // 부분 갱신(가격+보유)만 하면 추이기록 AD2(=합계 손익)·환율이 stale → 합계가 0/직전값으로 표시됨
       // (6/10 +0원 버그). 시간 트리거·⚡버튼과 동일한 전체 갱신으로 추이기록 AD2·FX까지 신선하게.
       updateAllNew();   // FX·가격·보유현황·종목지표·추이기록(logToTrendSheet)·대시보드 전체 (2026-06-10 수정)
       tgSendMessage(_tgFormatPnL());
+      return 'sent';
     } finally {
       lock.releaseLock();
     }
   } catch (e) {
     Logger.log('tgPushPnL 오류: ' + e.message);
     try { tgSendMessage('⚠️ 푸시 실패: ' + e.message); } catch (_) {}
+    return 'error:' + e.message;
   }
 }
 
@@ -660,8 +664,8 @@ function _tgHandlePushPost(e) {
       return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'forbidden' }))
         .setMimeType(ContentService.MimeType.JSON);
     }
-    tgPushPnL();   // 거래일·09:00~16:00·락 자체 체크 → KIS 갱신 + 손익 계산 + 발송 (또는 skip)
-    return ContentService.createTextOutput(JSON.stringify({ success: true }))
+    const result = tgPushPnL();   // 거래일·09:00~16:00·락 자체 체크 → KIS 갱신 + 손익 계산 + 발송 (또는 skip)
+    return ContentService.createTextOutput(JSON.stringify({ success: true, result: result || 'unknown' }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     Logger.log('_tgHandlePushPost 오류: ' + err.message);
