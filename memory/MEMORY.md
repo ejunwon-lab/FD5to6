@@ -34,3 +34,4 @@
 - [내가 할 수 있는 건 내가 한다](feedback_self_verify_before_handoff.md) — 떠넘기기 전 "직접 가능?" 점검, gh/curl로 검증, 못 하는 것만 이유 붙여 넘김
 - [GAS 재배포 API로 자율 처리](reference_gas_redeploy_via_api.md) — 버전 고정 웹앱 배포는 Apps Script API(POST /versions + PUT /deployments)로 직접 재배포, 에디터 수동 클릭 불필요
 - [전역 환경 늘 동일하게](feedback_global_env_consistent.md) — 전역 설정 변경은 harness repo(claude-2026)에 커밋·푸시해 모든 컴퓨터 동기화. settings.json은 심링크라 실제 타겟 편집
+- [GH Actions daisy-chain](reference_github_actions_daisy_chain.md) — cron은 고빈도일수록 드롭, 신뢰 스케줄은 self-dispatch 체인(GITHUB_TOKEN의 workflow_dispatch 예외)
