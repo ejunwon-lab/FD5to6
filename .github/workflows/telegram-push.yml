@@ -8,38 +8,39 @@ name: Telegram Push (intraday P&L)
 #   - 카덴스(~20분)·휴장·시간대·중복은 GAS의 tgPushPnL이 18분 dedup + 거래일 + 09:00~16:00로 자체 결정.
 #   - GAS dedup이 중복 poke를 무해화 → 겹치는 잡/중복 시작 틱을 마음껏 써도 발송은 슬롯당 1회.
 #
-# redundancy 3종으로 (a)시작 드롭 (b)6시간 잡 상한 (c)러너 중도 사망 을 모두 흡수:
-#   - 중복 시작 틱(각 shift 2개): 하나 드롭돼도 다른 게 시작
-#   - 2 shift(A/B): 한 잡 최대 230분 → 6h 상한 우회, 둘이 7h 윈도우 커버
-#   - 겹치는 잡: 한 러너가 죽어도 다른 잡이 계속 poke
-# concurrency 제어 없음 — 겹침은 GAS dedup이 무해화하고, public repo라 분(分) 무료.
+# redundancy로 (a)시작 드롭 (b)6시간 잡 상한 (c)러너 중도 사망 을 흡수:
+#   - 시작 틱을 전 시간대에 20분 간격으로 펼침(개정 2026-06-10): GitHub이 한 윈도우를
+#     통째 드롭해도(6/10 아침 실제 발생) 다음 틱이 ~20분 내 시작. 틱이 시각에 몰리면(구버전
+#     09:00·09:03처럼) 그 윈도우 드롭 시 전멸 → 펼쳐서 회피.
+#   - 한 잡 120분: 시작 틱 6개분(120/20)을 겹쳐 커버 → 연속 드롭 5회까지 공백 없음.
+#   - 6h 상한: 120분 잡이라 무관. 겹치는 잡: 한 러너 죽어도 다음 틱 잡이 계속 poke.
+# concurrency 제어 없음 — 겹침(상시 ~6 동시 잡)은 GAS dedup이 무해화, public repo라 분 무료.
+# GitHub 한계: 그래도 schedule은 best-effort라 아침 장시간 드롭 시 첫 푸시가 늦을 수 있음.
+#   완전 정시 보장은 Cloudflare Worker cron(인증 필요)으로만. 그 전까진 이 spread가 최선.
 #
-# ⚠️ GAS 의존: tgPushPnL의 dedup이 *배포*돼 있어야 함. 미배포 시 5분 poke가 5분마다 발송(스팸).
-#   push_safe.py 후 반드시 GAS 에디터 "배포 관리 → 신규 버전".
+# ⚠️ GAS 의존: tgPushPnL의 dedup이 *배포*돼 있어야 함(v10 배포 완료). 미배포 시 5분마다 스팸.
 
 on:
   schedule:
-    # UTC. KST = UTC+9. 장중 09:00~16:00 KST = 00:00~07:00 UTC. 월~금(실제 휴장은 GAS가 컷).
-    - cron: '0 0 * * 1-5'    # shift A 시작
-    - cron: '3 0 * * 1-5'    # shift A 시작(중복 — A가 드롭되면 이게 시작)
-    - cron: '30 3 * * 1-5'   # shift B 시작
-    - cron: '33 3 * * 1-5'   # shift B 시작(중복)
+    # UTC. KST=UTC+9. 장중 09:00~16:00 KST = 00:00~07:00 UTC. 매시 :00/:20/:40, 월~금.
+    # (실제 휴장·09:00 이전·16:00 이후는 GAS tgPushPnL이 자체 컷)
+    - cron: '0,20,40 0-6 * * 1-5'
   workflow_dispatch:
     inputs:
       minutes:
         description: '루프 지속(분)'
-        default: '230'
+        default: '120'
 
 jobs:
   push:
     runs-on: ubuntu-latest
-    timeout-minutes: 245
+    timeout-minutes: 130
     steps:
       - name: Self-loop poking GAS pushPnL
         env:
           GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
           TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
-          MINUTES: ${{ github.event.inputs.minutes || '230' }}
+          MINUTES: ${{ github.event.inputs.minutes || '120' }}
         run: |
           if [ -z "$GAS_WEB_APP_URL" ] || [ -z "$TG_WEBHOOK_SECRET" ]; then
             echo "⏭️ GAS_WEB_APP_URL / TG_WEBHOOK_SECRET 미설정 — soft skip (롤아웃 전이면 정상)"
