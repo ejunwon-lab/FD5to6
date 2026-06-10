@@ -32,3 +32,5 @@
 - [시장 리포트 파이프라인](project_market_report_pipeline.md) — GitHub Actions + Claude CLI(Max OAuth) + Telegram, 매 거래일 08:05·17:05 자동 (2026-06-03 정착)
 - [용어 — "텔레그램 푸시"](feedback_telegram_push_naming.md) — "워치 푸시" 금지, 장중 손익 알림은 "텔레그램 푸시"
 - [내가 할 수 있는 건 내가 한다](feedback_self_verify_before_handoff.md) — 떠넘기기 전 "직접 가능?" 점검, gh/curl로 검증, 못 하는 것만 이유 붙여 넘김
+- [GAS 재배포 API로 자율 처리](reference_gas_redeploy_via_api.md) — 버전 고정 웹앱 배포는 Apps Script API(POST /versions + PUT /deployments)로 직접 재배포, 에디터 수동 클릭 불필요
+- [전역 환경 늘 동일하게](feedback_global_env_consistent.md) — 전역 설정 변경은 harness repo(claude-2026)에 커밋·푸시해 모든 컴퓨터 동기화. settings.json은 심링크라 실제 타겟 편집
