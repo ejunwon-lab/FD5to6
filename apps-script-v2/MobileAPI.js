@@ -207,12 +207,16 @@ function getPortfolioMetrics() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const result = { success: true, assetClassWeights: {}, holdings: [], mdd: null };
 
-  // ── 비중 (보유현황 평가금액 by 분류) ──
+  // ── 비중 (보유현황 평가금액 by 분류 + 대기자금) ──
+  // 분모 = 보유 평가금액 합 + *설정* 대기자금 — MDD의 sumTotal(보유+대기)과 분모 일치 (2026-06-10).
+  // 현금성 비중은 리스크 레이더의 "수비 여력" 표시용. 원화 절대액은 여전히 미포함.
   const pos = ss.getSheetByName(NS.POSITION);
   if (pos && pos.getLastRow() >= 2) {
     const rows = pos.getRange(2, 1, pos.getLastRow() - 1, 15).getValues()
       .filter(r => String(r[0]) !== '합계' && String(r[1]) !== '합계' && Number(r[6]) > 0);
-    const total = rows.reduce((s, r) => s + (Number(r[10]) || 0), 0);   // 평가금액(idx10)
+    const posTotal = rows.reduce((s, r) => s + (Number(r[10]) || 0), 0);   // 평가금액(idx10)
+    const pending = Number(_trGetPendingTotal(ss)) || 0;                   // 대기자금 (Trend.js)
+    const total = posTotal + pending;
     if (total > 0) {
       const byClass = {};
       rows.forEach(r => {
@@ -221,6 +225,7 @@ function getPortfolioMetrics() {
         byClass[cat] = (byClass[cat] || 0) + w;
         result.holdings.push({ name: String(r[1]), category: cat, weight: Math.round(w * 10) / 10 });
       });
+      if (pending > 0) byClass['현금성'] = pending / total * 100;
       Object.keys(byClass).forEach(k => { result.assetClassWeights[k] = Math.round(byClass[k] * 10) / 10; });
       result.holdings.sort((a, b) => b.weight - a.weight);
     }
