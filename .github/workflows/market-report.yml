@@ -153,6 +153,10 @@ jobs:
         if: steps.guard.outputs.already == 'no'
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # 포트폴리오 지표(익스포저%·MDD)용 — 에이전트가 Bash로 $env 써서 GAS fetch.
+          # public 프롬프트엔 URL·시크릿 안 박음(여기 env로만 주입).
+          GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
+          TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
         run: |
           claude -p "$(cat .github/scripts/kr-prompt.md)" \
             --allowedTools "WebFetch,Bash,Read,Write" \
