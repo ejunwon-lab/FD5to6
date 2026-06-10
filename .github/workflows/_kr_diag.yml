@@ -1,0 +1,36 @@
+name: _KR Diag (섹터 구성종목 엔드포인트 진단 — 임시)
+
+# Phase 2b: Naver 섹터 구성종목 엔드포인트가 GitHub 러너에서 실제 fetch/파싱 되는지 진단.
+# (과거 수급/업종 N/A 트랩 회피 — 추론 말고 러너에서 직접 확인) 검증 후 제거.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe Naver 업종 구성종목 엔드포인트
+        run: |
+          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
+          echo "=== ① 업종 리스트 sise_group?type=upjong ==="
+          code=$(curl -sS -A "$UA" -w '%{http_code}' 'https://finance.naver.com/sise/sise_group.naver?type=upjong' -o list.html)
+          echo "HTTP=$code  size=$(wc -c < list.html)"
+          echo "섹터 detail 링크(no=) 샘플:"
+          grep -oE 'no=[0-9]+' list.html | sort -un | head -8 | tr '\n' ' '; echo
+          NO=$(grep -oE 'no=[0-9]+' list.html | grep -oE '[0-9]+' | sort -un | head -1)
+          echo "→ 첫 섹터 no=$NO"
+          echo
+          echo "=== ② 섹터 상세 sise_group_detail?type=upjong&no=$NO (구성종목) ==="
+          code=$(curl -sS -A "$UA" -w '%{http_code}' "https://finance.naver.com/sise/sise_group_detail.naver?type=upjong&no=$NO" -o detail.html)
+          echo "HTTP=$code  size=$(wc -c < detail.html)"
+          CNT=$(grep -oE 'code=[0-9]{6}' detail.html | sort -u | wc -l)
+          echo "구성종목 종목코드 개수: $CNT"
+          echo "샘플 코드: $(grep -oE 'code=[0-9]{6}' detail.html | sort -u | head -6 | tr '\n' ' ')"
+          echo
+          echo "=== ③ 모바일 시세 industry API 대안 탐색 ==="
+          curl -sS -A "$UA" -w 'HTTP=%{http_code} size=%{size_download}\n' \
+            'https://m.stock.naver.com/api/stocks/industry/261/stocks?page=1&pageSize=10' -o ind.json || true
+          head -c 300 ind.json 2>/dev/null; echo
+          echo "=== 판정 ==="
+          if [ "${CNT:-0}" -ge 5 ]; then echo "✅ sise_group_detail 러너에서 구성종목 파싱 가능 ($CNT종목)"; else echo "❌ 구성종목 0~소수 — 차단/구조변경 의심, degrade 유지"; fi
