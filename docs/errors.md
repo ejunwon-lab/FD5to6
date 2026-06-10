@@ -14,6 +14,12 @@
 - **🔴 6/10 실측 결과 — 시작 드롭 발생**: 6/10(수) 09:41 KST에 telegram-push가 **종일 미발화**(market-report는 같은 schedule인데 00:20Z 발화 → 워크플로별 확률적 드롭). 원인: 시작 틱 4개가 **2시각(09:00·09:03, 12:30·12:33)에 몰려** GitHub이 아침 윈도우 통째 드롭 시 전멸. **수정 (2026-06-10)**: cron을 `0,20,40 0-6 * * 1-5`(20분 간격 전 시간대 spread) + 루프 120분으로 변경 → 한 윈도우 드롭돼도 다음 틱이 ~20분 내 시작, 잡 1개가 6틱분 겹쳐 커버(연속 5드롭까지 공백 0). 당일은 수동 dispatch로 복구. **그래도 GitHub은 best-effort라 아침 장시간 드롭 시 첫 푸시 지연 가능** — 완전 정시는 Cloudflare Worker cron(인증 필요)으로만.
 - **교훈**: "스케줄 cron이 있다" ≠ "정시에 돈다". GAS든 GitHub든 무료 스케줄러는 발화 보장 없음 — 도입 후 **실행 로그로 적중률을 측정**해야 신뢰성 주장 가능. 측정 없는 "잘 됨"은 추측. + best-effort 시계를 못 고치겠으면 **의존 횟수 자체를 줄여라**(N번 정시 → 1번 시작 + 내부 정시 루프).
 
+### 텔레그램 푸시 손익이 +0원/직전값 — tgPushPnL이 부분 갱신만 해 추이기록 AD2가 stale (2026-06-10)
+- **증상**: 6/10 장중 텔레그램 손익 푸시의 *합계*가 +0원(또는 직전값). 사용자가 시트에 들어가니(=전체 갱신 발생) 제대로 계산됨.
+- **원인**: `tgPushPnL`이 속도 위해 **부분 갱신**(`updateNewPriceHistory` + `updatePositionFromLedger`)만 함. 그런데 푸시가 표시하는 *합계*(`_tgFormatPnL`→`newMobileGetPortfolio`의 `trendTotalProfit`)는 **추이기록 AD2**(MobileAPI.js:69)에서 옴 → AD2는 `logToTrendSheet`가 쓰는데 그건 **`updateAllNew`에만** 있음(Main.js:113). 부분 갱신은 `logToTrendSheet`·`updateFxRates`를 건너뛰어 AD2·환율이 stale → 합계가 0/직전값. (오늘 손익 `dayChangAmount`는 `computeStockMetrics`가 `updatePositionFromLedger` 끝(NewSystem.js:631)에서 갱신돼 정상이었음 — 그래서 합계만 틀림.)
+- **해결 (2026-06-10)**: `tgPushPnL`·`tgRefreshAndPush`를 부분 갱신 대신 **`updateAllNew()`**(시간 트리거·⚡버튼과 동일 전체 경로) 호출. `logToTrendSheet`는 시간 트리거가 이미 하루 8회 부르는 idempotent 함수라 푸시(~22회)도 안전. v11 배포(push_safe + API로 버전 고정 배포 v10→v11). dedup(18분)으로 빈도는 동일.
+- **교훈**: "푸시가 X를 갱신한다" ≠ "푸시가 보여주는 값 Y가 X에서 온다". 표시 필드의 *실제 출처 시트*를 역추적해야 함. 부분 갱신 최적화는 표시 값이 그 부분에서만 오는지 확인 후에만. walk-through(합계←AD2←logToTrendSheet←updateAllNew)가 이걸 잡음.
+
 ### KR 시장 리포트 2차 run push 충돌 + cron ~4.5h 지연
 - **증상**: 6/8 KR 리포트 run `27138650428` 실패 — `git push` rejected (`! [rejected] main -> main (fetch first)`).
 - **원인**: 2회 안전망(`2 8`/`42 8` UTC = 17:02/17:42 KST)이 둘 다 GH 스케줄러 지연으로 `12:38Z`/`12:47Z`(21:38/21:47 KST)에 **~4.5h 늦게**, 9분 차로 거의 동시 실행. 1차(`27138171789`)가 파일 커밋하기 전에 2차도 "파일 없음"으로 판단해 재생성·push → 1차가 먼저 push해 2차 rejected. 리포트는 1차가 정상 전달·커밋(사용자 영향 없음).
