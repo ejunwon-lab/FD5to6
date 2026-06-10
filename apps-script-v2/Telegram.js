@@ -172,9 +172,9 @@ function tgPushPnL() {
         return;   // finally가 lock 해제
       }
       props.setProperty('tg_lastPushEpoch', String(Date.now()));   // 슬롯 선점(발송 전)
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      updateNewPriceHistory(ss);
-      updatePositionFromLedger();
+      // 부분 갱신(가격+보유)만 하면 추이기록 AD2(=합계 손익)·환율이 stale → 합계가 0/직전값으로 표시됨
+      // (6/10 +0원 버그). 시간 트리거·⚡버튼과 동일한 전체 갱신으로 추이기록 AD2·FX까지 신선하게.
+      updateAllNew();   // FX·가격·보유현황·종목지표·추이기록(logToTrendSheet)·대시보드 전체 (2026-06-10 수정)
       tgSendMessage(_tgFormatPnL());
     } finally {
       lock.releaseLock();
@@ -185,12 +185,10 @@ function tgPushPnL() {
   }
 }
 
-/** 수동 트리거 — 가격 + 보유현황만 빠르게 갱신 후 푸시 (대시보드 렌더·추이 기록 생략) */
+/** 수동 트리거(ㄱㄱ) — 전체 갱신 후 푸시. 합계 손익(추이기록 AD2)까지 신선해야 정확 (6/10 수정) */
 function tgRefreshAndPush() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    updateNewPriceHistory(ss);
-    updatePositionFromLedger();
+    updateAllNew();   // 부분 갱신이면 합계 손익(추이기록 AD2)·환율 stale → 전체 갱신으로 통일
     tgSendMessage(_tgFormatPnL());
     _tgProps().setProperty('tg_lastPushEpoch', String(Date.now()));   // 수동 발송도 슬롯 갱신 → 직후 자동 poke 중복 방지
   } catch (e) {
