@@ -197,6 +197,77 @@ function newMobileUpdateAll() {
 }
 
 // ══════════════════════════════════════════════════════
+//  포트폴리오 상대 지표 (KR 리포트 public용 — 원화 절대액 미포함)
+// ══════════════════════════════════════════════════════
+/**
+ * 비중%(자산군별·종목별) + MDD%만 반환. 원화 금액은 절대 미포함(public 리포트 노출 방지).
+ * MDD = *추이 기록* 일별 총자산(Q열, row5↓ sumTotal)의 peak-to-trough.
+ */
+function getPortfolioMetrics() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const result = { success: true, assetClassWeights: {}, holdings: [], mdd: null };
+
+  // ── 비중 (보유현황 평가금액 by 분류) ──
+  const pos = ss.getSheetByName(NS.POSITION);
+  if (pos && pos.getLastRow() >= 2) {
+    const rows = pos.getRange(2, 1, pos.getLastRow() - 1, 15).getValues()
+      .filter(r => String(r[0]) !== '합계' && String(r[1]) !== '합계' && Number(r[6]) > 0);
+    const total = rows.reduce((s, r) => s + (Number(r[10]) || 0), 0);   // 평가금액(idx10)
+    if (total > 0) {
+      const byClass = {};
+      rows.forEach(r => {
+        const cat = String(r[2] || '기타');                              // 분류(idx2)
+        const w = (Number(r[10]) || 0) / total * 100;
+        byClass[cat] = (byClass[cat] || 0) + w;
+        result.holdings.push({ name: String(r[1]), category: cat, weight: Math.round(w * 10) / 10 });
+      });
+      Object.keys(byClass).forEach(k => { result.assetClassWeights[k] = Math.round(byClass[k] * 10) / 10; });
+      result.holdings.sort((a, b) => b.weight - a.weight);
+    }
+  }
+
+  // ── MDD (추이기록 일별 총자산 Q열=col17, row5↓; 포맷문자열 → 콤마 제거 파싱) ──
+  const trend = ss.getSheetByName(NS.TREND);
+  if (trend && trend.getLastRow() >= 5) {
+    const n = trend.getLastRow() - 5 + 1;
+    const vals = trend.getRange(5, 17, n, 1).getValues()
+      .map(r => Number(String(r[0]).replace(/[^0-9.]/g, '')))
+      .filter(v => v > 0);
+    if (vals.length >= 2) {
+      let peak = vals[0], mdd = 0;
+      for (let i = 0; i < vals.length; i++) {
+        if (vals[i] > peak) peak = vals[i];
+        const dd = (vals[i] - peak) / peak * 100;
+        if (dd < mdd) mdd = dd;
+      }
+      result.mdd = Math.round(mdd * 10) / 10;   // 음수%, 예: -25.0
+    }
+  }
+  return result;
+}
+
+/** doPost action=portfolioMetrics 핸들러 — 시크릿(TG_WEBHOOK_SECRET) 검증 후 상대 지표 JSON. */
+function _handlePortfolioMetricsPost(e) {
+  try {
+    const expected = _tgSecret();
+    let secret = e && e.parameter && e.parameter.secret;
+    if (!secret && e && e.postData && e.postData.contents) {
+      try { secret = JSON.parse(e.postData.contents).secret; } catch (_) { /* form-encoded */ }
+    }
+    if (!expected || secret !== expected) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'forbidden' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    return ContentService.createTextOutput(JSON.stringify(getPortfolioMetrics()))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    Logger.log('_handlePortfolioMetricsPost 오류: ' + err.message);
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(err) }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// ══════════════════════════════════════════════════════
 //  종목 상세
 // ══════════════════════════════════════════════════════
 function newMobileGetStockDetail(code) {

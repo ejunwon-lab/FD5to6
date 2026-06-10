@@ -89,6 +89,9 @@ function doPost(e) {
     if (action === 'pushPnL') {
       return _tgHandlePushPost(e);   // GitHub Actions cron → 장중 텔레그램 푸시 (GAS 트리거 대체)
     }
+    if (action === 'portfolioMetrics') {
+      return _handlePortfolioMetricsPost(e);   // KR 리포트 → 익스포저%·MDD (상대 지표만)
+    }
   } catch (err) {
     Logger.log('doPost action 분기 오류: ' + err.message);
   }
