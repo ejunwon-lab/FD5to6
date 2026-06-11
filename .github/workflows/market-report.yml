@@ -4,12 +4,19 @@ name: Market Report (US/KR)
 # - US: 일~목 UTC 23시대 = 월~금 KST 08시대 (전날 미국 마감 리포트)
 # - KR: 월~금 UTC 08시대 = 월~금 KST 17시대 (당일 한국 마감 리포트)
 #
-# "반드시 창 안에 도착" 보장 — 각 리포트를 40분 간격 2회 예약.
-#   먼저 성공해 docs/reports/{TYPE}-{날짜}.md를 commit하면, 두 번째 시도는
-#   체크아웃 시 그 파일을 보고 skip(중복 발송 방지). GH cron이 한 번 누락돼도 도착.
-#   - US: KST 08:02 / 08:42  (창: 08~09시)
-#   - KR: KST 17:02 / 17:42  (창: 17~18시)
-# workflow_dispatch는 항상 재생성·재발송 (guard 무시).
+# 정시화 (2026-06-11, 설계: docs/plans/2026-06-11-market-report-정시화-daisychain.md):
+#   GH schedule cron이 best-effort라 KR 리포트가 타깃 17:02 KST 대비 +3.3~3.8h 지연 발화(6/9~11).
+#   → telegram-push daisy-chain(24/7 alive, 검증됨)이 창(08:02·17:02 KST) 통과 시
+#     `gh workflow run`으로 type=<t> auto=true dispatch(이벤트 구동이라 지연 0) = **정시 발화 주경로**.
+#   아래 cron 4개는 **체인 사망 시 재시드 백업으로 강등**(삭제 안 함 — telegram과 동일 패턴).
+#
+# 멱등 보장 (반복 dispatch 레이스 회피 — errors.md:32 "2회 안전망 race" 동류):
+#   - auto=true dispatch: schedule과 동일하게 "오늘 파일 있으면 skip" 가드 적용.
+#   - job별 concurrency group: 중복 dispatch는 1 running + 1 pending으로 수렴, pending이
+#     이어받을 때 커밋된 파일을 보고 skip → 단일 발송.
+#   - 안전망 2회 cron(40분 간격)도 동일 가드로 중복 방지.
+#   - US: KST 08:02 / 08:42, KR: KST 17:02 / 17:42.
+# workflow_dispatch(auto 미지정·수동)는 항상 재생성·재발송 (guard 무시).
 
 on:
   schedule:
@@ -28,6 +35,10 @@ on:
         description: '테스트: 리포트 생성만, 텔레그램 발송·commit 안 함'
         type: boolean
         default: false
+      auto:
+        description: '자동 dispatch(체인): schedule처럼 오늘 파일 있으면 skip(멱등)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write   # docs/reports/ commit·push 용
@@ -38,16 +49,24 @@ jobs:
       (github.event_name == 'schedule' && (github.event.schedule == '2 23 * * 0-4' || github.event.schedule == '42 23 * * 0-4')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.type == 'us' || inputs.type == 'both'))
     runs-on: ubuntu-latest
+    # 중복 dispatch 수렴(멱등): 1 running + 1 pending, pending은 가드로 skip
+    concurrency:
+      group: market-report-us
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Skip if already sent today (schedule only)
+      - name: Skip if already sent today (schedule·auto dispatch)
         id: guard
         run: |
           DATE_KST=$(TZ='Asia/Seoul' date +%Y-%m-%d)
           REPORT=docs/reports/US-${DATE_KST}.md
-          if [ "${{ github.event_name }}" = "schedule" ] && [ -f "$REPORT" ]; then
+          # 가드 적용 대상: schedule 또는 auto=true dispatch (수동 dispatch는 강제 재생성)
+          GUARD_ON=no
+          [ "${{ github.event_name }}" = "schedule" ] && GUARD_ON=yes
+          [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.auto }}" = "true" ] && GUARD_ON=yes
+          if [ "$GUARD_ON" = "yes" ] && [ -f "$REPORT" ]; then
             echo "already=yes" >> $GITHUB_OUTPUT
             echo "⏭️ 오늘(${DATE_KST}) US 리포트 이미 발송됨 — skip"
           else
@@ -121,16 +140,22 @@ jobs:
       (github.event_name == 'schedule' && (github.event.schedule == '2 8 * * 1-5' || github.event.schedule == '42 8 * * 1-5')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.type == 'kr' || inputs.type == 'both'))
     runs-on: ubuntu-latest
+    concurrency:
+      group: market-report-kr
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Skip if already sent today (schedule only)
+      - name: Skip if already sent today (schedule·auto dispatch)
         id: guard
         run: |
           DATE_KST=$(TZ='Asia/Seoul' date +%Y-%m-%d)
           REPORT=docs/reports/KR-${DATE_KST}.md
-          if [ "${{ github.event_name }}" = "schedule" ] && [ -f "$REPORT" ]; then
+          GUARD_ON=no
+          [ "${{ github.event_name }}" = "schedule" ] && GUARD_ON=yes
+          [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.auto }}" = "true" ] && GUARD_ON=yes
+          if [ "$GUARD_ON" = "yes" ] && [ -f "$REPORT" ]; then
             echo "already=yes" >> $GITHUB_OUTPUT
             echo "⏭️ 오늘(${DATE_KST}) KR 리포트 이미 발송됨 — skip"
           else
