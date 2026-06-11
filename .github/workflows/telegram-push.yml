@@ -33,7 +33,8 @@ on:
         default: '120'
 
 permissions:
-  actions: write   # self-dispatch (gh workflow run) 용
+  actions: write    # self-dispatch + market-report dispatch (gh workflow run) 용
+  contents: read    # market-report 리포트 파일 존재 확인 (gh api contents) 용
 
 concurrency:
   group: telegram-push-chain
@@ -49,6 +50,8 @@ jobs:
           GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
           TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
           MINUTES: ${{ github.event.inputs.minutes || '120' }}
+          GH_TOKEN: ${{ github.token }}            # market-report dispatch/contents 확인용
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           if [ -z "$GAS_WEB_APP_URL" ] || [ -z "$TG_WEBHOOK_SECRET" ]; then
             echo "⏭️ GAS_WEB_APP_URL / TG_WEBHOOK_SECRET 미설정 — soft skip (롤아웃 전이면 정상)"
@@ -57,6 +60,35 @@ jobs:
           POKE_GAP=300                                   # 5분
           END=$(( $(date -u +%s) + MINUTES * 60 ))
           echo "=== 시작 $(date -u '+%H:%M:%S') UTC | ${MINUTES}분 동안 ${POKE_GAP}s 간격 poke ==="
+
+          # ── market-report 정시 dispatch (cron 지연 우회) ──────────────────
+          # 체인이 24/7 alive인 김에 리포트 창(KST 08:0x US / 17:0x KR) 통과를 감지해
+          # market-report를 auto dispatch. 멱등은 ① 이 run 내 /tmp 메모 ② contents API
+          # 존재확인 ③ market-report job concurrency+가드 3중으로 보장.
+          # ⚠️ 전체를 || true로 격리 — 어떤 실패도 poke 루프/체인 dispatch에 영향 없음.
+          maybe_dispatch_report() {   # $1=type(us|kr) $2=prefix(US|KR)
+            local t="$1" pre="$2" today
+            today=$(TZ='Asia/Seoul' date +%Y-%m-%d)
+            [ -f "/tmp/mr_${t}_${today}" ] && return 0          # 이 run에서 이미 dispatch
+            # 오늘 리포트가 이미 commit됐으면(200) dispatch 불필요
+            if gh api "repos/${GITHUB_REPOSITORY}/contents/docs/reports/${pre}-${today}.md" >/dev/null 2>&1; then
+              touch "/tmp/mr_${t}_${today}"; return 0
+            fi
+            echo "  ↳ market-report dispatch: type=${t} auto=true (${today})"
+            gh workflow run "Market Report (US/KR)" --ref main -f type="${t}" -f auto=true -R "${GITHUB_REPOSITORY}" \
+              && touch "/tmp/mr_${t}_${today}"
+            return 0
+          }
+          check_report_windows() {
+            local dow hm
+            dow=$(TZ='Asia/Seoul' date +%u)                     # 1=월 .. 7=일
+            hm=$((10#$(TZ='Asia/Seoul' date +%H%M)))            # 10# = 08xx octal 파싱 버그 회피
+            [ "$dow" -gt 5 ] && return 0                         # 주말은 리포트 없음
+            [ "$hm" -ge 802 ]  && [ "$hm" -le 859 ]  && maybe_dispatch_report us US
+            [ "$hm" -ge 1702 ] && [ "$hm" -le 1759 ] && maybe_dispatch_report kr KR
+            return 0
+          }
+
           n=0
           while [ "$(date -u +%s)" -lt "$END" ]; do
             n=$((n + 1))
@@ -68,6 +100,7 @@ jobs:
               --data "{\"action\":\"pushPnL\",\"secret\":\"${TG_WEBHOOK_SECRET}\"}" || echo 000)
             printf '%s UTC  poke#%s  HTTP=%s  resp=%s\n' \
               "$(date -u '+%H:%M:%S')" "$n" "$code" "$(cat /tmp/resp.txt 2>/dev/null)"
+            check_report_windows || true               # 리포트 정시 dispatch (격리 — 실패 무해)
             # 남은 시간이 간격 이하면 종료 (window 넘어 잠들지 않게)
             [ "$(( END - $(date -u +%s) ))" -le "$POKE_GAP" ] && break
             sleep "$POKE_GAP"
