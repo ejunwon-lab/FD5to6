@@ -92,6 +92,9 @@ function doPost(e) {
     if (action === 'portfolioMetrics') {
       return _handlePortfolioMetricsPost(e);   // KR 리포트 → 익스포저%·MDD (상대 지표만)
     }
+    if (action === 'addTrade') {
+      return _handleAddTradePost(e);   // 카톡 매매 알림 → *거래_원장* 1행 기록
+    }
   } catch (err) {
     Logger.log('doPost action 분기 오류: ' + err.message);
   }
