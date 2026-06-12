@@ -414,6 +414,150 @@ function addTransactionFromForm() {
   ss.toast(`${dateStr} ${type} ${name} ${qty.toLocaleString()}주 @${price.toLocaleString()}`, '✅ 원장에 추가됨', 5);
 }
 
+// ───────────────────────────────────────────────────
+//  카톡 매매 알림 → *거래_원장* 자동 기록 (doPost action=addTrade)
+//  설계: docs/plans/2026-06-11-카톡매매-원장자동기록.md
+// ───────────────────────────────────────────────────
+
+/** doPost action=addTrade 핸들러 — 시크릿(TG_WEBHOOK_SECRET) 검증 후 _appendTradeRow. */
+function _handleAddTradePost(e) {
+  try {
+    const expected = _tgSecret();   // Telegram.js
+    let body = {};
+    if (e && e.postData && e.postData.contents) {
+      try { body = JSON.parse(e.postData.contents); } catch (_) { /* form-encoded */ }
+    }
+    let secret = (e && e.parameter && e.parameter.secret) || body.secret;
+    if (!expected || secret !== expected) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'forbidden' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    const res = _appendTradeRow(body.trade || body);
+    return ContentService.createTextOutput(JSON.stringify(res))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    Logger.log('_handleAddTradePost 오류: ' + err.message);
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(err) }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * 카톡 매매 → *거래_원장* 1행 기록. payload t:
+ *   {date?,type,code,name,category?,broker,account,qty,price,amount?,fee?,orderNo?,memo?}
+ * - 정규화: 증권사 별칭→상수, 날짜 미지정→오늘(KST), 금액 미지정→수량×단가
+ * - 분류 미지정 시 *보유현황*(코드+증권사+계좌)에서 룩업 (다계좌 함정 회피, errors.md:306)
+ * - 멱등: 동일 fill(날짜·증권사·계좌·코드·구분·수량·단가 + 주문번호) 이미 있으면 skip (errors.md:203)
+ * - append 후 updatePositionFromLedger → 보유현황·실현손익·종목지표·대시보드 연쇄
+ * - 반환: {success, already?, row, trade, beforeQty, afterQty, posFound}
+ */
+function _appendTradeRow(t) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ledger = ss.getSheetByName(NS.LEDGER);
+    if (!ledger) return { success: false, error: 'no_ledger' };
+
+    // --- 정규화 ---
+    const type    = String(t.type || '').trim();
+    const code    = _normCode(String(t.code || '').trim());
+    const name    = String(t.name || '').trim();
+    const account = String(t.account || '').trim();
+    const qty     = Number(t.qty) || 0;
+    const price   = Number(t.price) || 0;
+    const fee     = Number(t.fee) || 0;
+    const orderNo = String(t.orderNo || '').trim();
+
+    let broker = String(t.broker || '').trim();
+    if (broker.indexOf('미래') !== -1)      broker = '미래에셋투자증권';
+    else if (broker.indexOf('삼성') !== -1) broker = '삼성증권';
+
+    let dateStr;
+    if (t.date) {
+      const d = (t.date instanceof Date) ? t.date : new Date(t.date);
+      dateStr = Utilities.formatDate(isNaN(d.getTime()) ? new Date() : d, 'Asia/Seoul', 'yyyy-MM-dd');
+    } else {
+      dateStr = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
+    }
+
+    // --- 검증 ---
+    if (NS.TX_TYPES.indexOf(type) === -1) return { success: false, error: 'bad_type', detail: type };
+    if (NS.BROKERS.indexOf(broker) === -1) return { success: false, error: 'bad_broker', detail: String(t.broker) };
+    if (!NS.ACCOUNTS[broker] || NS.ACCOUNTS[broker].indexOf(account) === -1)
+      return { success: false, error: 'bad_account', detail: broker + ' / ' + account };
+    if (!code || !name || qty <= 0 || price <= 0) return { success: false, error: 'missing_required' };
+
+    const amount = (Number(t.amount) > 0) ? Number(t.amount) : qty * price;
+
+    // --- 멱등: 동일 fill 이미 기록? (분류 룩업보다 먼저 — 전량매도로 보유현황 행이 사라져도 중복 인식) ---
+    const lastRow = ledger.getLastRow();
+    if (lastRow >= 2) {
+      const lv = ledger.getRange(2, 1, lastRow - 1, 12).getValues(); // 0날짜 1구분 2코드 5증권사 6계좌 7수량 8단가 11메모
+      for (let i = 0; i < lv.length; i++) {
+        const r = lv[i];
+        const rowDate = (r[0] instanceof Date) ? Utilities.formatDate(r[0], 'Asia/Seoul', 'yyyy-MM-dd') : String(r[0]).trim();
+        if (rowDate === dateStr && String(r[1]).trim() === type && _normCode(String(r[2])) === code &&
+            String(r[5]).trim() === broker && String(r[6]).trim() === account &&
+            (Number(r[7]) || 0) === qty && (Number(r[8]) || 0) === price) {
+          if (!orderNo || String(r[11] || '').indexOf('주문번호:' + orderNo) !== -1) {
+            return { success: true, already: true, row: i + 2, message: '이미 기록된 거래(멱등 skip)',
+                     trade: { date: dateStr, type: type, code: code, name: name, broker: broker, account: account, qty: qty, price: price } };
+          }
+        }
+      }
+    }
+
+    // --- *보유현황* 룩업: 분류 + 전 보유수량 (키 = 코드+증권사+계좌) ---
+    const pos = ss.getSheetByName(NS.POSITION);
+    let category = String(t.category || '').trim();
+    let beforeQty = 0, posFound = false;
+    if (pos && pos.getLastRow() >= 2) {
+      const pv = pos.getRange(2, 1, pos.getLastRow() - 1, 7).getValues(); // 0코드 2분류 3증권사 4계좌 6보유수량
+      for (let i = 0; i < pv.length; i++) {
+        if (_normCode(String(pv[i][0])) === code && String(pv[i][3]).trim() === broker && String(pv[i][4]).trim() === account) {
+          posFound = true;
+          beforeQty = Number(pv[i][6]) || 0;
+          if (!category) category = String(pv[i][2]).trim();
+          break;
+        }
+      }
+    }
+    if (!category) return { success: false, error: 'category_required', detail: code + ' ' + name };
+
+    // --- append (addTransactionFromForm과 동일 포맷) ---
+    const memo = (orderNo ? '주문번호:' + orderNo : '') + (t.memo ? (orderNo ? ' / ' : '') + String(t.memo).trim() : '');
+    const newRowNum = ledger.getLastRow() + 1;
+    const newRow = [dateStr, type, code, name, category, broker, account, qty, price, amount, fee, memo];
+    ledger.getRange(newRowNum, 1, 1, 12).setValues([newRow])
+      .setBackground(newRowNum % 2 === 0 ? NS.ROW_EVEN : NS.ROW_ODD);
+    ledger.getRange(newRowNum, 8, 1, 4).setNumberFormat('#,##0');
+    ledger.getRange(newRowNum, 11, 1, 1).setNumberFormat('#,##0');
+
+    // --- 재계산 (보유현황·실현손익·종목지표·대시보드 연쇄) ---
+    updatePositionFromLedger();
+
+    // --- 전후 보유수량 (검증용; 전량매도면 행 사라져 0) ---
+    let afterQty = 0;
+    if (pos && pos.getLastRow() >= 2) {
+      const pv2 = pos.getRange(2, 1, pos.getLastRow() - 1, 7).getValues();
+      for (let i = 0; i < pv2.length; i++) {
+        if (_normCode(String(pv2[i][0])) === code && String(pv2[i][3]).trim() === broker && String(pv2[i][4]).trim() === account) {
+          afterQty = Number(pv2[i][6]) || 0; break;
+        }
+      }
+    }
+
+    return { success: true, already: false, row: newRowNum,
+             trade: { date: dateStr, type: type, code: code, name: name, category: category, broker: broker, account: account, qty: qty, price: price, amount: amount, fee: fee, memo: memo },
+             beforeQty: beforeQty, afterQty: afterQty, posFound: posFound };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function _refreshFormPreview(ss, form, ledger) {
   const previewStart = NS.FR.SUBMIT + 3;
   form.getRange(previewStart, 1, 7, 4).clearContent().clearFormat();
