@@ -14,6 +14,25 @@
 // ══════════════════════════════════════════════════════
 //  포트폴리오 읽기 (앱 실행 시 즉시 호출)
 // ══════════════════════════════════════════════════════
+
+/**
+ * 시트에 저장된 '마지막 갱신' 시각(yyyy-MM-dd HH:mm)을 반환.
+ * *대시보드* 2행("🕐 마지막 갱신  2026-06-12 09:15  ·  정상")을 buildDashboard가 매 updateAllNew/
+ * updatePositionFromLedger 끝에 기록 → 갱신하면 now, 갱신 안 하고 읽으면 직전 갱신시각이 됨.
+ * 셀 없거나 파싱 실패 시 현재 시각 폴백.
+ */
+function _mLastUpdateAt(ss) {
+  try {
+    const dash = ss.getSheetByName(DB.SHEET);
+    if (dash) {
+      const cell = String(dash.getRange(2, 1).getValue() || '');
+      const m = cell.match(/(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}(?::\d{2})?)/);
+      if (m) return m[1] + ' ' + m[2];
+    }
+  } catch (e) { /* 폴백으로 진행 */ }
+  return Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm');
+}
+
 function newMobileGetPortfolio() {
   try {
     const ss       = SpreadsheetApp.getActiveSpreadsheet();
@@ -132,7 +151,7 @@ function newMobileGetPortfolio() {
 
     return JSON.stringify({
       success: true,
-      updatedAt: Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss'),
+      updatedAt: _mLastUpdateAt(ss),   // 시트 저장 '마지막 갱신' 시각 (갱신=now 재기록, 단순읽기=직전 갱신시각)
       usdRate: fx.usd,
       gbpRate: fx.gbp,
       summary,

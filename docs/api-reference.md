@@ -1,6 +1,6 @@
 # API Reference — GAS 모바일 엔드포인트 데이터 계약
 
-last updated: 2026-06-10
+last updated: 2026-06-18
 
 `apps-script-v2/MobileAPI.js`의 `newMobile*` 함수가 iOS(`ios2`)·웹(`web`)에 돌려주는 JSON 계약.
 **"어떤 필드가 이상하다"** 류 버그는 코드를 뒤지기 전에 이 표에서 필드 → 계산 위치를 먼저 찾는다.
@@ -18,7 +18,7 @@ last updated: 2026-06-10
 | 필드 | 의미 | 계산 위치 |
 |---|---|---|
 | `success` / `error` | 성공 여부 | — |
-| `updatedAt` | API 호출 시각 (yyyy-MM-dd HH:mm:ss) | `newMobileGetPortfolio` (현재 시각) |
+| `updatedAt` | **시트 저장 '마지막 갱신' 시각** (yyyy-MM-dd HH:mm) | `newMobileGetPortfolio`→`_mLastUpdateAt`: *대시보드* 2행 파싱. 갱신=now 재기록, 단순읽기=직전 갱신시각. 셀 없으면 now() 폴백 (2026-06-18 변경) |
 | `usdRate` / `gbpRate` | 환율 | `_mGetFxRates` ← *설정* 시트 |
 | `summary` | 요약 (아래 표) | — |
 | `byCategory` / `byAccount` | 분류별·계좌별 집계 (`Record<string, GroupStat>`) | `_mGroupBy` |

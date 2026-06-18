@@ -153,10 +153,13 @@ struct IndicatorsView: View {
     private var footerTime: some View {
         VStack(spacing: 2) {
             Text("마지막 갱신")
-                .font(.caption2)
+                .font(.footnote)
                 .foregroundColor(.secondary)
-            Text(vm.indicatorsUpdatedAt)
-                .font(.caption2)
+            Text(splitUpdatedAt(vm.indicatorsUpdatedAt).date)
+                .font(.footnote)
+                .foregroundColor(.secondary)
+            Text(splitUpdatedAt(vm.indicatorsUpdatedAt).time)
+                .font(.footnote)
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)

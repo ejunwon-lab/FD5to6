@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { decideChangeLabel, formatPriceAsOfDate } from './changeLabel'
+import { decideChangeLabel, formatPriceAsOfDate, splitUpdatedAt } from './changeLabel'
 
 describe('decideChangeLabel', () => {
   beforeEach(() => {
@@ -57,5 +57,22 @@ describe('formatPriceAsOfDate', () => {
     expect(formatPriceAsOfDate(undefined)).toBe('')
     expect(formatPriceAsOfDate(null)).toBe('')
     expect(formatPriceAsOfDate('')).toBe('')
+  })
+})
+
+describe('splitUpdatedAt', () => {
+  it('"yyyy-MM-dd HH:mm" → 날짜/시간 분리', () => {
+    expect(splitUpdatedAt('2026-06-12 09:15')).toEqual({ date: '2026-06-12', time: '09:15' })
+  })
+  it('초 포함도 분리', () => {
+    expect(splitUpdatedAt('2026-06-12 09:15:30')).toEqual({ date: '2026-06-12', time: '09:15:30' })
+  })
+  it('날짜만 있으면 시간 빈 문자열', () => {
+    expect(splitUpdatedAt('2026-06-12')).toEqual({ date: '2026-06-12', time: '' })
+  })
+  it('null/undefined/빈 → 둘 다 빈 문자열', () => {
+    expect(splitUpdatedAt(undefined)).toEqual({ date: '', time: '' })
+    expect(splitUpdatedAt(null)).toEqual({ date: '', time: '' })
+    expect(splitUpdatedAt('')).toEqual({ date: '', time: '' })
   })
 })
