@@ -61,14 +61,21 @@ describe('formatPriceAsOfDate', () => {
 })
 
 describe('splitUpdatedAt', () => {
-  it('"yyyy-MM-dd HH:mm" → 날짜/시간 분리', () => {
-    expect(splitUpdatedAt('2026-06-12 09:15')).toEqual({ date: '2026-06-12', time: '09:15' })
+  it('"yyyy-MM-dd HH:mm" → 날짜(요일)/12시간제 시간', () => {
+    // 2026-06-12 = 금요일, 09:15 → am 9:15
+    expect(splitUpdatedAt('2026-06-12 09:15')).toEqual({ date: '2026-06-12(금)', time: 'am 9:15' })
+    // 2026-06-18 = 목요일, 14:45 → pm 2:45
+    expect(splitUpdatedAt('2026-06-18 14:45')).toEqual({ date: '2026-06-18(목)', time: 'pm 2:45' })
   })
-  it('초 포함도 분리', () => {
-    expect(splitUpdatedAt('2026-06-12 09:15:30')).toEqual({ date: '2026-06-12', time: '09:15:30' })
+  it('12시간제 경계 (자정/정오)', () => {
+    expect(splitUpdatedAt('2026-06-18 00:30').time).toBe('am 12:30')
+    expect(splitUpdatedAt('2026-06-18 12:00').time).toBe('pm 12:00')
+  })
+  it('초 포함이면 초는 버림', () => {
+    expect(splitUpdatedAt('2026-06-12 09:15:30').time).toBe('am 9:15')
   })
   it('날짜만 있으면 시간 빈 문자열', () => {
-    expect(splitUpdatedAt('2026-06-12')).toEqual({ date: '2026-06-12', time: '' })
+    expect(splitUpdatedAt('2026-06-12')).toEqual({ date: '2026-06-12(금)', time: '' })
   })
   it('null/undefined/빈 → 둘 다 빈 문자열', () => {
     expect(splitUpdatedAt(undefined)).toEqual({ date: '', time: '' })

@@ -46,10 +46,28 @@ export function formatPriceAsOfDate(priceAsOfDate?: string | null): string {
   return `${y}년 ${m}월 ${d}일 ${WEEKDAY_KO[wd]}요일`
 }
 
-// "마지막 갱신" 시각("yyyy-MM-dd HH:mm[:ss]")을 날짜/시간 2줄로 분리.
+// "마지막 갱신" 시각("yyyy-MM-dd HH:mm[:ss]")을 표시용 날짜/시간 2줄로 변환.
+//   date → "2026-06-18(목)"   time → "pm 2:45" (12시간제, am/pm 소문자)
 // 갱신·기존값 모두 GAS가 시트 저장 시각을 주므로 동일하게 표시됨.
 export function splitUpdatedAt(updatedAt?: string | null): { date: string; time: string } {
   if (!updatedAt) return { date: '', time: '' }
-  const [date, time = ''] = String(updatedAt).trim().split(/\s+/)
-  return { date: date ?? '', time }
+  const [datePart = '', timePart = ''] = String(updatedAt).trim().split(/\s+/)
+
+  let date = datePart
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+    const [y, m, d] = datePart.split('-').map(Number)
+    const wd = new Date(y, m - 1, d).getDay()
+    date = `${datePart}(${WEEKDAY_KO[wd]})`
+  }
+
+  let time = ''
+  const tm = timePart.match(/^(\d{1,2}):(\d{2})/)
+  if (tm) {
+    const h = parseInt(tm[1], 10)
+    const ampm = h < 12 ? 'am' : 'pm'
+    const h12 = h % 12 || 12
+    time = `${ampm} ${h12}:${tm[2]}`
+  }
+
+  return { date, time }
 }
