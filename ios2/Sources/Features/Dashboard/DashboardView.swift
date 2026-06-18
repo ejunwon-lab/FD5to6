@@ -164,10 +164,13 @@ struct DashboardView: View {
 
             VStack(spacing: 2) {
                 Text("마지막 갱신")
-                    .font(.caption2)
+                    .font(.footnote)
                     .foregroundColor(.secondary)
-                Text(vm.lastUpdated)
-                    .font(.caption2)
+                Text(splitUpdatedAt(vm.lastUpdated).date)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                Text(splitUpdatedAt(vm.lastUpdated).time)
+                    .font(.footnote)
                     .foregroundColor(.secondary)
             }
             .padding(.vertical, 8)

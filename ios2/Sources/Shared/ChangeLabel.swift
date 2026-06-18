@@ -30,6 +30,15 @@ func decideChangeLabel(_ priceAsOfDate: String?, _ isTradingDay: Bool?) -> Strin
     return "최근"
 }
 
+// "마지막 갱신" 시각("yyyy-MM-dd HH:mm[:ss]")을 날짜/시간 2줄로 분리.
+// 갱신·기존값 모두 GAS가 시트 저장 시각을 주므로 동일하게 표시됨.
+func splitUpdatedAt(_ updatedAt: String?) -> (date: String, time: String) {
+    guard let s = updatedAt?.trimmingCharacters(in: .whitespaces), !s.isEmpty else { return ("", "") }
+    let parts = s.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true).map(String.init)
+    if parts.count == 2 { return (parts[0], parts[1]) }
+    return (parts.first ?? s, "")
+}
+
 // 수익 기준일 표시용: "2026-05-15" → "2026년 5월 15일 금요일"
 func formatPriceAsOfDate(_ priceAsOfDate: String?) -> String {
     guard let priceAsOfDate,

@@ -4,6 +4,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import type { ReferenceIndicator } from '../../models/types'
+import { splitUpdatedAt } from '../../utils/changeLabel'
 
 const CATEGORY_ORDER = [
   '한국시장', '한국선물', '중국시장',
@@ -140,11 +141,12 @@ export function IndicatorsPage() {
             <p className="text-center text-gray-400 text-sm py-8">지표 데이터 없음</p>
           )}
 
-          {/* Footer */}
+          {/* Footer — 마지막 갱신: 날짜/시간 2줄 */}
           {updatedAt && (
             <div className="text-center py-4">
-              <p className="text-[10px] text-gray-400">마지막 갱신</p>
-              <p className="text-[10px] text-gray-400">{updatedAt}</p>
+              <p className="text-sm text-gray-400">마지막 갱신</p>
+              <p className="text-sm text-gray-400">{splitUpdatedAt(updatedAt).date}</p>
+              <p className="text-sm text-gray-400">{splitUpdatedAt(updatedAt).time}</p>
             </div>
           )}
         </div>

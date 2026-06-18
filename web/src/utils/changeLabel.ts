@@ -45,3 +45,11 @@ export function formatPriceAsOfDate(priceAsOfDate?: string | null): string {
   const wd = new Date(y, m - 1, d).getDay()
   return `${y}년 ${m}월 ${d}일 ${WEEKDAY_KO[wd]}요일`
 }
+
+// "마지막 갱신" 시각("yyyy-MM-dd HH:mm[:ss]")을 날짜/시간 2줄로 분리.
+// 갱신·기존값 모두 GAS가 시트 저장 시각을 주므로 동일하게 표시됨.
+export function splitUpdatedAt(updatedAt?: string | null): { date: string; time: string } {
+  if (!updatedAt) return { date: '', time: '' }
+  const [date, time = ''] = String(updatedAt).trim().split(/\s+/)
+  return { date: date ?? '', time }
+}
