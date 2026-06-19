@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { decideChangeLabel, formatPriceAsOfDate, splitUpdatedAt } from './changeLabel'
+import { decideChangeLabel, formatPriceAsOfDate, splitUpdatedAt, formatUpdatedAtLine } from './changeLabel'
 
 describe('decideChangeLabel', () => {
   beforeEach(() => {
@@ -81,5 +81,17 @@ describe('splitUpdatedAt', () => {
     expect(splitUpdatedAt(undefined)).toEqual({ date: '', time: '' })
     expect(splitUpdatedAt(null)).toEqual({ date: '', time: '' })
     expect(splitUpdatedAt('')).toEqual({ date: '', time: '' })
+  })
+})
+
+describe('formatUpdatedAtLine', () => {
+  it('한 줄 "날짜(요일) 시간"', () => {
+    expect(formatUpdatedAtLine('2026-06-18 14:45')).toBe('2026-06-18(목) pm 2:45')
+    expect(formatUpdatedAtLine('2026-06-12 09:15')).toBe('2026-06-12(금) am 9:15')
+  })
+  it('날짜만 / 빈값', () => {
+    expect(formatUpdatedAtLine('2026-06-18')).toBe('2026-06-18(목)')
+    expect(formatUpdatedAtLine('')).toBe('')
+    expect(formatUpdatedAtLine(null)).toBe('')
   })
 })

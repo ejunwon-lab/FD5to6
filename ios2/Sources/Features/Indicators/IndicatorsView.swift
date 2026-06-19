@@ -151,19 +151,11 @@ struct IndicatorsView: View {
     }
 
     private var footerTime: some View {
-        VStack(spacing: 2) {
-            Text("마지막 갱신")
-                .font(.footnote)
-                .foregroundColor(.secondary)
-            Text(splitUpdatedAt(vm.indicatorsUpdatedAt).date)
-                .font(.footnote)
-                .foregroundColor(.secondary)
-            Text(splitUpdatedAt(vm.indicatorsUpdatedAt).time)
-                .font(.footnote)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        Text("마지막 갱신  \(formatUpdatedAtLine(vm.indicatorsUpdatedAt))")
+            .font(.footnote)
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
     }
 
     private var emptyPlaceholder: some View {

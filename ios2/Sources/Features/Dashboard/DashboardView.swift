@@ -162,18 +162,10 @@ struct DashboardView: View {
 
             Divider()
 
-            VStack(spacing: 2) {
-                Text("마지막 갱신")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                Text(splitUpdatedAt(vm.lastUpdated).date)
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                Text(splitUpdatedAt(vm.lastUpdated).time)
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.vertical, 8)
+            Text("마지막 갱신  \(formatUpdatedAtLine(vm.lastUpdated))")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .padding(.vertical, 8)
         }
         .background(Color.cardBg)
         .clipShape(RoundedRectangle(cornerRadius: 16))
