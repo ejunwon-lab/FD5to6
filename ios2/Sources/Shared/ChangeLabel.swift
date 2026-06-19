@@ -67,6 +67,12 @@ func splitUpdatedAt(_ updatedAt: String?) -> (date: String, time: String) {
     return (date, time)
 }
 
+// 한 줄 표시용: "2026-06-18(목) pm 2:45"
+func formatUpdatedAtLine(_ updatedAt: String?) -> String {
+    let p = splitUpdatedAt(updatedAt)
+    return [p.date, p.time].filter { !$0.isEmpty }.joined(separator: " ")
+}
+
 // 수익 기준일 표시용: "2026-05-15" → "2026년 5월 15일 금요일"
 func formatPriceAsOfDate(_ priceAsOfDate: String?) -> String {
     guard let priceAsOfDate,

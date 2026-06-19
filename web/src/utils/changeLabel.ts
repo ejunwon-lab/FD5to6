@@ -71,3 +71,9 @@ export function splitUpdatedAt(updatedAt?: string | null): { date: string; time:
 
   return { date, time }
 }
+
+// 한 줄 표시용: "2026-06-18(목) pm 2:45"
+export function formatUpdatedAtLine(updatedAt?: string | null): string {
+  const { date, time } = splitUpdatedAt(updatedAt)
+  return [date, time].filter(Boolean).join(' ')
+}
