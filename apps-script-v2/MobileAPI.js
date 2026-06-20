@@ -318,10 +318,19 @@ function _emailJsonOut(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }
 
+/** 허용 제목 패턴 — 리포트만 발송(임의 내용 차단). 워크플로 SUBJECT와 일치해야 함. */
+var _EMAIL_SUBJECT_OK = /Market (Close|Wrap)|KR 마감|US 마감/;
+var _EMAIL_DAILY_MAX = 6;   // 정상 US+KR 2~4통 + 재시도 여유. 초과 = 폭주로 간주·차단.
+
 /**
  * doPost action=emailReport — 리포트 본문을 시트 소유계정 Gmail로 셀프발송.
- * 수신=발송=getEffectiveUser (executeAs USER_DEPLOYING이라 소유자). 주소 하드코딩 0.
- * dedup: 타입별(KR/US) 12h 1회 — market-report job guard와 이중 (지연 cron 중복 차단).
+ *
+ * 안전장치 (해킹·오발송 방어, 2026-06-20):
+ *  1. 수신자 = getEffectiveUser() 소유자 본인 고정 — 요청으로 제3자 지정 불가(구조적 차단).
+ *  2. Kill switch — Properties 'email_disabled'='1'이면 전면 차단(사고 시 즉시 정지).
+ *  3. 제목 화이트리스트 — 리포트 패턴(_EMAIL_SUBJECT_OK)만. 임의 내용 발송 차단.
+ *  4. 일일 상한 — subject 무관 카운터(_EMAIL_DAILY_MAX). dedup 우회 폭주·쿼터 소진 차단.
+ *  5. dedup — 타입별 12h 1회(정상 중복). 응답에 수신주소 미노출(public 로그 보호).
  */
 function _handleEmailReportPost(e) {
   try {
@@ -333,9 +342,28 @@ function _handleEmailReportPost(e) {
       catch (_) { /* form-encoded */ }
     }
     if (!expected || secret !== expected) return _emailJsonOut({ success: false, error: 'forbidden' });
-    if (!text) return _emailJsonOut({ success: false, error: 'text required' });
 
     const props = _tgProps();
+    // [2] Kill switch — 해킹 의심 시 Properties에 email_disabled=1 (즉시 전면 정지)
+    if (props.getProperty('email_disabled') === '1') {
+      Logger.log('emailReport: kill switch ON — 차단');
+      return _emailJsonOut({ success: false, error: 'email_disabled' });
+    }
+    if (!text) return _emailJsonOut({ success: false, error: 'text required' });
+    // [3] 제목 화이트리스트 — 리포트 외 발송 차단
+    if (!_EMAIL_SUBJECT_OK.test(subject || '')) {
+      Logger.log('emailReport: 제목 패턴 불일치 — 차단');
+      return _emailJsonOut({ success: false, error: 'subject_not_allowed' });
+    }
+    // [4] 일일 상한 — subject 무관 (dedup 우회 폭주·쿼터 소진 차단)
+    const today = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
+    const cntKey = 'email_count_' + today;
+    const cnt = Number(props.getProperty(cntKey) || 0);
+    if (cnt >= _EMAIL_DAILY_MAX) {
+      Logger.log('emailReport: 일일 상한(' + _EMAIL_DAILY_MAX + ') 초과 — 차단');
+      return _emailJsonOut({ success: false, error: 'daily_limit' });
+    }
+    // [5] dedup — 타입별 12h 1회
     const isKr = /KR|🌆/.test(subject || '');
     const key = 'email_last_' + (isKr ? 'kr' : 'us');
     const lastSubj = props.getProperty(key + '_subj') || '';
@@ -343,15 +371,29 @@ function _handleEmailReportPost(e) {
     if (subject === lastSubj && (Date.now() - lastMs) < 12 * 3600 * 1000) {
       return _emailJsonOut({ success: true, result: 'skip-dedup' });
     }
+    // 발송 — [1] 수신자는 항상 소유자 본인 (요청으로 변조 불가)
     const to = Session.getEffectiveUser().getEmail();
-    MailApp.sendEmail({ to: to, subject: subject || '시장 리포트', body: text });
-    props.setProperty(key + '_subj', String(subject || ''));
+    MailApp.sendEmail({ to: to, subject: subject, body: text });
+    props.setProperty(key + '_subj', String(subject));
     props.setProperty(key + '_ms', String(Date.now()));
-    return _emailJsonOut({ success: true, result: 'sent', to: to });
+    props.setProperty(cntKey, String(cnt + 1));
+    return _emailJsonOut({ success: true, result: 'sent' });   // 수신주소 미노출
   } catch (err) {
     Logger.log('_handleEmailReportPost 오류: ' + err.message);
     return _emailJsonOut({ success: false, error: String(err) });
   }
+}
+
+/** 🛑 이메일 발송 즉시 전면 차단 (해킹·오발송 의심 시 에디터에서 이 함수 ▶ 실행). */
+function emailKillSwitch_ON() {
+  _tgProps().setProperty('email_disabled', '1');
+  Logger.log('🛑 이메일 발송 차단됨 (email_disabled=1). 재개는 emailKillSwitch_OFF.');
+}
+
+/** ✅ 이메일 발송 재개 (차단 해제). */
+function emailKillSwitch_OFF() {
+  _tgProps().deleteProperty('email_disabled');
+  Logger.log('✅ 이메일 발송 재개됨 (email_disabled 제거).');
 }
 
 /**
