@@ -6,6 +6,8 @@
 
 ## 🟢 예정 작업
 
+- **🟡 PB 리포트 + 이메일 채널 — 구현·dry_run 완료, 월요일(6/22) 라이브 최종검증 (2026-06-20)** — 시장 리포트 PB 격상(7섹션 역피라미드) + 이메일 셀프발송(halcyon.public@gmail.com, 안전장치 5중) + portfolioReturn(dRate, 벤치 단위일치) + 거시 출처강제 + 휴장 직전거래일 폴백. GAS v18→v22, 커밋 8. dry_run 전항목 통과(원화0·벤치비교·거시출처·휴장폴백 US+KR). 세션: `2026-06-20-PB리포트-이메일채널-안전장치.md`. **🔴 월요일 첫 실런 확인**: ① 이메일 HTML **실발송 도착**(halcyon.public Gmail, 서식·표) ② 텔레그램 PB 7섹션 + portfolioReturn "5일 X% vs KOSPI·KOSDAQ" 라이브 ③ KR 17:0x/US 08:0x 정시 + 이메일 동시. ④ kr-theses.md 투자논리 **초안→사용자 확정** 시 "(논리 초안)" 라벨 제거.
+
 - **🟢 코딩 전 설계 게이트 2단계 — hook 강제 (2026-06-09)** — 1단계(전역 CLAUDE.md "변경 전 설계 절차" + `/design-check` skill + repo SSOT 동기화) 구축·전역화 완료(세션 문서 `2026-06-09-설계게이트-전역화.md`). **남은 것**: 다음 위험 변경(텔레그램 스케줄러 수정 등)에 `/design-check` 첫 적용해 **코딩 전 에러 차단 효과 증명** → 확인되면 PreToolUse hook으로 위험 경로 Edit 시 강제 게이트 추가. + 맥북 M1에서 `실행@` 1회로 전역 동기화 확인(첫 실행 시 `~/.claude/CLAUDE.md.bak` 점검).
 
 - ~~**🟡 market-report 정시화 daisy-chain**~~ ✅ **라이브 검증 완료 (2026-06-19 실측, 검증 2026-06-20)** — telegram 24/7 체인이 창(KST 08:0x US / 17:0x KR) 감지 → market-report `-f type=<t> -f auto=true` 이벤트 dispatch. **실측 6/15~6/19**: KR work run이 **08:04~08:06 UTC = KST 17:04~17:06 정시 발화**(과거 ~20:4x → 정시화 성공), US work run **23:0x~23:5x UTC = KST 08:0x 발화**. **멱등성 확인**: 지연된 cron(sche) run들(예 6/19 12:13Z·12:34Z = KST 21시)이 "Skip if already sent today" guard로 **Generate·Send to Telegram·Commit 전부 skipped** = 중복 발송 0. cron 백업은 매일 4~6회 cancelled/지연-skip으로 돌지만 전부 무해(설계대로 흡수). 세션: `2026-06-11-텔레그램체인검증-market리포트정시화.md`. → **닫음** (cron 백업 노이즈는 안전망이므로 유지).
