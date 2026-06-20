@@ -267,6 +267,25 @@ function getPortfolioMetrics() {
       result.mdd = Math.round(mdd * 10) / 10;   // 음수%, 예: -25.0
     }
   }
+
+  // ── 최근 운용수익률% 추세 (추이기록 수익추이 U=col21 날짜·AC=col29 운용수익률%; 원화 절대액 0) ──
+  // PB 리포트 "최근 현황"용 — 오늘 한 점이 아닌 며칠 흐름. 벤치(KOSPI/S&P) 비교는 에이전트가 Yahoo로.
+  if (trend && trend.getLastRow() >= 5) {
+    const pn = trend.getLastRow() - 5 + 1;
+    const dts = trend.getRange(5, 21, pn, 1).getValues().flat();   // U 날짜
+    const rts = trend.getRange(5, 29, pn, 1).getValues().flat();   // AC 운용수익률%
+    const recent = [];
+    for (let i = 0; i < dts.length; i++) {
+      const raw = dts[i];
+      const d = raw instanceof Date
+        ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
+        : String(raw || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      const r = parseFloat(String(rts[i]).replace(/[^0-9.\-]/g, ''));
+      if (!isNaN(r)) recent.push({ date: d, opRatePct: Math.round(r * 100) / 100 });
+    }
+    result.recentReturns = recent.slice(-10);   // 최근 10거래일 (원화 미포함)
+  }
   return result;
 }
 
@@ -289,6 +308,66 @@ function _handlePortfolioMetricsPost(e) {
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(err) }))
       .setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+// ══════════════════════════════════════════════════════
+//  이메일 셀프발송 (PB 리포트 채널 — 시트 소유계정 Gmail)
+// ══════════════════════════════════════════════════════
+/** JSON 응답 헬퍼 */
+function _emailJsonOut(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * doPost action=emailReport — 리포트 본문을 시트 소유계정 Gmail로 셀프발송.
+ * 수신=발송=getEffectiveUser (executeAs USER_DEPLOYING이라 소유자). 주소 하드코딩 0.
+ * dedup: 타입별(KR/US) 12h 1회 — market-report job guard와 이중 (지연 cron 중복 차단).
+ */
+function _handleEmailReportPost(e) {
+  try {
+    const expected = _tgSecret();
+    let p = (e && e.parameter) || {};
+    let secret = p.secret, subject = p.subject, text = p.text;
+    if ((!secret || !text) && e && e.postData && e.postData.contents) {
+      try { const j = JSON.parse(e.postData.contents); secret = secret || j.secret; subject = subject || j.subject; text = text || j.text; }
+      catch (_) { /* form-encoded */ }
+    }
+    if (!expected || secret !== expected) return _emailJsonOut({ success: false, error: 'forbidden' });
+    if (!text) return _emailJsonOut({ success: false, error: 'text required' });
+
+    const props = _tgProps();
+    const isKr = /KR|🌆/.test(subject || '');
+    const key = 'email_last_' + (isKr ? 'kr' : 'us');
+    const lastSubj = props.getProperty(key + '_subj') || '';
+    const lastMs = Number(props.getProperty(key + '_ms') || 0);
+    if (subject === lastSubj && (Date.now() - lastMs) < 12 * 3600 * 1000) {
+      return _emailJsonOut({ success: true, result: 'skip-dedup' });
+    }
+    const to = Session.getEffectiveUser().getEmail();
+    MailApp.sendEmail({ to: to, subject: subject || '시장 리포트', body: text });
+    props.setProperty(key + '_subj', String(subject || ''));
+    props.setProperty(key + '_ms', String(Date.now()));
+    return _emailJsonOut({ success: true, result: 'sent', to: to });
+  } catch (err) {
+    Logger.log('_handleEmailReportPost 오류: ' + err.message);
+    return _emailJsonOut({ success: false, error: String(err) });
+  }
+}
+
+/**
+ * 🔴 사용자 1회 실행 — MailApp 권한 승인 트리거 + 발송 계정/쿼터 확인.
+ * Apps Script 에디터에서 이 함수 ▶ Run → 권한 모달 "고급→이동→허용" → 셀프 메일 도착.
+ * (errors.md:142 UrlFetchApp 재승인 부류 — 신규 script.send_mail 스코프 동의)
+ */
+function _emailReportSelfTest() {
+  const to = Session.getEffectiveUser().getEmail();
+  const quota = MailApp.getRemainingDailyQuota();
+  MailApp.sendEmail({
+    to: to,
+    subject: '[테스트] PB 리포트 이메일 채널 — 권한 승인 확인',
+    body: '이 메일이 도착하면 셀프발송 동작 정상.\n발송/수신 계정: ' + to + '\n남은 일일 발송 쿼터: ' + quota,
+  });
+  Logger.log('이메일 셀프발송 시도 → ' + to + ' (남은 쿼터 ' + quota + ')');
 }
 
 // ══════════════════════════════════════════════════════

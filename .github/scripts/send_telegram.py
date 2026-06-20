@@ -19,6 +19,28 @@ import urllib.error
 import urllib.request
 
 
+def split_message(body, limit=4000):
+    """텔레그램 4096자 한도(여유 4000)로 줄 경계 분할. PB 리포트 길이 대비 안전망."""
+    if len(body) <= limit:
+        return [body]
+    chunks, cur = [], ""
+    for line in body.split("\n"):
+        while len(line) > limit:               # 한 줄이 한도 초과면 강제 컷
+            if cur:
+                chunks.append(cur)
+                cur = ""
+            chunks.append(line[:limit])
+            line = line[limit:]
+        if cur and len(cur) + 1 + len(line) > limit:
+            chunks.append(cur)
+            cur = line
+        else:
+            cur = (cur + "\n" + line) if cur else line
+    if cur:
+        chunks.append(cur)
+    return chunks
+
+
 def post(url, payload):
     req = urllib.request.Request(
         url,
@@ -64,37 +86,47 @@ def main():
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
 
+    chunks = split_message(body)
+    if len(chunks) > 1:
+        print(f"본문 {len(body)}자 → {len(chunks)}개로 분할 발송")
+
     sent = 0
     failed = []
     for chat_id in chat_ids:
-        # 1차: Markdown
-        status, resp = post(url, {
-            "chat_id": chat_id,
-            "text": body,
-            "parse_mode": "Markdown",
-            "disable_notification": False,
-        })
-        if status == 200:
-            sent += 1
-            print(f"[OK Markdown] {chat_id}")
-            continue
-        # 2차: plain text fallback (Markdown parse 실패 시)
-        if status == 400:
-            status2, resp2 = post(url, {
+        ok = True
+        for idx, chunk in enumerate(chunks):
+            tag = f"{chat_id}" + (f" [{idx+1}/{len(chunks)}]" if len(chunks) > 1 else "")
+            # 1차: Markdown
+            status, resp = post(url, {
                 "chat_id": chat_id,
-                "text": body,
+                "text": chunk,
+                "parse_mode": "Markdown",
                 "disable_notification": False,
             })
-            if status2 == 200:
-                sent += 1
-                print(f"[OK plain fallback] {chat_id} (Markdown 400)")
+            if status == 200:
+                print(f"[OK Markdown] {tag}")
                 continue
-            failed.append(f"{chat_id}: plain HTTP {status2} {resp2[:200]}")
-            print(f"[FAIL plain] {chat_id} HTTP {status2}", file=sys.stderr)
-            continue
-        # 그 외 에러
-        failed.append(f"{chat_id}: Markdown HTTP {status} {resp[:200]}")
-        print(f"[FAIL Markdown] {chat_id} HTTP {status}: {resp[:200]}", file=sys.stderr)
+            # 2차: plain text fallback (Markdown parse 실패 시)
+            if status == 400:
+                status2, resp2 = post(url, {
+                    "chat_id": chat_id,
+                    "text": chunk,
+                    "disable_notification": False,
+                })
+                if status2 == 200:
+                    print(f"[OK plain fallback] {tag} (Markdown 400)")
+                    continue
+                failed.append(f"{tag}: plain HTTP {status2} {resp2[:200]}")
+                print(f"[FAIL plain] {tag} HTTP {status2}", file=sys.stderr)
+                ok = False
+                break
+            # 그 외 에러
+            failed.append(f"{tag}: Markdown HTTP {status} {resp[:200]}")
+            print(f"[FAIL Markdown] {tag} HTTP {status}: {resp[:200]}", file=sys.stderr)
+            ok = False
+            break
+        if ok:
+            sent += 1
 
     print(f"\nresult: sent={sent}/{len(chat_ids)}")
     if failed:
