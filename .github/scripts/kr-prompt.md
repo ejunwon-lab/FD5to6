@@ -50,7 +50,7 @@
 - 가격/등락률: `https://m.stock.naver.com/api/index/KOSPI/basic` (KOSDAQ은 `.../index/KOSDAQ/basic`) → `closePrice`·`fluctuationsRatio`·`compareToPreviousClosePrice`
 - 거래대금: `https://m.stock.naver.com/api/index/KOSPI/integration` → `totalInfos`의 `대금`(백만원 → ÷100,000 ≈ 조)
 
-**KOSPI200·환율 — Yahoo** `https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?interval=1d&range=5d` (`meta.regularMarketPrice`·`meta.chartPreviousClose`): `^KS200`·`KRW=X`. **range=5d라 최근 5일 종가 배열도 받음 → 벤치 대비(1-F)용으로 KOSPI 5일 변화율 계산.**
+**KOSPI200·환율·벤치 — Yahoo** `https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?interval=1d&range=5d` (`meta.regularMarketPrice`·`meta.chartPreviousClose`): `^KS200`·`KRW=X` + **벤치 5일 비교용 `^KS11`(KOSPI)·`^KQ11`(KOSDAQ)** → `result[0].indicators.quote[0].close` 5일 배열의 첫↔끝으로 **5일 변화율%** 계산(1-F portfolioReturn.d5와 나란히 비교).
 
 ### 1-B. 보유 종목 16개 가격 — Naver 모바일 API `/basic`
 WebFetch: `https://m.stock.naver.com/api/stock/{code}/basic` → `closePrice`·`fluctuationsRatio`·`compareToPreviousClosePrice`. 16종 전부. (⚠️ `/basic`)
@@ -77,10 +77,11 @@ WebFetch: `https://m.stock.naver.com/api/stock/{code}/basic` → `closePrice`·`
 curl -sS -L "$GAS_WEB_APP_URL" -H 'Content-Type: application/json' \
   --data "{\"action\":\"portfolioMetrics\",\"secret\":\"$TG_WEBHOOK_SECRET\"}"
 ```
-→ JSON `{ assetClassWeights:{분류:%}, holdings:[{name,category,weight%}], mdd:음수%, recentReturns:[{date, opRatePct}] }`.
+→ JSON `{ assetClassWeights:{분류:%}, holdings:[{name,category,weight%}], mdd:음수%, recentReturns:[{date, opRatePct}], portfolioReturn:{d5, d20} }`.
 - **테마 익스포저**: holdings의 weight%를 테마로 합산 — **반도체** = 삼성전자·SK하이닉스·삼성전기 + AI·반도체 ETF(반도체TOP10·로봇·소부장·AI반도체핵심장비 등).
 - **mdd** = 고점 대비 최대 낙폭%(음수).
-- **recentReturns** = 최근 10거래일 운용수익률%(누적 매입원가 대비, 원화 0). **최근 현황·추세**용 — 마지막 값 vs 며칠 전 비교로 "요즘 회복/악화" 판정. **벤치 대비**: recentReturns 최근 변화 vs KOSPI 같은 기간 변화(1-A Yahoo 5d)로 "시장 대비 초과/열위" 한 줄.
+- **recentReturns** = 최근 10거래일 운용수익률%(누적 매입원가 대비). 마지막 값 = **현 누적 수익률 수준** 1개만 표기(시계열 나열 금지).
+- **portfolioReturn** = `{d5, d20}` 최근 5·20거래일 내 포트 수익률%(일별 자산변화율 복리누적 — 매매엔 강건, 입출금만 근사). **벤치 비교**: `d5` vs KOSPI·KOSDAQ 5일 변화율(1-A `^KS11`·`^KQ11`) → "내 포트 +X% vs KOSPI +Y%·KOSDAQ +Z%, {초과/열위}". `d20`은 중기 추세. 최근 큰 입출금 있었으면 `_(입출금 영향 가능)_`.
 - env 미설정/실패/`success:false`면 정성 집중도로 degrade(최근추세·벤치는 생략).
 - ⚠️ **응답엔 원화 금액 없음(상대%·MDD·수익률%만).** 리포트에 원화 절대액·총자산 금액 절대 쓰지 말 것(공개 채널).
 - ⚠️ holdings 중 **비주식 항목(펀드·예금·보험)의 이름은 리포트에 인용 금지** — 자산군 % 합산에만 사용(계좌 별명 등 개인정보 가능).
@@ -121,7 +122,7 @@ SK하이닉스 ±X.XX%    ...
 알테오젠   ±X.XX%    ...
 ` ``` `
 ETF: AI·반도체 6종 평균 ±X.X% {동조/역행} / 미국추종 3종 ±X.X% / 코스닥 ±X.X% / {특이 1~2}
-최근: 운용수익률 {recent 최근값}% ({며칠 전 대비 ↑↓}) · KOSPI 같은기간 {±X%} 대비 {초과/열위}  _(1-F)_
+최근: 5일 {d5}% vs KOSPI {±X%}·KOSDAQ {±Y%} {초과/열위} / 20일 {d20}% · 누적수익률 {recent 최근값}%  _(1-F)_
 익스포저: 반도체 {X}% · 자산군 {국내ETF A%/국내주식 B%/현금성 C%} · MDD {mdd}%  _(1-F)_
 
 *🧭 논리 점검 & 방향성*
