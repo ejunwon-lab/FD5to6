@@ -284,7 +284,32 @@ function getPortfolioMetrics() {
       const r = parseFloat(String(rts[i]).replace(/[^0-9.\-]/g, ''));
       if (!isNaN(r)) recent.push({ date: d, opRatePct: Math.round(r * 100) / 100 });
     }
-    result.recentReturns = recent.slice(-10);   // 최근 10거래일 (원화 미포함)
+    result.recentReturns = recent.slice(-10);   // 최근 10거래일 운용수익률%(누적 수준) — 원화 미포함
+  }
+
+  // ── 최근 포트 수익률 (일별 총자산 변화율 dRate 복리누적; 매매엔 강건·입출금만 근사) ──
+  // 추이기록 일별추이 N(col14)=날짜·S(col19)=일별 총자산 변화율%. KOSPI/KOSDAQ N일 변화율과 단위 일치.
+  // dRate는 현금↔주식(매수/매도)엔 총자산 불변이라 0 → 시장 변동만 반영. 입출금일만 왜곡(리포트 단서).
+  if (trend && trend.getLastRow() >= 5) {
+    const dn2 = trend.getLastRow() - 5 + 1;
+    const dd = trend.getRange(5, 14, dn2, 1).getValues().flat();   // N 날짜
+    const dr = trend.getRange(5, 19, dn2, 1).getValues().flat();   // S 일별 총자산 변화율%
+    const series = [];
+    for (let i = 0; i < dd.length; i++) {
+      const raw = dd[i];
+      const d = raw instanceof Date
+        ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
+        : String(raw || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      const r = parseFloat(String(dr[i]).replace(/[^0-9.\-]/g, ''));
+      if (!isNaN(r)) series.push(r);
+    }
+    const cum = arr => (arr.reduce((a, r) => a * (1 + r / 100), 1) - 1) * 100;   // 복리 누적%
+    const l5 = series.slice(-5), l20 = series.slice(-20);
+    result.portfolioReturn = {
+      d5: l5.length ? Math.round(cum(l5) * 100) / 100 : null,
+      d20: l20.length ? Math.round(cum(l20) * 100) / 100 : null,
+    };
   }
   return result;
 }
@@ -316,6 +341,37 @@ function _handlePortfolioMetricsPost(e) {
 /** JSON 응답 헬퍼 */
 function _emailJsonOut(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** HTML 이스케이프 (이메일 변환 시 주입 방지) */
+function _htmlEsc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * 텔레그램 MarkdownV1 → 이메일 HTML (가독성 강화, 2026-06-20).
+ * `*굵게*`→<b>, `_이탤릭_`→<i>, ```코드블록```→<pre>(monospace 표 정렬 보존), 줄바꿈→<br>.
+ * 코드블록 안은 마크다운 변환 안 함(표가 깨지지 않게). 모든 텍스트 esc 후 태그 삽입.
+ */
+function _mdToHtml(md) {
+  var lines = String(md).split('\n');
+  var out = [], inCode = false;
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    if (line.trim() === '```') {
+      if (!inCode) { out.push('<pre style="background:#f5f5f5;padding:10px;border-radius:5px;font-family:Menlo,monospace;font-size:13px;overflow-x:auto;margin:6px 0">'); inCode = true; }
+      else { out.push('</pre>'); inCode = false; }
+      continue;
+    }
+    if (inCode) { out.push(_htmlEsc(line)); continue; }
+    var h = _htmlEsc(line)
+      .replace(/\*([^*]+)\*/g, '<b>$1</b>')
+      .replace(/_([^_]+)_/g, '<i>$1</i>');
+    out.push(h + '<br>');
+  }
+  if (inCode) out.push('</pre>');
+  return '<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;line-height:1.55;color:#1a1a1a;max-width:680px;margin:0 auto">'
+    + out.join('\n') + '</div>';
 }
 
 /** 허용 제목 패턴 — 리포트만 발송(임의 내용 차단). 워크플로 SUBJECT와 일치해야 함. */
@@ -371,9 +427,9 @@ function _handleEmailReportPost(e) {
     if (subject === lastSubj && (Date.now() - lastMs) < 12 * 3600 * 1000) {
       return _emailJsonOut({ success: true, result: 'skip-dedup' });
     }
-    // 발송 — [1] 수신자는 항상 소유자 본인 (요청으로 변조 불가)
+    // 발송 — [1] 수신자는 항상 소유자 본인 (요청으로 변조 불가). HTML 서식 + plain fallback.
     const to = Session.getEffectiveUser().getEmail();
-    MailApp.sendEmail({ to: to, subject: subject, body: text });
+    MailApp.sendEmail({ to: to, subject: subject, body: text, htmlBody: _mdToHtml(text) });
     props.setProperty(key + '_subj', String(subject));
     props.setProperty(key + '_ms', String(Date.now()));
     props.setProperty(cntKey, String(cnt + 1));
