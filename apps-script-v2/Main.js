@@ -90,7 +90,10 @@ function doPost(e) {
       return _tgHandlePushPost(e);   // GitHub Actions cron → 장중 텔레그램 푸시 (GAS 트리거 대체)
     }
     if (action === 'portfolioMetrics') {
-      return _handlePortfolioMetricsPost(e);   // KR 리포트 → 익스포저%·MDD (상대 지표만)
+      return _handlePortfolioMetricsPost(e);   // KR 리포트 → 익스포저%·MDD·최근추세 (상대 지표만)
+    }
+    if (action === 'emailReport') {
+      return _handleEmailReportPost(e);   // PB 리포트 → 시트 소유계정 Gmail 셀프발송
     }
     if (action === 'addTrade') {
       return _handleAddTradePost(e);   // 카톡 매매 알림 → *거래_원장* 1행 기록
