@@ -35,3 +35,4 @@
 - [GAS 재배포 API로 자율 처리](reference_gas_redeploy_via_api.md) — 버전 고정 웹앱 배포는 Apps Script API(POST /versions + PUT /deployments)로 직접 재배포, 에디터 수동 클릭 불필요
 - [전역 환경 늘 동일하게](feedback_global_env_consistent.md) — 전역 설정 변경은 harness repo(claude-2026)에 커밋·푸시해 모든 컴퓨터 동기화. settings.json은 심링크라 실제 타겟 편집
 - [GH Actions daisy-chain](reference_github_actions_daisy_chain.md) — cron은 고빈도일수록 드롭, 신뢰 스케줄은 self-dispatch 체인(GITHUB_TOKEN의 workflow_dispatch 예외)
+- [PB 리포트·이메일 채널](project_pb_report_email.md) — 시장 리포트 PB 격상 + 이메일 셀프발송(안전장치 5중)·데이터 정합성·휴장 폴백
