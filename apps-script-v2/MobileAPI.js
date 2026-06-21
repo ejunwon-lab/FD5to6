@@ -295,6 +295,7 @@ function getPortfolioMetrics() {
     const dd = trend.getRange(5, 14, dn2, 1).getValues().flat();   // N 날짜
     const dr = trend.getRange(5, 19, dn2, 1).getValues().flat();   // S 일별 총자산 변화율%
     const series = [];
+    const dated = [];   // 날짜 동반 일별 변화율 — 주간 리포트 일자별 표용 (마지막5 복리 = d5, 구조적 정합)
     for (let i = 0; i < dd.length; i++) {
       const raw = dd[i];
       const d = raw instanceof Date
@@ -302,7 +303,7 @@ function getPortfolioMetrics() {
         : String(raw || '').slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
       const r = parseFloat(String(dr[i]).replace(/[^0-9.\-]/g, ''));
-      if (!isNaN(r)) series.push(r);
+      if (!isNaN(r)) { series.push(r); dated.push({ date: d, dRatePct: Math.round(r * 100) / 100 }); }
     }
     const cum = arr => (arr.reduce((a, r) => a * (1 + r / 100), 1) - 1) * 100;   // 복리 누적%
     const l5 = series.slice(-5), l20 = series.slice(-20);
@@ -310,6 +311,9 @@ function getPortfolioMetrics() {
       d5: l5.length ? Math.round(cum(l5) * 100) / 100 : null,
       d20: l20.length ? Math.round(cum(l20) * 100) / 100 : null,
     };
+    // 일자별 총자산 변화율% (최근 7거래일) — 주간 리포트가 일자별 수익 표에 사용.
+    // recentReturns(AC=운용수익률%, 원가기준 누적)와 달리 d5와 같은 소스라 합이 d5에 수렴.
+    result.dailyReturns = dated.slice(-7);
   }
   return result;
 }
