@@ -24,12 +24,14 @@ on:
     - cron: '42 23 * * 0-4'   # US 2차 — KST 08:42 (1차 누락 시 백업)
     - cron: '2 8 * * 1-5'     # KR 1차 — KST 17:02
     - cron: '42 8 * * 1-5'    # KR 2차 — KST 17:42
+    - cron: '2 4 * * 0'       # 주간 1차 — 일요일 KST 13:02 (지난주 리캡+새주 계획)
+    - cron: '42 4 * * 0'      # 주간 2차 — 일요일 KST 13:42 (1차 누락 시 백업)
   workflow_dispatch:
     inputs:
       type:
         description: 'Report type'
         type: choice
-        options: [us, kr, both]
+        options: [us, kr, both, weekly]
         default: both
       dry_run:
         description: '테스트: 리포트 생성만, 텔레그램 발송·commit 안 함'
@@ -265,5 +267,120 @@ jobs:
             echo "no changes to commit"
           else
             git commit -m "KR report ${{ steps.path.outputs.date_kst }} [skip ci]"
+            git push
+          fi
+
+  # ── 주간 리포트 (일요일 13:0x KST) ─────────────────────────────────────────
+  # 지난 한 주 리캡(포트+시장 균형) + 새 주 계획. us/kr과 동일 패턴:
+  #   주경로=telegram-push 체인이 일요일 13:0x 창 감지 → auto dispatch(드롭 0),
+  #   백업=위 cron 2개(13:02/13:42, best-effort), 멱등=WEEK 파일 가드 + job concurrency.
+  # 소스: docs/reports/{KR,US}-*.md 5거래일 + _kr_pipeline.md 누적 + GAS portfolioMetrics.
+  weekly-report:
+    if: |
+      (github.event_name == 'schedule' && (github.event.schedule == '2 4 * * 0' || github.event.schedule == '42 4 * * 0')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.type == 'weekly')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: market-report-weekly
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Skip if already sent today (schedule·auto dispatch)
+        id: guard
+        run: |
+          DATE_KST=$(TZ='Asia/Seoul' date +%Y-%m-%d)
+          REPORT=docs/reports/WEEK-${DATE_KST}.md
+          GUARD_ON=no
+          [ "${{ github.event_name }}" = "schedule" ] && GUARD_ON=yes
+          [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.auto }}" = "true" ] && GUARD_ON=yes
+          if [ "$GUARD_ON" = "yes" ] && [ -f "$REPORT" ]; then
+            echo "already=yes" >> $GITHUB_OUTPUT
+            echo "⏭️ 이번 주(${DATE_KST}) 주간 리포트 이미 발송됨 — skip"
+          else
+            echo "already=no" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Python
+        if: steps.guard.outputs.already == 'no'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Claude Code CLI
+        if: steps.guard.outputs.already == 'no'
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Generate weekly report (Claude CLI headless)
+        if: steps.guard.outputs.already == 'no'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # 포트폴리오 지표(익스포저%·MDD)용 — 에이전트가 Bash로 $env 써서 GAS fetch.
+          GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
+          TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
+        run: |
+          claude -p "$(cat .github/scripts/weekly-prompt.md)" \
+            --allowedTools "WebFetch,Bash,Read,Write" \
+            --max-turns 40 \
+            --model claude-sonnet-4-6
+
+      - name: Determine report file path
+        if: steps.guard.outputs.already == 'no'
+        id: path
+        run: |
+          DATE_KST=$(TZ='Asia/Seoul' date +%Y-%m-%d)
+          REPORT=docs/reports/WEEK-${DATE_KST}.md
+          echo "date_kst=${DATE_KST}" >> $GITHUB_OUTPUT
+          echo "report=${REPORT}" >> $GITHUB_OUTPUT
+          if [ -f "$REPORT" ]; then
+            echo "found=yes" >> $GITHUB_OUTPUT
+            echo "✓ found $REPORT"
+            wc -c "$REPORT"
+            echo "----- REPORT 본문 -----"; cat "$REPORT"; echo "----- END -----"
+          else
+            echo "found=no" >> $GITHUB_OUTPUT
+            echo "✗ not found $REPORT (생성 실패)"
+            ls -la docs/reports/ 2>/dev/null || true
+          fi
+
+      - name: Send to Telegram
+        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
+        run: |
+          python3 .github/scripts/send_telegram.py "${{ steps.path.outputs.report }}"
+
+      - name: Send Email (GAS self)
+        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
+        continue-on-error: true   # 부가 채널 — 실패해도 텔레그램·커밋 진행
+        env:
+          GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
+          TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
+        run: |
+          if [ -z "$GAS_WEB_APP_URL" ] || [ -z "$TG_WEBHOOK_SECRET" ]; then
+            echo "⏭️ GAS env 미설정 — 이메일 skip"; exit 0
+          fi
+          SUBJECT="📅 Weekly Recap & Plan — ${{ steps.path.outputs.date_kst }}"
+          PAYLOAD=$(jq -n --arg s "$TG_WEBHOOK_SECRET" --arg sub "$SUBJECT" \
+            --rawfile t "${{ steps.path.outputs.report }}" \
+            '{action:"emailReport", secret:$s, subject:$sub, text:$t}')
+          code=$(curl -sS -L -o /tmp/email_resp.txt -w '%{http_code}' "$GAS_WEB_APP_URL" \
+            -H 'Content-Type: application/json' --data "$PAYLOAD" || echo 000)
+          echo "이메일 HTTP=$code resp=$(cat /tmp/email_resp.txt 2>/dev/null)"
+
+      - name: Commit report
+        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
+        run: |
+          git config user.email 'actions@github.com'
+          git config user.name 'Market Report Bot'
+          git add docs/reports/
+          if git diff --cached --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "Weekly report ${{ steps.path.outputs.date_kst }} [skip ci]"
             git push
           fi
