@@ -26,6 +26,8 @@ on:
   schedule:
     # 재시동 백업 전용 (체인 생존 중엔 concurrency가 흡수). UTC. 장중 09:00~16:00 KST = 00:00~07:00 UTC.
     - cron: '0,20,40 0-6 * * 1-5'
+    # 일요일 reseed — 주간 리포트(13:0x KST) 1시간 전 체인 보장 (주말 무재시드 갭 보강). 03:00 UTC = 12:00 KST.
+    - cron: '0 3 * * 0'
   workflow_dispatch:
     inputs:
       minutes:
@@ -83,7 +85,12 @@ jobs:
             local dow hm
             dow=$(TZ='Asia/Seoul' date +%u)                     # 1=월 .. 7=일
             hm=$((10#$(TZ='Asia/Seoul' date +%H%M)))            # 10# = 08xx octal 파싱 버그 회피
-            [ "$dow" -gt 5 ] && return 0                         # 주말은 리포트 없음
+            # 일요일(7): 주간 리포트 창 13:02~13:59 KST → market-report type=weekly dispatch
+            if [ "$dow" -eq 7 ]; then
+              [ "$hm" -ge 1302 ] && [ "$hm" -le 1359 ] && maybe_dispatch_report weekly WEEK
+              return 0
+            fi
+            [ "$dow" -gt 5 ] && return 0                         # 토요일은 리포트 없음
             [ "$hm" -ge 802 ]  && [ "$hm" -le 859 ]  && maybe_dispatch_report us US
             [ "$hm" -ge 1702 ] && [ "$hm" -le 1759 ] && maybe_dispatch_report kr KR
             return 0
