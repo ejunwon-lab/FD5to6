@@ -280,7 +280,7 @@ function getPortfolioMetrics() {
       const d = raw instanceof Date
         ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
         : String(raw || '').slice(0, 10);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      if (!_isTradingDateStr(d)) continue;   // 주말·공휴일 행 제외 — '최근 N거래일' 보장 (errors.md:317 비거래일 행 누적)
       const r = parseFloat(String(rts[i]).replace(/[^0-9.\-]/g, ''));
       if (!isNaN(r)) recent.push({ date: d, opRatePct: Math.round(r * 100) / 100 });
     }
@@ -301,7 +301,7 @@ function getPortfolioMetrics() {
       const d = raw instanceof Date
         ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
         : String(raw || '').slice(0, 10);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      if (!_isTradingDateStr(d)) continue;   // 주말·공휴일 행 제외 — d5/d20/dailyReturns 창을 '거래일' 기준으로 (errors.md:317)
       const r = parseFloat(String(dr[i]).replace(/[^0-9.\-]/g, ''));
       if (!isNaN(r)) { series.push(r); dated.push({ date: d, dRatePct: Math.round(r * 100) / 100 }); }
     }
