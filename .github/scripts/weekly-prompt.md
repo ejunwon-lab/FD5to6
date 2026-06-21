@@ -31,11 +31,12 @@ ls -t docs/reports/US-*.md | head -5      # 지난 5거래일 US 리포트
 
 ## Step 1. 추가 데이터
 
-### 1-A. 지수 주간 변화율 (Yahoo, range=5d)
-WebFetch `https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?interval=1d&range=5d` → `result[0].indicators.quote[0].close` 5일 배열 첫↔끝으로 **주간 변화율%** 계산:
+### 1-A. 지수 주간 변화율 (Yahoo, range=1mo)
+WebFetch `https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?interval=1d&range=1mo` → `result[0].indicators.quote[0].close` 배열에서 **주간 변화율% = (마지막 종가 − 6거래일 전 종가) ÷ 6거래일 전 종가 × 100**.
+- ⚠️ **왜 6거래일 전(전주 금요일) 기준인가**: 내 포트 d5(1-C)가 "최근 5거래일 수익률"이라 **전주 금요일 종가 → 이번 주 금요일 종가** 구간(=월요일 수익 포함). 지수도 **같은 창**으로 맞춰야 "내 포트 vs 지수"가 사과 대 사과. `range=5d`(월요일 종가 기준)는 월요일 등락을 빠뜨려 과소표시되니 쓰지 말 것. (`close[-1]` vs `close[-6]`. 거래일만 — 결측 null은 건너뛰고 직전 유효종가.)
 - 한국: `^KS11`(KOSPI) · `^KQ11`(KOSDAQ)
 - 미국: `^GSPC`(S&P500) · `^IXIC`(나스닥) · `^SOX`(필라델피아 반도체 — 내 반도체 48% 선행) · `KRW=X`(원/달러)
-> 일일 리포트에 이미 주간 흐름이 적혀 있으면 그것과 교차검증. 한 심볼 실패 시 그 칸만 "—", 리포트는 만든다.
+> 일일 리포트에 이미 주간 흐름이 적혀 있으면 교차검증. 한 심볼 실패 시 그 칸만 "—", 리포트는 만든다.
 
 ### 1-B. 다음 주 이벤트 캘린더 (WebSearch/WebFetch)
 다가오는 한 주의 **예정 일정**을 검색 — FOMC·한은 금통위·주요 거시지표(CPI·고용·PCE) 발표일·주요 실적(특히 반도체: 삼성전자·SK하이닉스·엔비디아·마이크론 등)·옵션만기·배당락·MSCI 리밸런싱 등. **날짜 확실한 것만**, 불확실하면 `_(추정)_`. 내 포트(반도체·AI 편중)에 영향 큰 것 우선.
@@ -46,11 +47,11 @@ WebFetch `https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?interval=1d
 curl -sS -L "$GAS_WEB_APP_URL" -H 'Content-Type: application/json' \
   --data "{\"action\":\"portfolioMetrics\",\"secret\":\"$TG_WEBHOOK_SECRET\"}"
 ```
-→ `{ assetClassWeights:{분류:%}, holdings:[{name,category,weight%}], mdd:음수%, recentReturns:[{date,opRatePct}], portfolioReturn:{d5,d20} }`.
-- **portfolioReturn.d5** = 지난 주(최근 5거래일) 내 포트 수익률% → **벤치 비교**: d5 vs KOSPI·KOSDAQ 주간 변화율(1-A) → "내 포트 +X% vs KOSPI +Y%·KOSDAQ +Z% {초과/열위}". **d20** = 최근 한 달 추세.
-- **🔑 일자별 포트 수익률 (recentReturns)** = 최근 10거래일 누적 운용수익률%. **마지막 5개**가 지난 주 5거래일. **연속 차분**으로 그날 하루 포트 수익률(%) 도출: `그날% ≈ opRatePct[i] − opRatePct[i-1]`. → "월 +4.8% / 화 +1.1% / …" 일자별 수익 분석의 핵심(2-B·💼 일자별 표). **단위는 그냥 %** (pp·퍼센트포인트 같은 용어 쓰지 말 것).
+→ `{ assetClassWeights:{분류:%}, holdings:[{name,category,weight%}], mdd:음수%, recentReturns:[{date,opRatePct}], dailyReturns:[{date,dRatePct}], portfolioReturn:{d5,d20} }`.
+- **portfolioReturn.d5** = 지난 주(최근 5거래일) 내 포트 수익률%(일별 총자산 변화율 복리) → **벤치 비교**: d5 vs KOSPI·KOSDAQ 주간 변화율(1-A, **같은 창=전주 금요일 종가 기준**) → "내 포트 +X% vs KOSPI +Y%·KOSDAQ +Z% {초과/열위}". **d20** = 최근 한 달 추세.
+- **🔑 일자별 포트 수익률 (dailyReturns)** = 최근 7거래일 `[{date, dRatePct}]`, **dRatePct = 그날 총자산 변화율%**(d5와 같은 소스). **마지막 5개**가 지난 주 월~금 → 그대로 "월 {dRatePct}% / 화 … / 금 …" 표기. ✅ **마지막 5개를 복리누적하면 d5와 거의 일치**(정합) — opRatePct(운용수익률, 원가기준)는 일자별에 쓰지 말 것(d5와 불일치). 단위는 그냥 %.
 - **익스포저**: holdings weight% 테마 합산 — 반도체 = 삼성전자·SK하이닉스·삼성전기 + AI·반도체 ETF. assetClassWeights로 자산군(국내ETF/국내주식/현금성)·MDD.
-- env 미설정/실패/`success:false`면 정성 집중도로 degrade(일자별·기여도는 일일 리포트 종가 기반으로 근사, 주간수익률·벤치는 생략 또는 `[미확인]`).
+- env 미설정/실패/`success:false` 또는 `dailyReturns` 없으면 degrade: 일자별 수치는 생략하고 "어느 날 강세/약세"를 일일 리포트로 정성 서술(추정 수치로 d5와 충돌시키지 말 것). 기여도도 일일 리포트 종가 기반 근사로 표기.
 
 ### 1-D. 종목별 주간 수익률 (기여도 분석용) — Yahoo range=5d
 **포트 기여 = 비중% × 주간수익% ÷ 100 (단위 %)** 계산을 위해 보유 종목 주간 수익률 확보.
@@ -63,7 +64,7 @@ curl -sS -L "$GAS_WEB_APP_URL" -H 'Content-Type: application/json' \
 **2-A. 시장 — 지난 주 추세**: 일일 리포트들을 관통하는 한 주 흐름. 지수 주간 변화(KOSPI/KOSDAQ/나스닥/SOX), 주도 섹터 vs 소외 섹터, 외인 방향, 환율. **일시적 vs 구조적 로테이션** — 한 주를 보면 일일보다 추세가 선명. (_kr_pipeline.md의 강세 섹터 연속 등장 = 추세 강도.)
 
 **2-B. 내 포트 — 지난 주 성과 (상세 기여도 분석)**: 이 섹션이 주간 리포트의 **핵심**. 막연한 "올랐다/내렸다" 금지 — **숫자로 귀속**한다.
-- **일자별 수익 (5거래일)**: 1-C recentReturns 차분으로 월~금 각 날의 포트 수익률(%). 각 날 **무엇이 끌고(견인) 무엇이 눌렀나(발목)** 1개씩 — 일일 리포트의 그날 보유 등락에서. 어느 날이 주간 수익의 대부분을 만들었나(집중일).
+- **일자별 수익 (5거래일)**: 1-C `dailyReturns`의 마지막 5개 `dRatePct`로 월~금 각 날의 포트 수익률(%). (d5와 같은 소스 → 5개 복리 = d5, 충돌 없음.) 각 날 **무엇이 끌고(견인) 무엇이 눌렀나(발목)** 1개씩 — 일일 리포트의 그날 보유 등락에서. 어느 날이 주간 수익의 대부분을 만들었나(집중일).
 - **종목별 포트 기여 (귀속)**: 각 보유의 **주간 등락%(1-D)** 와 **내 비중%(1-C)** 를 나란히 보이고, 둘을 곱한 **포트 기여 = 주간% × 비중% ÷ 100** 를 평범한 %로 표기("포트를 +X.X% 끌어올림/끌어내림"). 3분류:
   - **🟢 견인** = 포트 기여 양(+) 큰 것 — "삼성전기 +32.5%(비중12.8%) → 포트 +4.2% 견인"
   - **🔴 잠식** = 포트 기여 음(−), 또는 절대 등락은 작아도 **시장 대비 큰 열위(기회손실)** — "AI반도체ETF −2%(비중17.7%) → 포트 −0.4%, +11% 시장 대비 큰 열위"

@@ -73,7 +73,7 @@ last updated: 2026-06-18
 | `newMobileUpdateCurrentPrice()` | — | 현재가 갱신 트리거 |
 | `newMobileUpdateHistory()` | — | *현재가_이력* 갱신 트리거 |
 | `newMobileUpdateAll()` | — | 통합 갱신 트리거 |
-| `getPortfolioMetrics()` (doPost `action=portfolioMetrics`+secret) | `{success, assetClassWeights:{분류:%}, holdings:[{name,category,weight}], mdd:음수%}` | **상대 지표만 — 원화 절대액 미포함** (public KR 리포트용). 비중 분모=보유현황 평가금액 합, MDD=*추이 기록* 일별 총자산(Q열) peak-to-trough(자산액 기준·입출금 포함) |
+| `getPortfolioMetrics()` (doPost `action=portfolioMetrics`+secret) | `{success, assetClassWeights:{분류:%}, holdings:[{name,category,weight}], mdd:음수%, recentReturns:[{date,opRatePct}], dailyReturns:[{date,dRatePct}], portfolioReturn:{d5,d20}}` | **상대 지표만 — 원화 절대액 미포함** (public 리포트용). 비중 분모=보유현황 평가금액 합, MDD=*추이 기록* 일별 총자산(Q열) peak-to-trough. `recentReturns`=운용수익률%(AC열, 원가기준 누적), **`dailyReturns`=일별 총자산 변화율%(S열, 최근 7거래일 — 마지막5 복리=d5, 주간 리포트 일자별용)**, `portfolioReturn{d5,d20}`=S열 dRate 복리누적 |
 
 상세 필드는 web `src/models/types.ts`의 `StockDetailResponse`·`MonthlyRealizedResponse` 등 참조.
 
