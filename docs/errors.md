@@ -2,6 +2,20 @@
 
 ---
 
+## 2026-07-03
+
+### KR 리포트 "Naver 차단 14일차" — 러너 IP 차단이 아니라 WebFetch 도구 계층 차단
+- **증상**: 6/19경부터 KR 리포트 에이전트가 Naver 접근 실패 지속 보고("차단 N일차"). 거래대금 "—", 업종 강세/약세·종목 수급 미수집, 급락(7/2 -7.89%) 원인 뉴스 확인 불가, 종목 자동선별 degrade.
+- **진단**: ① 로컬(한국 IP) curl 200 → Naver 정상 ② **diag-egress.yml로 러너에서 실측 → curl은 Naver 전 엔드포인트 200 + 실데이터** (IP 차단 가설 기각) ③ 남는 층위는 Claude CLI **WebFetch 도구**뿐 — robots.txt/봇 정책 차단 추정(Naver는 robots 전면 disallow). 부수 발견: 한경 `/finance` 404(죽은 URL), 인포맥스 articleList 빈 응답(RSS는 정상), **Yahoo는 러너에서 429 잦음**(KOSDAQ 주간% 런별 변동의 원인).
+- **해결**: kr-prompt·weekly-prompt에서 Naver·뉴스·Yahoo fetch를 **WebFetch → Bash curl**로 전환(브라우저 UA, finance.naver.com은 `iconv -f euc-kr`, Yahoo 429 시 sleep 재시도). 뉴스는 검증된 URL로 교체(종목뉴스 `m.stock.naver.com/api/news/stock/{code}`·인포맥스 RSS·매경). GAS/KIS 확장은 불필요해져 취소. 설계: `docs/plans/2026-07-03-naver-차단-우회.md`.
+- **교훈**: "차단"의 층위를 갈라야 한다 — **서비스 차단 ≠ IP 차단 ≠ 도구(WebFetch) 차단**. 에이전트가 "차단"이라 보고해도 같은 러너의 curl이 뚫리는지부터 실측(diag-egress.yml 재사용). 진단을 코딩 앞에 둔 덕에 GAS marketSnapshot·KIS TR 대공사(설계 노트의 A-2a·2b 전체)가 불필요함이 코딩 전에 판명 — `/design-check` 게이트의 실증 사례.
+
+### 주간 리포트 "GAS 미접속(환경변수 미설정)" 오판 — env는 주입돼 있었음
+- **증상**: 6/28 첫 주간 리포트가 dailyReturns를 "역산 추산값"으로 표기. 워크플로 로그엔 `GAS_WEB_APP_URL: ***` 주입 확인.
+- **원인**: 에이전트가 env 유무를 스스로 판단하다 오판(정확한 내부 원인은 헤드리스 로그에 안 남음). 일일 KR은 같은 패턴으로 매일 성공 — 에이전트 판단 의존이 단일 실패점.
+- **해결**: weekly job에 **pre-fetch step**(워크플로가 curl → `/tmp/weekly/gas_metrics.json` 저장, 로그엔 HTTP 코드·필드 유무만) 추가, 프롬프트는 파일 Read 1차 + env curl 폴백. 판단 개입 자체를 제거.
+- **교훈**: 헤드리스 에이전트에게 "env 있으면 해라"는 판단을 맡기지 말고, **결정적 단계는 워크플로 step으로 끌어올려** 결과 파일만 넘긴다.
+
 ## 2026-06-21
 
 ### d5/d20/dailyReturns가 비거래일 행에 밀려 5일·20일 창이 어긋남 (주간 리포트 dry_run에서 발견)
