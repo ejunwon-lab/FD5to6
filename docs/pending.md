@@ -6,6 +6,10 @@
 
 ## 🟢 예정 작업
 
+- **🔴 C: 주간 수익률 입금 왜곡(TWR) 보정 — 사용자 옵션 결정 대기 (2026-07-03)** — 입출금이 일자별로 기록되는 곳 없음(원장은 매수/매도만) → d5가 입금을 수익으로 오인(6/28 +4.9% vs 실질 약 -6%, 7/3 dry_run서도 재확인). 옵션: ①원장에 입금/출금 행 타입+S열 보정(정확, 기록 습관 필요) ②이상치 자동 플래그(코드 최소) ③대기자금 onEdit 로깅(근사). **권고 ①+② 조합** — 결정 후 `/design-check` 진행. 세션: `2026-07-03-naver우회-무음실패-전반점검.md`
+- **🔴 GAS 죽은 코드 정리 — Secret.js 확인 대기 (2026-07-03)** — 모바일 GET 8함수(`newMobileGet*` 등)+KIS 메서드 절반이 로컬 grep 도달 불가. 단 원격 전용 Secret.js가 doGet 라우팅 보유 가능 → **사용자가 GAS 에디터에서 Secret.js 내 `doGet`/`newMobileGet` 참조 유무 확인** 후 삭제 범위 확정. 부수: 환율 fallback 불일치(`_getFxRates` 0 vs `_mGetFxRates` 1400/1700 — 5곳 중복), buildDashboard 셀 단위 I/O 배치화.
+- **🟡 전반 점검 위생 묶음 (2026-07-03 발견, 승인 불필요)** — ①두 웹앱 드리프트: 통화 표기(₩·로케일) 통일, 52주 공식 공용화, TopBar 로컬시간에 "kst" 라벨 오표기 ②web 테스트 공백 4건(annualizedReturn·holdingDuration 등) ③save.sh 트레일러 "Opus 4.7" 고정, deploy `npm install`→`ci`, desk 배포 테스트 step 없음 ④pending 완료항목(daisy-chain ✅·5월 GAS 트리거 계열) 정리, architecture.md 30일 경과, code-map 미등재 2건(emailKillSwitch_OFF·jsonResponse).
+
 - **🟡 주간 리포트(일요일 13:00 KST) — 첫 라이브(6/28) 발화 성공, 7/5 라이브에서 개선 2건 확인 (2026-07-03 갱신)** — 6/28 13:02 KST run(28310766520) success·`WEEK-2026-06-28.md` 생성으로 **첫 라이브 발화 확인**. 단 그 run에서 2건 결함: ① 에이전트가 env 주입돼 있는데 "GAS 미접속(환경변수 미설정)" 오판 → dailyReturns 역산 추산 (**해결 2026-07-03**: pre-fetch step 구조 전환, errors.md 참조) ② d5 +4.9%가 6/23 대규모 입금 왜곡 포함(실질 약 -6%) → **입금 왜곡 보정(TWR)** 별도 항목. ⓐ KOSDAQ 주간% fetch 변동도 Yahoo 429가 원인으로 판명 → curl 재시도 전환(2026-07-03). **남은 것**: 🔴 7/5(일) 라이브에서 pre-fetch 로그(`pre-fetch: HTTP=200`)·일자별 수치가 GAS 실값인지 확인(dry_run에서는 7/3 통과 — run 28652226683) + 이메일 도착(사용자, 나중에).
 
 - **🟡 PB 리포트 + 이메일 채널 — 라이브 가동 확인, 이메일 도착·논리 확정만 잔여 (2026-07-03 갱신)** — 6/22부터 매 거래일 US·KR 리포트 자동 생성·커밋·텔레그램 발화 확인(7/3까지 무결). **남은 것**: ① 이메일 HTML 실도착 확인(halcyon.public Gmail — **사용자, 나중에 확인하기로**) ② kr-theses.md 투자논리 **초안→사용자 확정** 시 "(논리 초안)" 라벨 제거. 세션: `2026-06-20-PB리포트-이메일채널-안전장치.md`.

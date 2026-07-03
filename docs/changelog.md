@@ -7,3 +7,12 @@
 - GAS v24 — series·recentReturns에 _isTradingDateStr 필터 → 비거래일 행 제외, d5/d20 거래일 창 정합(일일 KR 리포트 d5 잠재버그도 교정). errors.md 2026-06-21.
 - dry_run 게이트 3회 통과(run 27898684208): 주간 +7.29% = 일자별 합 = d5 = 벤치 동일창.
 - docs: 설계노트, 세션문서, code-map·api-reference(dailyReturns 스키마) 갱신.
+
+## 2026-07-03
+- Naver 차단 14일 해소 — 실체는 WebFetch 도구 계층 차단(러너 curl은 200, diag-egress.yml 실측). kr-prompt Naver·뉴스 Bash curl 전환 + 죽은 URL 교체. dry_run 게이트 통과(거래대금 45.5조·업종·수급 복원).
+- 주간 리포트 GAS pre-fetch step — 6/28 "환경변수 미설정" 오판 클래스 제거. dry_run 통과(HTTP=200, 일자별 실값).
+- us-prompt 인포맥스 RSS 교체 + WebFetch 실패 시 curl 폴백.
+- 무음 실패 알림 — market-report 3 job 생성 실패 텔레그램 경고+빨간 run, telegram-push 체인 사망 알림.
+- 데스크 표시규칙 위반 3건 수정(M/k 축약 제거, Winners/Losers 종목명 메인) + shortKRW 제거, Pages 배포.
+- 전반 점검(에이전트 3 + 로컬) — web 34/34·tsc 클린 확인, GAS 죽은 코드·환율 fallback 불일치·웹 드리프트 등 발견 목록화.
+- /design-check 첫 적용 — 진단이 가설(IP 차단)을 뒤집어 GAS/KIS 대공사 회피. errors.md 2건, memory 1건(WebFetch vs curl).
