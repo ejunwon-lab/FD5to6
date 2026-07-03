@@ -1,9 +1,6 @@
-export function fmtKRW(n: number, opts: { signed?: boolean; compact?: boolean } = {}): string {
+// 표시 규칙: 숫자 축약(억/만/M/K) 금지 — 항상 풀 표기 (memory: feedback_number_display)
+export function fmtKRW(n: number, opts: { signed?: boolean } = {}): string {
   const sign = opts.signed && n > 0 ? '+' : ''
-  if (opts.compact) {
-    if (Math.abs(n) >= 1e8) return `${sign}${(n / 1e8).toFixed(2)}억`
-    if (Math.abs(n) >= 1e4) return `${sign}${(n / 1e4).toFixed(0)}만`
-  }
   return `${sign}₩${Math.round(n).toLocaleString('en-US')}`
 }
 
@@ -18,11 +15,4 @@ export function fmtNum(n: number, digits = 0): string {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   })
-}
-
-export function shortKRW(n: number): string {
-  if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(2)}억`
-  if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)}M`
-  if (Math.abs(n) >= 1e4) return `${(n / 1e4).toFixed(0)}만`
-  return n.toLocaleString('en-US')
 }

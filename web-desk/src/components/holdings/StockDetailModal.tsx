@@ -115,9 +115,9 @@ export function StockDetailModal({ code, initialName, onClose }: Props) {
                           interval="preserveStartEnd"
                         />
                         <YAxis
-                          tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                          tickFormatter={(v) => Math.round(Number(v)).toLocaleString()}
                           tick={{ fontSize: 10, fill: '#4a5568', fontFamily: 'JetBrains Mono' }}
-                          tickLine={false} axisLine={{ stroke: '#1f2630' }} width={48}
+                          tickLine={false} axisLine={{ stroke: '#1f2630' }} width={78}
                           domain={[minP - padding, maxP + padding]}
                         />
                         <Tooltip

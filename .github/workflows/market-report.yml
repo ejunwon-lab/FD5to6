@@ -115,9 +115,24 @@ jobs:
             echo "----- REPORT 본문 -----"; cat "$REPORT"; echo "----- END -----"
           else
             echo "found=no" >> $GITHUB_OUTPUT
-            echo "✗ not found $REPORT (Claude가 파일을 생성하지 않음 — 휴장 또는 실패)"
+            echo "✗ not found $REPORT (실패 — 휴장도 직전거래일 폴백으로 파일 생성이 정상, 2026-06-20 PB 개편)"
             ls -la docs/reports/ 2>/dev/null || true
           fi
+
+      # 무음 실패 제거 — 생성 실패를 텔레그램 경고+빨간 run으로 가시화 (docs/plans/2026-07-03-무음실패-알림.md)
+      - name: Alert on generation failure
+        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'no' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
+        run: |
+          MSG="⚠️ US 리포트 생성 실패 (${{ steps.path.outputs.date_kst }}) — 파일 미생성. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          IFS=',' read -ra IDS <<< "$TG_CHAT_IDS"
+          for id in "${IDS[@]}"; do
+            curl -sS -m 15 "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d chat_id="$(echo "$id" | tr -d ' ')" --data-urlencode text="$MSG" >/dev/null || true
+          done
+          exit 1
 
       - name: Send to Telegram
         if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
@@ -227,9 +242,24 @@ jobs:
             echo "----- REPORT 본문 -----"; cat "$REPORT"; echo "----- END -----"
           else
             echo "found=no" >> $GITHUB_OUTPUT
-            echo "✗ not found $REPORT (휴장 또는 실패)"
+            echo "✗ not found $REPORT (실패 — 휴장도 직전거래일 폴백으로 파일 생성이 정상)"
             ls -la docs/reports/ 2>/dev/null || true
           fi
+
+      # 무음 실패 제거 (docs/plans/2026-07-03-무음실패-알림.md)
+      - name: Alert on generation failure
+        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'no' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
+        run: |
+          MSG="⚠️ KR 리포트 생성 실패 (${{ steps.path.outputs.date_kst }}) — 파일 미생성. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          IFS=',' read -ra IDS <<< "$TG_CHAT_IDS"
+          for id in "${IDS[@]}"; do
+            curl -sS -m 15 "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d chat_id="$(echo "$id" | tr -d ' ')" --data-urlencode text="$MSG" >/dev/null || true
+          done
+          exit 1
 
       - name: Send to Telegram
         if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
@@ -368,6 +398,21 @@ jobs:
             echo "✗ not found $REPORT (생성 실패)"
             ls -la docs/reports/ 2>/dev/null || true
           fi
+
+      # 무음 실패 제거 (docs/plans/2026-07-03-무음실패-알림.md)
+      - name: Alert on generation failure
+        if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'no' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
+        run: |
+          MSG="⚠️ 주간 리포트 생성 실패 (${{ steps.path.outputs.date_kst }}) — 파일 미생성. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          IFS=',' read -ra IDS <<< "$TG_CHAT_IDS"
+          for id in "${IDS[@]}"; do
+            curl -sS -m 15 "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d chat_id="$(echo "$id" | tr -d ' ')" --data-urlencode text="$MSG" >/dev/null || true
+          done
+          exit 1
 
       - name: Send to Telegram
         if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)

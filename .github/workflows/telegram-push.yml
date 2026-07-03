@@ -130,3 +130,17 @@ jobs:
           done
           echo "🔴 dispatch 3회 실패 — 체인 끊김. cron 백업이 재시드할 때까지 푸시 공백 가능."
           exit 1
+
+      # 체인 끊김을 텔레그램으로 능동 통보 — cron 재시드 전까지의 무음 공백 가시화 (docs/plans/2026-07-03-무음실패-알림.md)
+      - name: Alert on chain break
+        if: failure()
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
+        run: |
+          MSG="🔴 텔레그램 푸시 체인 끊김 — cron 재시드 전까지 장중 푸시 공백 가능. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          IFS=',' read -ra IDS <<< "$TG_CHAT_IDS"
+          for id in "${IDS[@]}"; do
+            curl -sS -m 15 "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d chat_id="$(echo "$id" | tr -d ' ')" --data-urlencode text="$MSG" >/dev/null || true
+          done

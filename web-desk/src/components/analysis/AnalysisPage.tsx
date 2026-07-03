@@ -180,8 +180,8 @@ export function AnalysisPage() {
           {stats.winners.map((w, i) => (
             <div key={w.symbol} className="flex items-center justify-between px-2.5 py-1.5 border-b border-line-dim last:border-0 hover:bg-bg-hover text-xs">
               <span className="text-ink-faint w-6 tabular">{String(i + 1).padStart(2, '0')}</span>
-              <span className="text-amber font-medium w-20">{w.symbol}</span>
-              <span className="text-ink-dim flex-1">{w.name}</span>
+              <span className="text-amber font-medium flex-1">{w.name}</span>
+              <span className="text-ink-faint text-2xs w-20">{w.symbol}</span>
               <span className="text-ink-dim text-2xs mr-3">{w.market}</span>
               <span className="text-gain tabular">+{w.returnPct.toFixed(2)}%</span>
             </div>
@@ -196,8 +196,8 @@ export function AnalysisPage() {
           {stats.losers.map((w, i) => (
             <div key={w.symbol} className="flex items-center justify-between px-2.5 py-1.5 border-b border-line-dim last:border-0 hover:bg-bg-hover text-xs">
               <span className="text-ink-faint w-6 tabular">{String(i + 1).padStart(2, '0')}</span>
-              <span className="text-amber font-medium w-20">{w.symbol}</span>
-              <span className="text-ink-dim flex-1">{w.name}</span>
+              <span className="text-amber font-medium flex-1">{w.name}</span>
+              <span className="text-ink-faint text-2xs w-20">{w.symbol}</span>
               <span className="text-ink-dim text-2xs mr-3">{w.market}</span>
               <span className="text-loss tabular">{w.returnPct.toFixed(2)}%</span>
             </div>

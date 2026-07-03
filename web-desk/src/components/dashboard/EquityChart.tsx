@@ -52,7 +52,7 @@ export function EquityChart({ equityCurve, meta }: Props) {
         </div>
         <div className="h-[260px]">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={filtered} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
+            <AreaChart data={filtered} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="eq-grad" x1="0" x2="0" y1="0" y2="1">
                   <stop offset="0%" stopColor="#00ff7f" stopOpacity={0.25} />
@@ -61,8 +61,8 @@ export function EquityChart({ equityCurve, meta }: Props) {
               </defs>
               <CartesianGrid stroke="#1f2630" strokeDasharray="0" vertical={false} />
               <XAxis dataKey="date" stroke="#4a5568" tick={{ fill: '#4a5568', fontSize: 10 }} interval={tickInterval} />
-              <YAxis stroke="#4a5568" tick={{ fill: '#4a5568', fontSize: 10 }}
-                tickFormatter={(v) => `${(v / 1e6).toFixed(1)}M`} />
+              <YAxis stroke="#4a5568" tick={{ fill: '#4a5568', fontSize: 10 }} width={92}
+                tickFormatter={(v) => Math.round(Number(v)).toLocaleString()} />
               <Tooltip
                 contentStyle={{ background: '#11151c', border: '1px solid #1f2630', fontSize: 11, fontFamily: 'JetBrains Mono' }}
                 labelStyle={{ color: '#6b7280' }}
