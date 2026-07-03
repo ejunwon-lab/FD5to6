@@ -314,11 +314,34 @@ jobs:
           curl -fsSL https://claude.ai/install.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
+      # GAS 지표를 step에서 미리 받아 파일로 — 에이전트의 env 유무 판단 오류(6/28 "환경변수 미설정" 오판) 제거.
+      # 공개 repo 로그에 응답 본문(보유 구성) 노출 금지 — HTTP 코드·필드 존재 여부만 echo.
+      - name: Pre-fetch GAS portfolio metrics
+        if: steps.guard.outputs.already == 'no'
+        env:
+          GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
+          TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
+        run: |
+          mkdir -p /tmp/weekly
+          OUT=/tmp/weekly/gas_metrics.json
+          if [ -z "$GAS_WEB_APP_URL" ] || [ -z "$TG_WEBHOOK_SECRET" ]; then
+            echo '{"success":false,"reason":"env-unset"}' > "$OUT"
+            echo "pre-fetch: env unset — 에이전트 degrade 경로로"
+          else
+            PAYLOAD=$(jq -n --arg s "$TG_WEBHOOK_SECRET" '{action:"portfolioMetrics", secret:$s}')
+            code=$(curl -sS -L -m 60 -o "$OUT" -w '%{http_code}' "$GAS_WEB_APP_URL" \
+              -H 'Content-Type: application/json' --data "$PAYLOAD" || echo 000)
+            if [ "$code" != "200" ] || ! jq -e '.success == true' "$OUT" >/dev/null 2>&1; then
+              echo "{\"success\":false,\"reason\":\"http-$code\"}" > "$OUT"
+            fi
+            echo "pre-fetch: HTTP=$code success=$(jq -r '.success' "$OUT") dailyReturns=$(jq -r '.dailyReturns != null' "$OUT")"
+          fi
+
       - name: Generate weekly report (Claude CLI headless)
         if: steps.guard.outputs.already == 'no'
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # 포트폴리오 지표(익스포저%·MDD)용 — 에이전트가 Bash로 $env 써서 GAS fetch.
+          # 폴백용 — 1차는 위 pre-fetch 파일(/tmp/weekly/gas_metrics.json)을 에이전트가 Read.
           GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
           TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
         run: |
