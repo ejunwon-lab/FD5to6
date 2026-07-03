@@ -32,3 +32,13 @@ jobs:
           probe "einfomax (browser UA)" "https://news.einfomax.co.kr/news/articleList.html?sc_section_code=S1N1" "$UA_BROWSER"
           probe "hankyung (browser UA)" "https://www.hankyung.com/finance" "$UA_BROWSER"
           probe "yahoo-baseline" "https://query1.finance.yahoo.com/v8/finance/chart/%5EKS11?range=5d&interval=1d" "$UA_BROWSER"
+          # ── round 2: 수급·뉴스·거래대금 대체 소스 ──
+          probe "naver-stock-trend" "https://m.stock.naver.com/api/stock/005930/trend" "$UA_BROWSER"
+          probe "naver-stock-integration" "https://m.stock.naver.com/api/stock/005930/integration" "$UA_BROWSER"
+          probe "naver-index-integration" "https://m.stock.naver.com/api/index/KOSPI/integration" "$UA_BROWSER"
+          probe "naver-news-by-stock" "https://m.stock.naver.com/api/news/stock/005930?pageSize=5" "$UA_BROWSER"
+          probe "naver-upjong-iconv" "https://finance.naver.com/sise/sise_group.naver?type=upjong" "$UA_BROWSER" | head -2
+          curl -sS -m 15 -A "$UA_BROWSER" "https://finance.naver.com/sise/sise_group.naver?type=upjong" | iconv -f euc-kr -t utf-8 2>/dev/null | grep -o '<a href="/sise/sise_group_detail[^>]*>[^<]*' | head -5 || echo "upjong-parse: FAIL"
+          probe "einfomax-rss" "https://news.einfomax.co.kr/rss/allArticle.xml" "$UA_BROWSER"
+          probe "hankyung-main" "https://www.hankyung.com/" "$UA_BROWSER"
+          probe "mk-stock" "https://stock.mk.co.kr/" "$UA_BROWSER"
