@@ -7,6 +7,22 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 ROOT="$(pwd)"
 
+# 0. 히스토리 재작성(2026-07-04) 자기복구 — 로컬과 원격이 갈라졌으면
+#    기존 HEAD를 백업 브랜치로 보존한 뒤 원격 기준으로 재정렬 (폴더 삭제 불필요)
+git fetch origin -q || true
+if git rev-parse origin/main >/dev/null 2>&1 \
+   && ! git merge-base --is-ancestor HEAD origin/main 2>/dev/null \
+   && ! git merge-base --is-ancestor origin/main HEAD 2>/dev/null; then
+  BK="backup-pre-rewrite-$(date +%Y%m%d%H%M)"
+  git branch "$BK" 2>/dev/null || true
+  if git checkout -q -B main origin/main; then
+    echo "✓ 재작성된 히스토리로 자동 재정렬 완료 (이전 상태는 브랜치 $BK 에 보존)"
+  else
+    echo "✗ 자동 재정렬 실패 (미커밋 변경 충돌?) — 'git status' 확인 후 수동 정리 필요"
+    exit 1
+  fi
+fi
+
 # 1. git pull
 echo "── git pull ──"
 if ! git pull; then
