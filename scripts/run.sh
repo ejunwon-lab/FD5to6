@@ -14,6 +14,14 @@ if ! git pull; then
   exit 1
 fi
 
+# 1b. 리포트 private repo 동기화 (docs/reports = FD5to6-reports clone, 2026-07-04 분리)
+if [ -d docs/reports/.git ]; then
+  git -C docs/reports pull -q --rebase || echo "⚠ docs/reports pull 실패 (무시 — 리포트 열람만 영향)"
+elif [ ! -d docs/reports ]; then
+  git clone -q https://github.com/ejunwon-lab/FD5to6-reports.git docs/reports \
+    || echo "⚠ FD5to6-reports clone 실패 (private — gh auth 필요)"
+fi
+
 # 2. memory 복원: repo memory/ → ~/.claude 라이브 디렉토리
 MEM_DST="$HOME/.claude/projects/$(printf '%s' "$ROOT" | sed 's/[^a-zA-Z0-9]/-/g')/memory"
 mkdir -p "$MEM_DST"

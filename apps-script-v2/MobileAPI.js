@@ -339,6 +339,43 @@ function _handlePortfolioMetricsPost(e) {
   }
 }
 
+/**
+ * doPost action=backupData 핸들러 — 시크릿 검증 후 전 시트 dump JSON.
+ * 로컬 백업 스크립트(scripts/backup_sheets.py) 전용. 원화 절대액 포함 —
+ * 시크릿 게이트 + 로컬 저장(backups/ gitignore) 전제. 설계: docs/plans/2026-07-04-시트백업-로컬.md
+ */
+function _handleBackupPost(e) {
+  try {
+    const expected = _tgSecret();
+    let secret = e && e.parameter && e.parameter.secret;
+    if (!secret && e && e.postData && e.postData.contents) {
+      try { secret = JSON.parse(e.postData.contents).secret; } catch (_) { /* form-encoded */ }
+    }
+    if (!expected || secret !== expected) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'forbidden' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheets = {};
+    ss.getSheets().forEach(sh => {
+      const n = sh.getLastRow(), c = sh.getLastColumn();
+      sheets[sh.getName()] = (n > 0 && c > 0) ? sh.getRange(1, 1, n, c).getValues() : [];
+    });
+    const out = {
+      success: true,
+      exportedAt: Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss'),
+      spreadsheet: ss.getName(),
+      sheets: sheets,
+    };
+    return ContentService.createTextOutput(JSON.stringify(out))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    Logger.log('_handleBackupPost 오류: ' + err.message);
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(err) }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
 // ══════════════════════════════════════════════════════
 //  이메일 셀프발송 (PB 리포트 채널 — 시트 소유계정 Gmail)
 // ══════════════════════════════════════════════════════

@@ -59,6 +59,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 리포트는 private repo(FD5to6-reports)를 docs/reports 경로에 checkout — 기존 경로 참조(프롬프트·가드·weekly) 전부 무수정.
+      # 설계: docs/plans/2026-07-04-리포트-private-분리.md
+      - name: Checkout reports (private)
+        uses: actions/checkout@v4
+        with:
+          repository: ejunwon-lab/FD5to6-reports
+          ssh-key: ${{ secrets.REPORTS_DEPLOY_KEY }}
+          path: docs/reports
+
       - name: Skip if already sent today (schedule·auto dispatch)
         id: guard
         run: |
@@ -164,9 +173,10 @@ jobs:
       - name: Commit report (이력 보존)
         if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
         run: |
+          cd docs/reports
           git config user.email 'actions@github.com'
           git config user.name 'Market Report Bot'
-          git add docs/reports/
+          git add -A
           if git diff --cached --quiet; then
             echo "no changes to commit"
           else
@@ -185,6 +195,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # 리포트는 private repo(FD5to6-reports)를 docs/reports 경로에 checkout — 기존 경로 참조(프롬프트·가드·weekly) 전부 무수정.
+      # 설계: docs/plans/2026-07-04-리포트-private-분리.md
+      - name: Checkout reports (private)
+        uses: actions/checkout@v4
+        with:
+          repository: ejunwon-lab/FD5to6-reports
+          ssh-key: ${{ secrets.REPORTS_DEPLOY_KEY }}
+          path: docs/reports
 
       - name: Skip if already sent today (schedule·auto dispatch)
         id: guard
@@ -290,9 +309,10 @@ jobs:
       - name: Commit report
         if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
         run: |
+          cd docs/reports
           git config user.email 'actions@github.com'
           git config user.name 'Market Report Bot'
-          git add docs/reports/
+          git add -A
           if git diff --cached --quiet; then
             echo "no changes to commit"
           else
@@ -316,6 +336,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # 리포트는 private repo(FD5to6-reports)를 docs/reports 경로에 checkout — 기존 경로 참조(프롬프트·가드·weekly) 전부 무수정.
+      # 설계: docs/plans/2026-07-04-리포트-private-분리.md
+      - name: Checkout reports (private)
+        uses: actions/checkout@v4
+        with:
+          repository: ejunwon-lab/FD5to6-reports
+          ssh-key: ${{ secrets.REPORTS_DEPLOY_KEY }}
+          path: docs/reports
 
       - name: Skip if already sent today (schedule·auto dispatch)
         id: guard
@@ -443,9 +472,10 @@ jobs:
       - name: Commit report
         if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
         run: |
+          cd docs/reports
           git config user.email 'actions@github.com'
           git config user.name 'Market Report Bot'
-          git add docs/reports/
+          git add -A
           if git diff --cached --quiet; then
             echo "no changes to commit"
           else

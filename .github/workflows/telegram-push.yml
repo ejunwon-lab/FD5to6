@@ -65,17 +65,16 @@ jobs:
 
           # ── market-report 정시 dispatch (cron 지연 우회) ──────────────────
           # 체인이 24/7 alive인 김에 리포트 창(KST 08:0x US / 17:0x KR) 통과를 감지해
-          # market-report를 auto dispatch. 멱등은 ① 이 run 내 /tmp 메모 ② contents API
-          # 존재확인 ③ market-report job concurrency+가드 3중으로 보장.
+          # market-report를 auto dispatch. 멱등은 ① 이 run 내 /tmp 메모 ② market-report
+          # job concurrency+가드 2중으로 보장. (기존 contents API 존재확인은 리포트가
+          # private repo(FD5to6-reports)로 분리되며 제거 — GITHUB_TOKEN으로 못 읽고,
+          # 최악의 경우도 체인 재시작 후 여분 dispatch 1회가 가드에서 즉시 skip됨.
+          # 설계: docs/plans/2026-07-04-리포트-private-분리.md)
           # ⚠️ 전체를 || true로 격리 — 어떤 실패도 poke 루프/체인 dispatch에 영향 없음.
-          maybe_dispatch_report() {   # $1=type(us|kr) $2=prefix(US|KR)
+          maybe_dispatch_report() {   # $1=type(us|kr|weekly) $2=prefix(미사용, 호출부 유지)
             local t="$1" pre="$2" today
             today=$(TZ='Asia/Seoul' date +%Y-%m-%d)
             [ -f "/tmp/mr_${t}_${today}" ] && return 0          # 이 run에서 이미 dispatch
-            # 오늘 리포트가 이미 commit됐으면(200) dispatch 불필요
-            if gh api "repos/${GITHUB_REPOSITORY}/contents/docs/reports/${pre}-${today}.md" >/dev/null 2>&1; then
-              touch "/tmp/mr_${t}_${today}"; return 0
-            fi
             echo "  ↳ market-report dispatch: type=${t} auto=true (${today})"
             gh workflow run "Market Report (US/KR)" --ref main -f type="${t}" -f auto=true -R "${GITHUB_REPOSITORY}" \
               && touch "/tmp/mr_${t}_${today}"

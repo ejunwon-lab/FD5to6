@@ -98,6 +98,9 @@ function doPost(e) {
     if (action === 'addTrade') {
       return _handleAddTradePost(e);   // 카톡 매매 알림 → *거래_원장* 1행 기록
     }
+    if (action === 'backupData') {
+      return _handleBackupPost(e);   // 로컬 백업 스크립트 → 전 시트 dump (docs/plans/2026-07-04-시트백업-로컬.md)
+    }
   } catch (err) {
     Logger.log('doPost action 분기 오류: ' + err.message);
   }
