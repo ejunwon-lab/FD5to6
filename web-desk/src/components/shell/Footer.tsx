@@ -13,7 +13,7 @@ export function Footer() {
       {keys.map(([k, label], idx) => (
         <span
           key={k}
-          className={`inline-flex gap-1.5 items-center shrink-0 ${idx >= 3 ? 'hidden md:inline-flex' : ''}`}
+          className={`gap-1.5 items-center shrink-0 hidden ${idx >= 3 ? 'md:inline-flex' : 'sm:inline-flex'}`}
         >
           <span className="bg-bg-elev border border-line text-amber px-1.5 py-0 font-semibold text-2xs">{k}</span>
           <span className="hidden sm:inline">{label}</span>

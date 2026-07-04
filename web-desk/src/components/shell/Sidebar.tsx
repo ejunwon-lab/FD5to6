@@ -67,14 +67,14 @@ export function Sidebar({ active, onSelect, drawerOpen, onClose }: Props) {
               <button
                 key={item.key}
                 onClick={() => handleSelect(item.key)}
-                className={`w-full flex items-center justify-between px-4 py-1.5 text-left text-xs border-l-2 ${
+                className={`w-full flex items-center justify-between px-4 py-2.5 lg:py-1.5 text-left text-xs border-l-2 ${
                   active === item.key
                     ? 'bg-bg-elev border-amber text-ink'
                     : 'border-transparent text-ink-dim hover:bg-bg-hover hover:text-ink'
                 }`}
               >
                 <span>{item.label}</span>
-                {item.hint && <span className="text-2xs text-ink-faint">{item.hint}</span>}
+                {item.hint && <span className="hidden lg:inline text-2xs text-ink-faint">{item.hint}</span>}
                 {item.badge && (
                   <span className="bg-amber text-bg px-1.5 py-0 text-2xs font-bold rounded-sm">
                     {item.badge}

@@ -25,9 +25,9 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
       className={`bg-bg-elev border border-line border-l-4 ${borderClass} cursor-pointer hover:bg-bg-hover transition-colors`}
     >
       <div className="p-3.5">
-        {/* Top: name (main) · code · market | currentPrice·dayChange */}
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <div className="min-w-0 flex-1">
+        {/* Top: name (main) · code · market | currentPrice·dayChange — 모바일: 수식 블록 wrap (종목명 잘림 방지) */}
+        <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1.5 mb-3">
+          <div className="min-w-[9rem] flex-1">
             <div className="flex items-baseline gap-2">
               <span className="text-amber font-semibold text-sm truncate">{h.name}</span>
               <span className="text-cyan text-2xs tracking-widest shrink-0">{h.market}</span>
@@ -46,7 +46,7 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
               )}
             </div>
           </div>
-          <div className="text-right shrink-0">
+          <div className="text-right shrink-0 ml-auto">
             {/* 1. 현재가 */}
             <div className="text-ink font-medium tabular text-sm">
               {Math.round(h.currentPrice).toLocaleString()}원

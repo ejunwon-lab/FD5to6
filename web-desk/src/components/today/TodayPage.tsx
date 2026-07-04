@@ -124,8 +124,8 @@ function MoverRow({ h, rank, maxAbsPct }: MoverProps) {
           <span className="text-ink-faint text-2xs tabular w-7 shrink-0">#{rank}</span>
           <span className={`shrink-0 text-sm ${toneClass}`}>{arrow}</span>
           <span className="text-amber font-medium text-sm truncate">{h.name}</span>
-          <span className="text-2xs text-ink-faint tabular shrink-0">{h.symbol}</span>
-          <span className="text-2xs text-cyan tracking-widest shrink-0">{h.market}</span>
+          <span className="hidden sm:inline text-2xs text-ink-faint tabular shrink-0">{h.symbol}</span>
+          <span className="hidden sm:inline text-2xs text-cyan tracking-widest shrink-0">{h.market}</span>
         </div>
         <span className={`text-base font-medium tabular ${toneClass}`}>
           {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
@@ -179,7 +179,7 @@ function Toggle({ active, onClick, label, tone }: { active: boolean; onClick: ()
   return (
     <button
       onClick={onClick}
-      className={`border px-2.5 py-0.5 text-2xs tracking-widest uppercase ${activeClass}`}
+      className={`border px-2.5 py-1.5 lg:py-0.5 text-2xs tracking-widest uppercase ${activeClass}`}
     >
       {label}
     </button>

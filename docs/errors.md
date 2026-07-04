@@ -2,6 +2,14 @@
 
 ---
 
+## 2026-07-04
+
+### 텔레그램 푸시 "오늘 +0원" 간헐 발생 — KIS 전면 실패 시 carry-forward가 무단서 발송
+- **증상**: 장중 푸시의 *오늘* 손익이 가끔 정확히 +0원(+0.00%). 다음 푸시(~20분 뒤)엔 정상. 6/10 "+0 합계" 버그(부분갱신)와 별개 — 그 수정은 유효.
+- **원인**: *오늘* = Σ 종목지표.todayPnl = (현재가_이력 오늘행−전일행)×수량. `updateNewPriceHistory`가 KIS 조회 실패 종목에 **전일가 carry-forward**(NewSystem.js) — KIS가 일시 전면 실패(토큰 갱신 순간·서버 순단)하면 오늘행=전일행 복제 → 전 종목 change=0 → +0원. 경고가 Logger·toast에만 있어 **텔레그램 수신자는 stale인지 알 수 없었음**.
+- **해결 (v25, 2026-07-04)**: ① `updateNewPriceHistory`가 갱신 상태를 ScriptProperties `kis_carried_status`(date·carried·total)에 기록(0건도 저장 — 전일 플래그 자동 해제) ② `_tgFormatPnL`이 오늘자 carried>0이면 "⚠️ KIS 시세 조회 전체 실패 — 직전가 기준" 또는 "시세 미갱신 n/total종목" 라인 추가. 정상 시 메시지 불변. 설계: `docs/plans/2026-07-04-푸시-0원-stale단서.md`.
+- **교훈**: carry-forward류 안전장치는 **값을 살리는 동시에 stale임을 소비 채널까지 전파**해야 함. 시트 toast는 시트를 안 보는 채널(텔레그램)에겐 무음.
+
 ## 2026-07-03
 
 ### KR 리포트 "Naver 차단 14일차" — 러너 IP 차단이 아니라 WebFetch 도구 계층 차단

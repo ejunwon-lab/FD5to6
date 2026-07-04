@@ -39,7 +39,7 @@ export function MarketHeatmap({ indicators, onSelect }: Props) {
             <div className="text-2xs uppercase tracking-widest text-ink-faint mb-1 px-1">
               {category} <span className="text-ink-faint/70 normal-case">· {items.length}</span>
             </div>
-            <div className="grid gap-1 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+            <div className="grid gap-1 grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
               {items.map((i) => <Cell key={i.symbol} ind={i} onSelect={onSelect} />)}
             </div>
           </div>

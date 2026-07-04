@@ -44,9 +44,9 @@ function Pill({ children, live, className = '' }: { children: React.ReactNode; l
 }
 
 function formatTime(): string {
-  const d = new Date()
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mm = String(d.getMinutes()).padStart(2, '0')
-  const ss = String(d.getSeconds()).padStart(2, '0')
-  return `${hh}:${mm}:${ss} kst`
+  // 라벨이 "kst"이므로 브라우저 로컬 TZ가 아닌 Asia/Seoul로 고정 (해외 접속 시 오표기 방지)
+  const t = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).format(new Date())
+  return `${t} kst`
 }

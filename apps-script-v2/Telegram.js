@@ -121,14 +121,29 @@ function _tgFormatPnL() {
     return sign + n.toFixed(2) + '%';
   };
 
-  return [
+  // KIS carry-forward 단서 — 오늘 +0원이 "시세 미갱신" 때문일 때 수신자가 알 수 있게
+  // (updateNewPriceHistory가 kis_carried_status 저장. docs/plans/2026-07-04-푸시-0원-stale단서.md)
+  let staleNote = '';
+  try {
+    const raw = PropertiesService.getScriptProperties().getProperty('kis_carried_status');
+    const st = raw ? JSON.parse(raw) : null;
+    const todayStr = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
+    if (st && st.date === todayStr && st.carried > 0) {
+      staleNote = (st.carried >= st.total)
+        ? '⚠️ _KIS 시세 조회 전체 실패 — 직전가 기준 (오늘 ±0원은 미갱신 신호)_'
+        : '⚠️ _시세 미갱신 ' + st.carried + '/' + st.total + '종목 — 직전가 유지_';
+    }
+  } catch (e) { /* 단서 실패는 본 메시지에 영향 없음 */ }
+
+  const lines = [
     '💼 *포트폴리오 손익*',
     '',
     '*합계*: ' + fmtAmt(total) + '  (' + fmtPct(totalRate) + ')',
     '*오늘*: ' + fmtAmt(today)  + '  (' + todayPctStr + ')',
-    '',
-    '_기준일: ' + asOf + '_',
-  ].join('\n');
+  ];
+  if (staleNote) lines.push('', staleNote);
+  lines.push('', '_기준일: ' + asOf + '_');
+  return lines.join('\n');
 }
 
 /**

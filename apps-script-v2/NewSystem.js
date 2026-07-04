@@ -901,6 +901,14 @@ function updateNewPriceHistory(ss) {
       .setNumberFormat('#,##0');
   }
 
+  // 갱신 상태 기록 — 텔레그램 푸시가 "오늘 +0원"이 stale(carry-forward)인지 단서 표기에 사용
+  // (carried=0도 저장해 전일 플래그 자동 해제. docs/plans/2026-07-04-푸시-0원-stale단서.md)
+  try {
+    PropertiesService.getScriptProperties().setProperty('kis_carried_status', JSON.stringify({
+      date: today, carried: carried.length, total: existingCodes.length
+    }));
+  } catch (e) { Logger.log('kis_carried_status 저장 실패: ' + e); }
+
   Logger.log('updateNewPriceHistory 완료: ' + Object.keys(trackerPriceMap).length + '개 종목 업데이트');
   if (carried.length > 0) {
     Logger.log('⚠️ KIS 조회 실패 → 직전가 유지 ' + carried.length + '종목 [' + carried.join(', ') + ']');

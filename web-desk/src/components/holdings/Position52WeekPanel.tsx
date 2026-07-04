@@ -29,7 +29,7 @@ export function Position52WeekPanel({ holdings }: { holdings: Holding[] }) {
           const markerTone = nearHigh ? 'bg-loss' : nearLow ? 'bg-gain' : 'bg-amber'
           const pctTone = nearHigh ? 'text-loss' : nearLow ? 'text-gain' : 'text-ink-dim'
           return (
-            <div key={h.symbol} className="grid grid-cols-[140px_1fr_60px] items-center gap-3 text-xs">
+            <div key={h.symbol} className="grid grid-cols-[minmax(96px,auto)_1fr_56px] sm:grid-cols-[140px_1fr_60px] items-center gap-2 sm:gap-3 text-xs">
               <div className="truncate">
                 <div className="text-amber font-medium leading-tight truncate">{h.name}</div>
                 <div className="text-xxs text-ink-faint tabular">{h.symbol}</div>

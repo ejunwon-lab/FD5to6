@@ -106,7 +106,7 @@ export function ActivityPage() {
         <span className="text-ink-faint uppercase tracking-widest text-2xs">filter</span>
         <button
           onClick={() => setSelectedMonth('ALL')}
-          className={`border px-2.5 py-0.5 text-2xs tracking-widest uppercase ${
+          className={`border px-2.5 py-1.5 lg:py-0.5 text-2xs tracking-widest uppercase ${
             selectedMonth === 'ALL' ? 'bg-amber border-amber text-bg' : 'border-line text-ink-dim hover:text-ink'
           }`}
         >all</button>
@@ -114,7 +114,7 @@ export function ActivityPage() {
           <button
             key={m}
             onClick={() => setSelectedMonth(m)}
-            className={`border px-2.5 py-0.5 text-2xs tracking-widest uppercase ${
+            className={`border px-2.5 py-1.5 lg:py-0.5 text-2xs tracking-widest uppercase ${
               selectedMonth === m ? 'bg-amber border-amber text-bg' : 'border-line text-ink-dim hover:text-ink'
             }`}
           >{m}</button>

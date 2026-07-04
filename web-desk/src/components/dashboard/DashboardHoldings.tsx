@@ -96,7 +96,7 @@ export function DashboardHoldings({ holdings }: Props) {
               <button
                 key={acc}
                 onClick={() => setSelectedAccount(acc)}
-                className={`shrink-0 px-2.5 py-0.5 text-2xs uppercase tracking-widest border ${chipStyle(broker, selected, isAll)}`}
+                className={`shrink-0 px-2.5 py-1.5 lg:py-0.5 text-2xs uppercase tracking-widest border ${chipStyle(broker, selected, isAll)}`}
               >
                 {label}<span className="ml-1.5 opacity-60">{cnt}</span>
               </button>
@@ -110,7 +110,7 @@ export function DashboardHoldings({ holdings }: Props) {
             <button
               key={opt.key}
               onClick={() => handleSort(opt.key)}
-              className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 text-2xs uppercase tracking-widest border ${
+              className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 lg:py-0.5 text-2xs uppercase tracking-widest border ${
                 sortKey === opt.key
                   ? 'bg-amber border-amber text-bg'
                   : 'border-line text-ink-dim hover:text-ink'
@@ -125,21 +125,21 @@ export function DashboardHoldings({ holdings }: Props) {
             <div className="inline-flex border border-line">
               <button
                 onClick={() => setViewMode('card-web')}
-                className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest ${
+                className={`px-2.5 py-1.5 lg:py-0.5 text-2xs uppercase tracking-widest ${
                   viewMode === 'card-web' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
                 }`}
                 title="Web 스타일 카드"
               >▤ Web</button>
               <button
                 onClick={() => setViewMode('card-terminal')}
-                className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest border-l border-line ${
+                className={`px-2.5 py-1.5 lg:py-0.5 text-2xs uppercase tracking-widest border-l border-line ${
                   viewMode === 'card-terminal' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
                 }`}
                 title="Terminal 카드"
               >▦ Terminal</button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`px-2.5 py-0.5 text-2xs uppercase tracking-widest border-l border-line ${
+                className={`px-2.5 py-1.5 lg:py-0.5 text-2xs uppercase tracking-widest border-l border-line ${
                   viewMode === 'list' ? 'bg-amber text-bg' : 'text-ink-dim hover:text-ink'
                 }`}
                 title="목록"

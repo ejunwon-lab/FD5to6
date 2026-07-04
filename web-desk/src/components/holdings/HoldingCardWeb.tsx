@@ -32,9 +32,9 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
       style={{ fontFamily: 'system-ui, -apple-system, "Apple SD Gothic Neo", "Pretendard", sans-serif' }}
     >
       <div className="p-5">
-        {/* Top */}
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="min-w-0 flex-1">
+        {/* Top — 모바일: 이름에 최소폭 보장, 수식 블록은 다음 줄로 wrap (종목명 잘림 방지) */}
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
+          <div className="min-w-[9rem] flex-1">
             <p className="font-semibold text-base text-ink truncate">{h.name}</p>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <span className="text-xs text-ink-faint tabular">{h.symbol}</span>
@@ -47,7 +47,7 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
               {onDetail && <DetailBtn onClick={(e) => { e.stopPropagation(); onDetail() }} />}
             </div>
           </div>
-          <div className="text-right shrink-0">
+          <div className="text-right shrink-0 ml-auto">
             {/* 1. 현재가 */}
             <p className="font-bold text-xl text-ink tabular leading-none">
               {Math.round(h.currentPrice).toLocaleString()}원
