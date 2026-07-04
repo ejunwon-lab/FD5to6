@@ -1,9 +1,11 @@
 # 시스템 아키텍처 — FD5to6
 
-last updated: 2026-06-03
+last updated: 2026-07-04
 
 JUN & SOO 주식 포트폴리오 시스템의 전체 그림.
 **작업 시작 전 이 문서를 먼저 본다** — 코드 위치는 `code-map.md`, 기능 체크리스트는 `features.md`, API 응답 필드는 `api-reference.md`, 설계 결정 이유는 `decisions.md`.
+
+> **2026-07-04 구조 변경**: ① 시장 리포트·프롬프트·투자논리는 **private repo `FD5to6-reports`** — 로컬 `docs/reports/` = clone(run.sh pull), 워크플로는 deploy key로 같은 경로에 checkout. main repo는 public 유지(GH Pages), 과거 히스토리도 purge 완료. ② 시트 백업: `scripts/backup_sheets.py` → `backups/`(로컬 전용, gitignore) + launchd 주 1회.
 
 ---
 

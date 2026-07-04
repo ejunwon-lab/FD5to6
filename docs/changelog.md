@@ -16,3 +16,11 @@
 - 데스크 표시규칙 위반 3건 수정(M/k 축약 제거, Winners/Losers 종목명 메인) + shortKRW 제거, Pages 배포.
 - 전반 점검(에이전트 3 + 로컬) — web 34/34·tsc 클린 확인, GAS 죽은 코드·환율 fallback 불일치·웹 드리프트 등 발견 목록화.
 - /design-check 첫 적용 — 진단이 가설(IP 차단)을 뒤집어 GAS/KIS 대공사 회피. errors.md 2건, memory 1건(WebFetch vs curl).
+
+## 2026-07-04
+- 텔레그램 푸시 "오늘 +0원" 원인 확정(KIS 전면 실패 시 carry-forward 무단서) — v25: 푸시에 ⚠️ 미갱신 단서 라인.
+- web-desk 모바일 11건(카드 종목명 잘림 해소 등) + 오늘 TOP 상승/하락 2칸 + kst 시계 Asia/Seoul 고정.
+- 시트 백업 로컬 자동화 — GAS backupData(v26)+backup_sheets.py(재시도)+launchd 주1회+설치 스크립트. backups/ gitignore.
+- 리포트 private repo 분리(FD5to6-reports) — 워크플로 docs/reports 경로 checkout(deploy key), 프롬프트 3종+kr-theses도 _config/ 이전. dry_run 2회 통과.
+- 히스토리 재작성(filter-repo) — 리포트·프롬프트·논리 전 히스토리 purge, force push, fresh clone 검증 0건. run.sh 자기복구(다른 맥 폴더 삭제 불필요).
+- desk 배포 2회·GAS 배포 2회(v25·v26) 전부 검증 통과.
