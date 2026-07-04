@@ -104,7 +104,7 @@ jobs:
           GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
           TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
         run: |
-          claude -p "$(cat .github/scripts/us-prompt.md)" \
+          claude -p "$(cat docs/reports/_config/us-prompt.md)" \
             --allowedTools "WebFetch,Bash,Read,Write" \
             --max-turns 25 \
             --model claude-sonnet-4-6
@@ -241,7 +241,7 @@ jobs:
           GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
           TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
         run: |
-          claude -p "$(cat .github/scripts/kr-prompt.md)" \
+          claude -p "$(cat docs/reports/_config/kr-prompt.md)" \
             --allowedTools "WebFetch,Bash,Read,Write" \
             --max-turns 25 \
             --model claude-sonnet-4-6
@@ -404,7 +404,7 @@ jobs:
           GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
           TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
         run: |
-          claude -p "$(cat .github/scripts/weekly-prompt.md)" \
+          claude -p "$(cat docs/reports/_config/weekly-prompt.md)" \
             --allowedTools "WebFetch,Bash,Read,Write" \
             --max-turns 40 \
             --model claude-sonnet-4-6
