@@ -27,9 +27,11 @@ export function HoldingsStatusStrip({ holdings, sortKey, selectedAccount }: Prop
     return { count, value, opBuy, profit, profitPct, dayChange, dayPct, gain, loss }
   }, [holdings])
 
+  // change 정렬은 다이내믹 셀이 2장(TOP 상승·TOP 하락) → 6열로 빈칸 없이 정렬
+  const lgCols = sortKey === 'change' ? 'lg:grid-cols-6' : 'lg:grid-cols-5'
   return (
     <div className="px-3 pt-2.5 pb-3 border-b border-line-dim bg-bg/30">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-line border border-line">
+      <div className={`grid grid-cols-2 sm:grid-cols-3 ${lgCols} gap-px bg-line border border-line`}>
         <KpiCell label="평가금액" value={`₩${stats.value.toLocaleString()}`} sub={`${stats.count}개 종목`} />
         <KpiCell
           label="누적 손익"
@@ -102,21 +104,30 @@ function DynamicCell({ holdings, sortKey, selectedAccount }: Props) {
       )
     }
     case 'change': {
-      // 오늘 top mover (가장 큰 ± 변동)
-      const sorted = [...holdings].sort((a, b) => Math.abs(b.dayChange) - Math.abs(a.dayChange))
-      const top = sorted[0]
-      const up = top.dayChange >= 0
-      return (
+      // 오늘 TOP 상승 + TOP 하락 (두 칸 — 한쪽이 없으면 "—")
+      const byChange = [...holdings].sort((a, b) => b.dayChange - a.dayChange)
+      const topGain = byChange[0].dayChange > 0 ? byChange[0] : null
+      const bottom = byChange[byChange.length - 1]
+      const topLoss = bottom.dayChange < 0 ? bottom : null
+      const cell = (label: string, h: Holding | null, up: boolean) => h ? (
         <KpiCell
-          label={up ? '오늘 TOP 상승' : '오늘 TOP 하락'}
-          value={<span className="text-amber">{top.name}</span>}
+          label={label}
+          value={<span className="text-amber">{h.name}</span>}
           sub={
             <span className={up ? 'text-gain' : 'text-loss'}>
-              {up ? '+' : ''}₩{top.dayChange.toLocaleString()} ({top.changePct})
+              {up ? '+' : ''}₩{h.dayChange.toLocaleString()} ({h.changePct})
             </span>
           }
           tone="amber"
         />
+      ) : (
+        <KpiCell label={label} value="—" sub={up ? '상승 종목 없음' : '하락 종목 없음'} />
+      )
+      return (
+        <>
+          {cell('오늘 TOP 상승', topGain, true)}
+          {cell('오늘 TOP 하락', topLoss, false)}
+        </>
       )
     }
     case 'profitRate': {
