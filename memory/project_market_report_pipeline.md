@@ -15,11 +15,11 @@ metadata:
 
 **흐름 (장중 텔레그램 푸시 = "워치 푸시" 아님)**: `telegram-push.yml` cron(KST 월~금 09:05~15:45 매시 :05/:25/:45) → GAS 웹앱 `action=pushPnL` POST(secret=`TG_WEBHOOK_SECRET`) → `_tgHandlePushPost`→`tgPushPnL`(거래일·시간·락 자체 게이트 + KIS 갱신 + 발송). **GAS `tgPushPnL` 시간 트리거 3개는 폐기**. 신규 secrets: `GAS_WEB_APP_URL`, `TG_WEBHOOK_SECRET`. 휴장/장외엔 tgPushPnL이 내부 skip(GH에 휴장 로직 중복 X).
 
-**구성**:
-- `.github/workflows/market-report.yml` — cron 2개 + workflow_dispatch
-- `.github/scripts/us-prompt.md`, `kr-prompt.md` — 분석 prompt
-- `.github/scripts/send_telegram.py` — Markdown→plain fallback 발송
-- `docs/reports/` — 영구 이력 (Market Report Bot author)
+**구성** (2026-07-04 private 분리 반영):
+- `.github/workflows/market-report.yml` — cron + workflow_dispatch + 생성실패 텔레그램 경고
+- **프롬프트 3종(us·kr·weekly)+`kr-theses.md` = private repo `FD5to6-reports`의 `_config/`** — 로컬 `docs/reports/_config/*.md` 편집 후 `git -C docs/reports push`. main repo엔 없음(보유 종목·논리 비공개화, 히스토리도 filter-repo로 purge됨)
+- `.github/scripts/send_telegram.py` — Markdown→plain fallback 발송 (비민감, main 유지)
+- `docs/reports/` — 영구 이력 = **private repo `ejunwon-lab/FD5to6-reports` clone**. 워크플로가 deploy key(`REPORTS_DEPLOY_KEY`)로 checkout·커밋. 로컬은 run.sh가 pull
 
 **secrets** (GitHub repo Settings → Actions secrets):
 - `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`로 1년 발급, Max 구독 비용 0)
@@ -28,7 +28,7 @@ metadata:
 **Why**: routine 환경(Anthropic 샌드박스)이 GAS·Worker·Telegram API 모두 차단([[feedback-routine-sandbox-limits]]). 어떤 우회도 불가. GitHub Actions는 일반 인터넷 IP라 모든 API 호출 가능. Max OAuth로 비용 0. 5/28~6/2 routine·Worker proxy 시도 모두 실패 후 6/3 GitHub Actions로 전환 → 첫 cron 자동 실행 성공(`3216feb`).
 
 **How to apply**:
-- 시장 리포트 형식·내용 변경 시 → `.github/scripts/{us,kr}-prompt.md` 편집 후 commit. 다음 cron부터 자동 반영
+- 시장 리포트 형식·내용 변경 시 → `docs/reports/_config/{us,kr,weekly}-prompt.md` 편집 후 `git -C docs/reports push` (private repo). 다음 cron부터 자동 반영
 - 발송 시각 변경 시 → workflow YAML의 cron 식 (UTC 기준)
 - 일시 정지 → Actions 페이지 → workflow 우상단 ··· → Disable
 - 즉시 1회 실행 → Actions → Run workflow (type us/kr/both)
