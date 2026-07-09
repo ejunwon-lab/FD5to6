@@ -1,11 +1,12 @@
 /**
  * Dashboard.js — *대시보드* 시트 생성/갱신 (신시스템, 19컬럼 레이아웃)
  *
- * 보유 종목 현황 컬럼 (19):
+ * 보유 종목 현황 컬럼 (21):
  *   종목명 | 분류 | 증권사/계좌 | 수량 | 평균단가 | 현재단가 | 매입금액 |
  *   손익 | 수익률 | 보유기간 |
- *   당일 등락액 | 당일 등락률 | 당일 손익 | 1주일 손익 | 1달 손익 |
+ *   당일 등락액 | 당일 등락률 | 종목명(반복) | 당일 손익 | 1주일 손익 | 1달 손익 |
  *   1M | 3M | 6M | 1Y
+ *   ※ 14열 종목명은 표가 넓어 우측 스크롤 시 행 식별용 반복 컬럼 (값 = 1열과 동일)
  *
  * 1주일/1달 손익 = (오늘 평가금액) − (N일전 평가금액)
  *   - 오늘 평가금액 = 오늘가 × 현재 수량
@@ -31,7 +32,7 @@ const DB = {
   BG_CARD_POS:  '#fde8e8',
   BG_CARD_NEG:  '#e8f0fe',
   BG_CARD_NEU:  '#f3f4f6',
-  COLS:         20,
+  COLS:         21,
   PROP_SORT_KEY: 'DASH_POS_SORT_KEY',
   PROP_SORT_DIR: 'DASH_POS_SORT_DIR',
 };
@@ -112,8 +113,8 @@ function buildDashboard() {
   dash.clearContents();
   dash.clearFormats();
   dash.getRange(1, 1, dash.getMaxRows(), dash.getMaxColumns()).clearDataValidations();
-  // 컬럼 너비 (20개)
-  [155, 85, 110, 65, 90, 90, 100, 100, 90, 75, 75, 85, 80, 90, 95, 95, 68, 68, 68, 68]
+  // 컬럼 너비 (21개) — 14열은 반복 종목명
+  [155, 85, 110, 65, 90, 90, 100, 100, 90, 75, 75, 85, 80, 130, 90, 95, 95, 68, 68, 68, 68]
     .forEach((w, i) => dash.setColumnWidth(i + 1, w));
 
   let r = 1;
@@ -150,7 +151,7 @@ function buildDashboard() {
     : '갱신 필요';
 
   const cardStarts = [1, 6, 11, 16];
-  const cardSpans  = [5, 5, 5, 5];   // 합계 = 20
+  const cardSpans  = [5, 5, 5, 6];   // 합계 = 21 (마지막 카드가 신규 21열까지 채움)
   const cardMatrix = [
     [
       { label: '총 매입금액',  val: _dbNum(totalBuy),    sub: '',                                              bg: DB.BG_CARD_NEU, signed: false },
@@ -220,7 +221,7 @@ function buildDashboard() {
   _dbHeader(dash, r, 1, [
     '종목명', '분류', '증권사 / 계좌', '수량', '평균단가', '현재단가', '매입금액', '평가금액',
     '손익', '수익률', '보유기간',
-    '당일 등락액', '당일 등락률', '당일 손익', '1주일 손익', '1달 손익',
+    '당일 등락액', '당일 등락률', '종목명', '당일 손익', '1주일 손익', '1달 손익',
     '1M', '3M', '6M', '1Y'
   ]);
   r++;
@@ -281,6 +282,7 @@ function buildDashboard() {
       pnl, rate, row[5],
       tCh  == null ? '' : tCh,
       tPct == null ? '' : tPct,
+      row[1],                          // 종목명 반복 (14열)
       tPnl == null ? '' : tPnl,
       w1   == null ? '' : w1,
       m1L  == null ? '' : m1L,
@@ -292,19 +294,21 @@ function buildDashboard() {
     dash.getRange(r, 1, 1, DB.COLS).setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
     dash.getRange(r, 1, 1, 3).setHorizontalAlignment('center');
     dash.getRange(r, 4, 1, 7).setHorizontalAlignment('right');   // 수량~수익률 (7개: +평가금액)
-    dash.getRange(r, 11).setHorizontalAlignment('center');       // 보유기간 (10→11)
-    dash.getRange(r, 12, 1, 9).setHorizontalAlignment('right');  // 신규 5개 + 1M~1Y (11→12)
-    _dbColorCell(dash, r, 9, pnl);         // 손익 (8→9)
-    _dbColorCell(dash, r, 10, rate);       // 수익률 (9→10)
+    dash.getRange(r, 11).setHorizontalAlignment('center');       // 보유기간
+    dash.getRange(r, 12, 1, 2).setHorizontalAlignment('right');  // 당일 등락액·등락률
+    dash.getRange(r, 14).setHorizontalAlignment('center');       // 종목명 반복 (신규 14열)
+    dash.getRange(r, 15, 1, 7).setHorizontalAlignment('right');  // 당일 손익~1Y (15~21)
+    _dbColorCell(dash, r, 9, pnl);         // 손익
+    _dbColorCell(dash, r, 10, rate);       // 수익률
     if (tCh  != null) _dbColorCell(dash, r, 12, tCh);
     if (tPct != null) _dbColorCell(dash, r, 13, tPct);
-    if (tPnl != null) _dbColorCell(dash, r, 14, tPnl);
-    if (w1   != null) _dbColorCell(dash, r, 15, w1);
-    if (m1L  != null) _dbColorCell(dash, r, 16, m1L);
-    if (m1P  != null) _dbColorCell(dash, r, 17, m1P);
-    if (m3P  != null) _dbColorCell(dash, r, 18, m3P);
-    if (m6P  != null) _dbColorCell(dash, r, 19, m6P);
-    if (y1P  != null) _dbColorCell(dash, r, 20, y1P);
+    if (tPnl != null) _dbColorCell(dash, r, 15, tPnl);
+    if (w1   != null) _dbColorCell(dash, r, 16, w1);
+    if (m1L  != null) _dbColorCell(dash, r, 17, m1L);
+    if (m1P  != null) _dbColorCell(dash, r, 18, m1P);
+    if (m3P  != null) _dbColorCell(dash, r, 19, m3P);
+    if (m6P  != null) _dbColorCell(dash, r, 20, m6P);
+    if (y1P  != null) _dbColorCell(dash, r, 21, y1P);
     r++;
   });
 
@@ -325,17 +329,17 @@ function buildDashboard() {
     dash.getRange(r, 1, 1, DB.COLS).setValues([[
       '합계', '', '', '', '', '',
       sumBuy, sumCur, sumPnl,
-      '', '', '', '',
+      '', '', '', '', '',
       sumTodayPnl, sumW1Pnl, sumM1Pnl,
       '', '', '', ''
     ]]).setFontWeight('bold').setBackground(DB.BG_TOTAL);
     dash.getRange(r, 1).setHorizontalAlignment('center');
     dash.getRange(r, 7, 1, 3).setHorizontalAlignment('right');
-    dash.getRange(r, 14, 1, 3).setHorizontalAlignment('right');
+    dash.getRange(r, 15, 1, 3).setHorizontalAlignment('right');   // 당일·1주·1달 손익 (14→15)
     _dbColorCell(dash, r, 9,  sumPnl);
-    _dbColorCell(dash, r, 14, sumTodayPnl);
-    _dbColorCell(dash, r, 15, sumW1Pnl);
-    _dbColorCell(dash, r, 16, sumM1Pnl);
+    _dbColorCell(dash, r, 15, sumTodayPnl);
+    _dbColorCell(dash, r, 16, sumW1Pnl);
+    _dbColorCell(dash, r, 17, sumM1Pnl);
 
     // ── 보유종목 표 숫자 컬럼: 실제 숫자값 + 표시 서식 ──
     //   금액류: "+1,234 / -1,234"  |  %류: 값은 12.34 그대로, "+12.34%" 표시
@@ -348,8 +352,8 @@ function buildDashboard() {
     dash.getRange(posStart, 10, _nRows, 1).setNumberFormat(FMT_PCT);  // 수익률
     dash.getRange(posStart, 12, _nRows, 1).setNumberFormat(FMT_PNL);  // 당일 등락액
     dash.getRange(posStart, 13, _nRows, 1).setNumberFormat(FMT_PCT);  // 당일 등락률
-    dash.getRange(posStart, 14, _nRows, 3).setNumberFormat(FMT_PNL);  // 당일·1주·1달 손익
-    dash.getRange(posStart, 17, _nRows, 4).setNumberFormat(FMT_PCT);  // 1M~1Y
+    dash.getRange(posStart, 15, _nRows, 3).setNumberFormat(FMT_PNL);  // 당일·1주·1달 손익 (14→15)
+    dash.getRange(posStart, 18, _nRows, 4).setNumberFormat(FMT_PCT);  // 1M~1Y (17→18)
     r++;
   }
   r++;
