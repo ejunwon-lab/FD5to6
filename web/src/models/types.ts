@@ -51,6 +51,32 @@ export interface Holding {
   buyDate?: string
 }
 
+export interface CashReserveItem {
+  broker: string
+  account: string
+  amount: number
+  note?: string
+  updatedAt?: string
+}
+
+export interface CashReserve {
+  items: CashReserveItem[]
+  total: number
+}
+
+export interface NonStockAssetItem {
+  category: string
+  name: string
+  broker: string
+  account: string
+  value: number
+}
+
+export interface NonStockAssets {
+  items: NonStockAssetItem[]
+  total: number
+}
+
 export interface PortfolioResponse {
   success: boolean
   error?: string
@@ -61,6 +87,8 @@ export interface PortfolioResponse {
   byCategory?: Record<string, GroupStat>
   byAccount?: Record<string, GroupStat>
   holdings?: Holding[]
+  cashReserve?: CashReserve
+  nonStockAssets?: NonStockAssets
 }
 
 export interface ReferenceIndicator {

@@ -155,7 +155,7 @@ function buildDashboard() {
   const cardMatrix = [
     [
       { label: '총 매입금액',  val: _dbNum(totalBuy),    sub: '',                                              bg: DB.BG_CARD_NEU, signed: false },
-      { label: '총 평가금액',  val: _dbNum(totalCur),    sub: '',                                              bg: DB.BG_CARD_NEU, signed: false },
+      { label: '투자중 평가',  val: _dbNum(totalCur),    sub: '',                                              bg: DB.BG_CARD_NEU, signed: false },
       { label: '총 수익',      val: _dbPnl(totalProfit), sub: '',                                              bg: totalProfit >= 0 ? DB.BG_CARD_POS : DB.BG_CARD_NEG, signed: true },
       { label: '오늘의 수익',  val: todayVal,            sub: '',                                              bg: todayBg, signed: todayProfit !== null },
     ],
@@ -191,7 +191,80 @@ function buildDashboard() {
   r++;
 
   // ══════════════════════════════════
-  // [3] 보유 종목 현황 (19컬럼 + 정렬 컨트롤)
+  // [2.5] 자산 배분 + 계좌 유형별 (나란히)
+  //   자산 배분(좌 1~3열): 투자중=보유현황 평가금액 합(totalCur), 대기중=*설정* 대기자금, 총자산=합
+  //   계좌 유형별(우 5~7열): 총자산(투자중+대기중)을 일반 투자/퇴직연금으로, 각 증권사(미래/삼성)별 세분
+  //     퇴직 판정: 계좌명에 '퇴직' 또는 'IRP' 포함. ISA는 일반.
+  // ══════════════════════════════════
+  {
+    const isPension = a => {
+      const s = String(a || '');
+      return s.indexOf('퇴직') !== -1 || s.toUpperCase().indexOf('IRP') !== -1;
+    };
+    const cash       = _mGetCashReserve(ss);                 // MobileAPI.js — 계좌별 대기자금 {items,total}
+    const pendTotal  = Number(cash.total) || 0;
+    const assetTotal = totalCur + pendTotal;
+    const pct = v => assetTotal > 0 ? v / assetTotal * 100 : 0;
+
+    // 유형(일반/퇴직) × 증권사(미래/삼성) 집계 — 투자중 + 대기중
+    const agg = { '일반': {}, '퇴직': {} };
+    const add = (type, broker, amt) => {
+      const b = _shortBroker(broker);
+      agg[type][b] = (agg[type][b] || 0) + amt;
+    };
+    posRows.forEach(row => add(isPension(row[4]) ? '퇴직' : '일반', row[3], Number(row[10]) || 0));
+    (cash.items || []).forEach(it => add(isPension(it.account) ? '퇴직' : '일반', it.broker, Number(it.amount) || 0));
+
+    // ── 좌: 자산 배분 (1~3열) ──
+    _dbSectionTitleSpan(dash, r, 1, 3, '자산 배분');
+    _dbHeader(dash, r + 1, 1, ['구분', '금액', '비중']);
+    const aStart = r + 2;
+    [['투자중', totalCur], ['대기중', pendTotal]].forEach((rw, i) => {
+      dash.getRange(aStart + i, 1, 1, 3).setValues([[rw[0], rw[1], pct(rw[1])]])
+        .setBackground(i % 2 === 0 ? DB.BG_EVEN : DB.BG_ODD);
+      dash.getRange(aStart + i, 1).setHorizontalAlignment('center');
+      dash.getRange(aStart + i, 2, 1, 2).setHorizontalAlignment('right');
+    });
+    const aTot = aStart + 2;
+    dash.getRange(aTot, 1, 1, 3).setValues([['총 자산', assetTotal, 100]])
+      .setFontWeight('bold').setBackground(DB.BG_TOTAL);
+    dash.getRange(aTot, 1).setHorizontalAlignment('center');
+    dash.getRange(aTot, 2, 1, 2).setHorizontalAlignment('right');
+    dash.getRange(aStart, 2, 3, 1).setNumberFormat('#,##0');
+    dash.getRange(aStart, 3, 3, 1).setNumberFormat('0.0"%"');
+    const leftEnd = aTot;
+
+    // ── 우: 계좌 유형별 (5~7열) — 일반 투자 먼저, 증권사별 세분 ──
+    _dbSectionTitleSpan(dash, r, 5, 3, '계좌 유형별');
+    _dbHeader(dash, r + 1, 5, ['구분', '금액', '비중']);
+    let rr = r + 2;
+    const tStart = rr;
+    [['일반 투자', '일반'], ['퇴직연금', '퇴직']].forEach(([label, key]) => {
+      const brokers = Object.keys(agg[key]).sort((a, b) => agg[key][b] - agg[key][a]);
+      const gtot = brokers.reduce((s, b) => s + agg[key][b], 0);
+      dash.getRange(rr, 5, 1, 3).setValues([[label, gtot, pct(gtot)]])
+        .setFontWeight('bold').setBackground('#eef1f8');
+      dash.getRange(rr, 6, 1, 2).setHorizontalAlignment('right');
+      rr++;
+      brokers.forEach(b => {
+        dash.getRange(rr, 5, 1, 3).setValues([['   ' + b, agg[key][b], pct(agg[key][b])]]);
+        dash.getRange(rr, 6, 1, 2).setHorizontalAlignment('right');
+        rr++;
+      });
+    });
+    dash.getRange(rr, 5, 1, 3).setValues([['합계', assetTotal, 100]])
+      .setFontWeight('bold').setBackground(DB.BG_TOTAL);
+    dash.getRange(rr, 5).setHorizontalAlignment('center');
+    dash.getRange(rr, 6, 1, 2).setHorizontalAlignment('right');
+    dash.getRange(tStart, 6, rr - tStart + 1, 1).setNumberFormat('#,##0');
+    dash.getRange(tStart, 7, rr - tStart + 1, 1).setNumberFormat('0.0"%"');
+    const rightEnd = rr;
+
+    r = Math.max(leftEnd, rightEnd) + 2;
+  }
+
+  // ══════════════════════════════════
+  // [3] 보유 종목 현황 (21컬럼 + 정렬 컨트롤)
   // ══════════════════════════════════
   const sortKey = PropertiesService.getScriptProperties().getProperty(DB.PROP_SORT_KEY) || '기본 (계좌순)';
   const sortDir = PropertiesService.getScriptProperties().getProperty(DB.PROP_SORT_DIR) || '↓';
@@ -473,7 +546,7 @@ function buildDashboard() {
 
     const mMap = {};
     pnlRows.forEach(row => {
-      const m = String(row[0]).slice(0, 7);
+      const m = _dbYmd(row[0], 7);
       if (!mMap[m]) mMap[m] = { pnl: 0, cnt: 0, win: 0 };
       const p = Number(row[12]) || 0;
       mMap[m].pnl += p; mMap[m].cnt++;
@@ -522,14 +595,14 @@ function buildDashboard() {
       const t = top5[i], b = bot5[i];
       if (t) {
         dash.getRange(r, 1, 1, 4)
-          .setValues([[t[2], String(t[0]).slice(0, 10), Number(t[12]) || 0, Number(t[13]) || 0]])
+          .setValues([[t[2], _dbYmd(t[0], 10), Number(t[12]) || 0, Number(t[13]) || 0]])
           .setBackground('#fde8e8');
         dash.getRange(r, 3, 1, 2).setHorizontalAlignment('right');
         dash.getRange(r, 3).setFontColor(DB.FG_POS).setFontWeight('bold');
       }
       if (b) {
         dash.getRange(r, 5, 1, 4)
-          .setValues([[b[2], String(b[0]).slice(0, 10), Number(b[12]) || 0, Number(b[13]) || 0]])
+          .setValues([[b[2], _dbYmd(b[0], 10), Number(b[12]) || 0, Number(b[13]) || 0]])
           .setBackground('#e8f0fe');
         dash.getRange(r, 7, 1, 2).setHorizontalAlignment('right');
         dash.getRange(r, 7).setFontColor(DB.FG_NEG).setFontWeight('bold');
@@ -562,6 +635,16 @@ function _dbSectionTitle(sheet, row, title) {
   return row + 1;
 }
 
+// 부분폭 섹션 제목 (나란히 놓는 섹션용 — col부터 span칸 병합). row 증가는 호출부가 관리.
+function _dbSectionTitleSpan(sheet, row, col, span, title) {
+  sheet.getRange(row, col, 1, span).merge()
+    .setValue('▌ ' + title)
+    .setFontSize(11).setFontWeight('bold')
+    .setBackground(DB.BG_SECTION).setFontColor(DB.FG_SECTION)
+    .setVerticalAlignment('middle');
+  sheet.setRowHeight(row, 28);
+}
+
 function _dbHeader(sheet, row, col, labels, bg, fg) {
   bg = bg || DB.BG_HDR; fg = fg || DB.FG_HDR;
   sheet.getRange(row, col, 1, labels.length).setValues([labels])
@@ -573,6 +656,15 @@ function _dbColorCell(sheet, row, col, value) {
   const v = Number(value) || 0;
   if (v > 0)      sheet.getRange(row, col).setFontColor(DB.FG_POS);
   else if (v < 0) sheet.getRange(row, col).setFontColor(DB.FG_NEG);
+}
+
+// 실현손익 날짜 셀은 시트가 문자열을 Date로 강제변환해 돌려줌 → String(Date)='Fri Feb 20 2026'가 되는 함정.
+// len=7 → 'yyyy-MM'(월 그룹), len=10 → 'yyyy-MM-dd'(매도일). 이미 문자열이면 그대로 잘라 반환.
+function _dbYmd(v, len) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, 'Asia/Seoul', len === 7 ? 'yyyy-MM' : 'yyyy-MM-dd');
+  }
+  return String(v).slice(0, len);
 }
 
 function _shortBroker(s) { return String(s || '').slice(0, 2); }

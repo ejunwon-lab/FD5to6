@@ -6,6 +6,7 @@ import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { ProfitHistoryChart } from './ProfitHistoryChart'
 import { decideChangeLabel, formatPriceAsOfDate, formatUpdatedAtLine } from '../../utils/changeLabel'
 import { krwCompact, krwCompactSigned, krwFull, pctFormatted, normalizeChangePct } from '../../utils/format'
+import { computeAssetAllocation, computeAccountTypeBreakdown } from '../../utils/assetAllocation'
 import type { PortfolioResponse, TrendEntry } from '../../models/types'
 
 type DashboardPageProps = {
@@ -71,6 +72,9 @@ export function DashboardPage({
   const dayIsProfit = dayAmt >= 0
   // 수익 기준일(priceAsOfDate). 없으면 호출 시각으로 폴백
   const asOfText    = formatPriceAsOfDate(summary?.priceAsOfDate) || portfolio?.updatedAt || ''
+  // 자산 배분(투자중/대기중/총자산) + 계좌 유형별(일반/퇴직, 증권사별)
+  const alloc          = computeAssetAllocation(portfolio)
+  const acctBreakdown  = computeAccountTypeBreakdown(portfolio)
 
   return (
     <div ref={scrollRef} className="h-[100dvh] overflow-y-auto no-scrollbar bg-[rgb(var(--page-bg))]">
@@ -153,6 +157,64 @@ export function DashboardPage({
                     </p>
                   </div>
                 ))}
+              </div>
+            </Card>
+
+            {/* 자산 배분 */}
+            <Card className="p-4">
+              <p className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3">자산 배분</p>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-gray-500">투자중</span>
+                  <span className="flex items-baseline gap-2">
+                    <span className="font-semibold tabular-nums">{krwFull(alloc.invested)}</span>
+                    <span className="text-xs text-gray-400 w-14 text-right">
+                      {(alloc.total > 0 ? (alloc.invested / alloc.total) * 100 : 0).toFixed(1)}%
+                    </span>
+                  </span>
+                </div>
+                <div className="flex justify-between items-baseline">
+                  <span className="text-gray-500">대기중 <span className="text-xs text-amber-500">노는 돈</span></span>
+                  <span className="flex items-baseline gap-2">
+                    <span className="font-semibold tabular-nums text-amber-600 dark:text-amber-400">{krwFull(alloc.idle)}</span>
+                    <span className="text-xs text-amber-500 w-14 text-right">{alloc.idlePct.toFixed(1)}%</span>
+                  </span>
+                </div>
+                <div className="flex justify-between items-baseline border-t border-gray-100 dark:border-gray-700 pt-2 font-bold">
+                  <span>총 자산</span>
+                  <span className="tabular-nums">{krwFull(alloc.total)}</span>
+                </div>
+              </div>
+            </Card>
+
+            {/* 계좌 유형별 */}
+            <Card className="p-4">
+              <p className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3">계좌 유형별</p>
+              <div className="space-y-2 text-sm">
+                {acctBreakdown.groups.map(g => (
+                  <div key={g.label} className="space-y-1">
+                    <div className="flex justify-between items-baseline font-semibold">
+                      <span>{g.label}</span>
+                      <span className="flex items-baseline gap-2">
+                        <span className="tabular-nums">{krwFull(g.amount)}</span>
+                        <span className="text-xs text-gray-400 w-14 text-right">{g.pct.toFixed(1)}%</span>
+                      </span>
+                    </div>
+                    {g.brokers.map(b => (
+                      <div key={b.broker} className="flex justify-between items-baseline text-xs text-gray-500 pl-3">
+                        <span>{b.broker}</span>
+                        <span className="flex items-baseline gap-2">
+                          <span className="tabular-nums">{krwFull(b.amount)}</span>
+                          <span className="text-gray-400 w-14 text-right">{b.pct.toFixed(1)}%</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                <div className="flex justify-between items-baseline border-t border-gray-100 dark:border-gray-700 pt-2 font-bold">
+                  <span>합계</span>
+                  <span className="tabular-nums">{krwFull(acctBreakdown.total)}</span>
+                </div>
               </div>
             </Card>
 
