@@ -35,3 +35,4 @@
 ## 2026-07-10
 - web·desk 자산배분·계좌유형별 **라이브 배포 완료** — 7/9 push 후 GitHub Actions 광역 장애로 Pages 발행 빌드가 실패/정체돼 라이브 미반영이었으나, 복구 후 gh-pages 빈 커밋 재트리거로 빌드 성공. web(index-Vw5RVdpD)·desk(index-K19mHC7C) 라이브 실측 — 신기능 문자열(자산 배분/계좌 유형별/노는 돈) 확인. errors.md 기록.
 - 대시보드 보유 종목 표 14열(반복 종목명) 중앙→**좌측정렬**. node --check + push_safe 배포.
+- web 자산 배분 카드: 투자중에 **"일하는 돈"**(초록) 라벨 추가 — 대기중 "노는 돈"(주황)과 짝. tsc·빌드 통과, GH Pages 라이브 반영 실측(index-By_HFIev, 일하는 돈/노는 돈 확인).
