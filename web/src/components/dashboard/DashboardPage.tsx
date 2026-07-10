@@ -165,7 +165,7 @@ export function DashboardPage({
               <p className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3">자산 배분</p>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between items-baseline">
-                  <span className="text-gray-500">투자중</span>
+                  <span className="text-gray-500">투자중 <span className="text-xs text-emerald-500">일하는 돈</span></span>
                   <span className="flex items-baseline gap-2">
                     <span className="font-semibold tabular-nums">{krwFull(alloc.invested)}</span>
                     <span className="text-xs text-gray-400 w-14 text-right">
