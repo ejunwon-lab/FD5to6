@@ -369,7 +369,7 @@ function buildDashboard() {
     dash.getRange(r, 4, 1, 7).setHorizontalAlignment('right');   // 수량~수익률 (7개: +평가금액)
     dash.getRange(r, 11).setHorizontalAlignment('center');       // 보유기간
     dash.getRange(r, 12, 1, 2).setHorizontalAlignment('right');  // 당일 등락액·등락률
-    dash.getRange(r, 14).setHorizontalAlignment('center');       // 종목명 반복 (신규 14열)
+    dash.getRange(r, 14).setHorizontalAlignment('left');         // 종목명 반복 (신규 14열) — 좌측정렬
     dash.getRange(r, 15, 1, 7).setHorizontalAlignment('right');  // 당일 손익~1Y (15~21)
     _dbColorCell(dash, r, 9, pnl);         // 손익
     _dbColorCell(dash, r, 10, rate);       // 수익률

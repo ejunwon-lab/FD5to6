@@ -31,3 +31,7 @@
 - GAS 대시보드 요약 아래 "자산 배분"(투자중/대기중/총자산 + 노는돈%) + "계좌 유형별"(일반 투자/퇴직연금, 증권사별) 나란히 신설. 계좌 유형별은 대기중 포함=총자산 기준. 부분폭 제목 헬퍼(_dbSectionTitleSpan) 추가, _mGetCashReserve 재사용. 실데이터 검증(합계 [금액] = 자산배분 총자산 일치).
 - 월별 확정수익 "월" 표기 버그 수정 — 실현손익 날짜 셀이 시트에서 Date로 반환돼 `String(Date).slice(0,7)`='Fri Feb'가 되던 것을 `_dbYmd`로 yyyy-MM 포맷(연도별 분리 + 시간순 정렬). Top/Bottom5 매도일도 yyyy-MM-dd. errors.md 기록.
 - 자산 배분·계좌 유형별을 web(DashboardPage 카드 2개)·web-desk(HoldingsPage AccountTypePanel)에도 반영. GAS 변경 없이 API 기존 필드(cashReserve/nonStockAssets/holdings) 클라 계산(assetAllocation.ts / accountType.ts 순수함수 + vitest 9케이스 실수치 검증). web types.ts에 cashReserve/nonStockAssets 타입 추가. 양쪽 tsc 클린·빌드 통과. push 시 GH Pages 자동 배포.
+
+## 2026-07-10
+- web·desk 자산배분·계좌유형별 **라이브 배포 완료** — 7/9 push 후 GitHub Actions 광역 장애로 Pages 발행 빌드가 실패/정체돼 라이브 미반영이었으나, 복구 후 gh-pages 빈 커밋 재트리거로 빌드 성공. web(index-Vw5RVdpD)·desk(index-K19mHC7C) 라이브 실측 — 신기능 문자열(자산 배분/계좌 유형별/노는 돈) 확인. errors.md 기록.
+- 대시보드 보유 종목 표 14열(반복 종목명) 중앙→**좌측정렬**. node --check + push_safe 배포.

@@ -379,3 +379,10 @@
 - **원인**: `updatePositionFromLedger`는 폼(`addTransactionFromForm`)·API(`_appendTradeRow`)·⚡/스케줄 트리거(`updateAllNew`)에서만 호출됨. 시트 원장에 **직접 타이핑**하면 어떤 트리거도 안 걸려 넷팅/실현손익 계산이 안 돎
 - **해결**: ⚡ 전체 업데이트(웹/시트메뉴) 1회 또는 다음 정시(:30 거래일)·17:30 자동 갱신을 기다리면 재계산 → 매수/매도 넷팅 + 실현손익 기록
 - **교훈**: "원장이 원본"이지만 "원장 수정 = 즉시 반영"은 아님. 원장 = 소스, 보유현황/실현손익 = updatePositionFromLedger 계산 결과물. 수기 편집 후엔 재계산 트리거 필요. (API로 넣으면 자동 재계산되지만 KIS_SKIP 예금·펀드는 코드가 비어 `_appendTradeRow`의 `!code` 검증에 걸려 거부 → 폼/수기만 가능)
+
+### GH Pages 배포 "success"인데 라이브 미반영 — Actions 장애로 발행 빌드 실패/정체 (2026-07-09~10)
+- **증상**: `deploy-web`/`deploy-web-desk` 잡은 success, gh-pages 브랜치엔 새 번들 있는데 라이브는 옛 번들 계속 서빙(새 번들 URL은 404). web·desk 동시 미반영.
+- **원인**: GitHub Actions 광역 장애("Delays starting Actions runs" — 런 30% 5분+ 지연, 일부 재시도 소진 후 시작 실패). gh-pages push 후 GitHub이 자동 실행하는 별도 단계 **"pages build and deployment"**가 이 장애로 failure/큐 정체 → 마지막 성공 빌드(옛 번들) 상태로 라이브 고정. 내 배포 워크플로(peaceiris)가 success여도 그 뒤 Pages 발행이 막히면 라이브는 안 바뀜.
+- **진단**: `gh api repos/OWNER/REPO/pages/builds/latest`(status가 building인데 updated_at 정지) · `gh run list --workflow "pages build and deployment"`(failure/cancelled) · githubstatus `incidents/unresolved.json`(Actions·Pages 영향) · 라이브 번들 해시 vs `git show origin/gh-pages:index.html` 비교로 브랜치≠라이브 확정.
+- **해결**: 장애 복구(unresolved 0건) 확인 후 gh-pages에 **빈 커밋 재트리거** — `NEW=$(git commit-tree 'origin/gh-pages^{tree}' -p origin/gh-pages -m '...'); git push origin $NEW:gh-pages`. 실패한 pages 빌드는 자동 재시도 안 하므로 새 커밋으로 새 발행 빌드를 유발해야 함.
+- **교훈**: 배포 잡 success ≠ 라이브 반영. GitHub Pages는 브랜치 push 후 **별도 발행 빌드**가 있고 장애 시 여기서 막힌다. 반영 검증은 항상 **라이브 URL 실측**(번들 해시 + 기능 문자열)까지. 상시 대비는 Cloudflare Pages 등 GitHub 무관 호스팅(pending 검토).
