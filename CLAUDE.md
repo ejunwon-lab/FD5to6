@@ -209,6 +209,20 @@ walk-through 자체가 "내가 정말 그 로직을 이해했나"의 시험. 과
 | `동기화해` | 세션 문서 작성 + memory 복사 + git add/commit/push |
 | `저장!` | `중간 저장해` + `동기화해` 합쳐서 한 번에 실행 |
 | `실행@` | git pull + memory 복원 (`FD5to6/memory/` → `~/.claude/.../memory/`) + `docs/pending.md` 읽고 현황 요약 |
+| `매매기록!` / `매매기록하자!` | 증권사 체결 카톡 붙여넣기 → 매수/매도 원장 자동 기록 프로세스 실행. 절차·주의점은 memory [[feedback_trade_record_command]] + `docs/plans/2026-06-11-카톡매매-원장자동기록.md` |
+
+## 매매기록! (카톡 체결 → 원장 자동 기록)
+
+`매매기록!`/`매매기록하자!` 입력 + 증권사 체결 카톡이 오면:
+
+1. **파싱** — 종목명·구분(매수/매도)·수량·단가·마스킹계좌 추출. **같은 종목 여러 차수(1차·2차…)는 수량 합산해 1행**.
+2. **계좌·수수료 룩업** — 마스킹계좌 → memory `reference_kakao_account_map.md`. 신규 마스킹계좌면 사용자에게 실계좌·수수료 규칙 묻고 표에 누적.
+3. **코드·현재수량 조회** — 카톡엔 종목코드 없음. `python3 scripts/backup_sheets.py`로 시트 덤프 → `backups/<최신>/_보유현황_.csv`에서 종목명·증권사·계좌로 코드·보유수량 grep.
+4. **판정** — 매도: 보유수량=매도수량이면 전량, 미만이면 일부. 매수: 분류 미상이면 사용자에게 질문.
+5. **확정 표 제시 → 사용자 확인** (confirm-then-write. 금액=수량×단가 검산, 수수료 추정, 실현손익 미리보기).
+6. **POST** — `python3 scripts/post_trade.py '<trade JSON>'` 건별 순차(각 건이 `updatePositionFromLedger` 연쇄 → lock 충돌 방지). 응답 `beforeQty→afterQty`·`posFound` 확인.
+7. **검증** — `backup_sheets.py` 재덤프 → `_실현손익_`·`_보유현황_` 확인. GAS 계산 실현손익 보고.
+8. **신규 계좌면 memory 누적** + 완료 후 `저장!` 안내.
 
 ## 인덱스 정합 검증 (stale 방지)
 

@@ -36,3 +36,7 @@
 - web·desk 자산배분·계좌유형별 **라이브 배포 완료** — 7/9 push 후 GitHub Actions 광역 장애로 Pages 발행 빌드가 실패/정체돼 라이브 미반영이었으나, 복구 후 gh-pages 빈 커밋 재트리거로 빌드 성공. web(index-Vw5RVdpD)·desk(index-K19mHC7C) 라이브 실측 — 신기능 문자열(자산 배분/계좌 유형별/노는 돈) 확인. errors.md 기록.
 - 대시보드 보유 종목 표 14열(반복 종목명) 중앙→**좌측정렬**. node --check + push_safe 배포.
 - web 자산 배분 카드: 투자중에 **"일하는 돈"**(초록) 라벨 추가 — 대기중 "노는 돈"(주황)과 짝. tsc·빌드 통과, GH Pages 라이브 반영 실측(index-By_HFIev, 일하는 돈/노는 돈 확인).
+
+## 2026-07-14
+- 삼성증권 ISA 매도 4건 원장 자동 기록 (카톡 체결 → `post_trade.py`) — TIGER 반도체TOP10(504)·TIGER 차이나테크 TOP10(1367)·KoAct 코리아밸류업액티브(800)·KODEX AI반도체핵심장비(970), 전부 전량매도. GAS 응답 `beforeQty→afterQty:0`·`posFound:true` 4건 검증, 재덤프로 실현손익 확인(합계 +[금액]: +[금액]·+[금액]·+[금액]·+[금액]). 첫 삼성 카톡 → 계좌 매핑(`71528*****-14→ISA`, 국내ETF 매도 수수료 0.0042% 원장 실측)·삼성 포맷 memory 누적.
+- `매매기록!`/`매매기록하자!` 명령어 트리거 고정 — 체결 카톡 붙여넣기 시 매수/매도 원장 기록 프로세스 자동 실행. CLAUDE.md 세션 키워드 표 + "매매기록!" 절차 섹션 추가, memory `feedback_trade_record_command` 신설.
