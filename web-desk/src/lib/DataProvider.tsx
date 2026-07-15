@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { gasApi, type PortfolioResponse, type IndicatorsResponse, type TrendHistoryResponse, type MonthlyRealizedItem, type CashReserve, type NonStockAssets, type IndicatorHistoryEntry } from '../api/gasApi'
+import { gasApi, type PortfolioResponse, type IndicatorsResponse, type TrendHistoryResponse, type MonthlyRealizedItem, type CashReserve, type NonStockAssets, type IndicatorHistoryEntry, type SoldTrackerItem } from '../api/gasApi'
 import type { Holding, Indicator, PortfolioSummary, EquityPoint, Market } from './types'
 
 interface PortfolioCtxValue {
@@ -33,9 +33,18 @@ interface IndicatorHistoryCtxValue {
   ensureLoaded: () => void  // lazy: 처음 호출 시 fetch, 이후 cache
 }
 
+interface SoldTrackerCtxValue {
+  loading: boolean
+  error: string | null
+  items: SoldTrackerItem[]
+  asOfDate: string | null
+  refresh: () => Promise<void>
+}
+
 const PortfolioCtx = createContext<PortfolioCtxValue | null>(null)
 const RealizedCtx = createContext<RealizedCtxValue | null>(null)
 const IndicatorHistoryCtx = createContext<IndicatorHistoryCtxValue | null>(null)
+const SoldTrackerCtx = createContext<SoldTrackerCtxValue | null>(null)
 
 const AUTO_REFRESH_MS = 60 * 60 * 1000  // 1시간
 
@@ -66,6 +75,15 @@ interface RealizedState {
 
 const initialR: RealizedState = { loading: false, error: null, entries: [] }
 
+interface SoldTrackerState {
+  loading: boolean
+  error: string | null
+  items: SoldTrackerItem[]
+  asOfDate: string | null
+}
+
+const initialS: SoldTrackerState = { loading: false, error: null, items: [], asOfDate: null }
+
 interface IndicatorHistoryState {
   loading: boolean
   error: string | null
@@ -81,10 +99,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [pState, setPState] = useState<PortfolioState>(initialP)
   const [rState, setRState] = useState<RealizedState>(initialR)
   const [ihState, setIHState] = useState<IndicatorHistoryState>(initialIH)
+  const [sState, setSState] = useState<SoldTrackerState>(initialS)
   // 중복 호출 가드 — Strict mode 등에서 동시 호출되지 않게
   const inflightP = useRef(false)
   const inflightR = useRef(false)
   const inflightIH = useRef(false)
+  const inflightS = useRef(false)
 
   // ── portfolio refresh (시트 캐시만 읽기) ──
   const refreshPortfolio = useCallback(async () => {
@@ -169,6 +189,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [isSignedIn, getToken])
 
+  // ── sold tracker refresh (매도 What-if) ──
+  const refreshSoldTracker = useCallback(async () => {
+    if (!isSignedIn || inflightS.current) return
+    inflightS.current = true
+    setSState((s) => ({ ...s, loading: true, error: null }))
+    try {
+      const token = await getToken()
+      const res = await gasApi.getSoldTracker(token)
+      setSState({
+        loading: false,
+        error: res.success ? null : (res.error ?? '매도추적 조회 실패'),
+        items: res.items ?? [],
+        asOfDate: res.asOfDate ?? null,
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '알 수 없는 오류'
+      setSState({ loading: false, error: msg, items: [], asOfDate: null })
+    } finally {
+      inflightS.current = false
+    }
+  }, [isSignedIn, getToken])
+
   // ── updateAll (KIS 강제 갱신, 사용자 명시) ──
   const updateAll = useCallback(async () => {
     if (!isSignedIn) return
@@ -198,15 +240,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         nonStockAssets: res.nonStockAssets ?? null,
         updatedAt: res.updatedAt ?? null,
       })
-      // updateAll 후 realized도 같이 갱신
+      // updateAll 후 realized·매도추적도 같이 갱신
       refreshRealized()
+      refreshSoldTracker()
     } catch (e) {
       const msg = e instanceof Error ? e.message : '알 수 없는 오류'
       setPState((s) => ({ ...s, updating: false, error: msg }))
     }
-  }, [isSignedIn, getToken, refreshRealized])
+  }, [isSignedIn, getToken, refreshRealized, refreshSoldTracker])
 
-  // ── 첫 로그인 시: portfolio 우선 → realized prefetch ──
+  // ── 첫 로그인 시: portfolio 우선 → realized·매도추적 prefetch ──
   useEffect(() => {
     if (!isSignedIn) return
     let cancelled = false
@@ -215,9 +258,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (cancelled) return
       // 백그라운드 prefetch (대시보드 표시 후)
       refreshRealized().catch(() => {})
+      refreshSoldTracker().catch(() => {})
     })()
     return () => { cancelled = true }
-  }, [isSignedIn, refreshPortfolio, refreshRealized])
+  }, [isSignedIn, refreshPortfolio, refreshRealized, refreshSoldTracker])
 
   // ── 시간당 자동 백그라운드 재페치 (GAS 09:30~16:30 자동 갱신과 매칭) ──
   useEffect(() => {
@@ -225,9 +269,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const id = setInterval(() => {
       refreshPortfolio().catch(() => {})
       refreshRealized().catch(() => {})
+      refreshSoldTracker().catch(() => {})
     }, AUTO_REFRESH_MS)
     return () => clearInterval(id)
-  }, [isSignedIn, refreshPortfolio, refreshRealized])
+  }, [isSignedIn, refreshPortfolio, refreshRealized, refreshSoldTracker])
 
   const pValue: PortfolioCtxValue = {
     ...pState,
@@ -245,11 +290,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     entries: ihState.entries,
     ensureLoaded: ensureIndicatorHistory,
   }
+  const sValue: SoldTrackerCtxValue = {
+    ...sState,
+    refresh: refreshSoldTracker,
+  }
 
   return (
     <PortfolioCtx.Provider value={pValue}>
       <RealizedCtx.Provider value={rValue}>
-        <IndicatorHistoryCtx.Provider value={ihValue}>{children}</IndicatorHistoryCtx.Provider>
+        <IndicatorHistoryCtx.Provider value={ihValue}>
+          <SoldTrackerCtx.Provider value={sValue}>{children}</SoldTrackerCtx.Provider>
+        </IndicatorHistoryCtx.Provider>
       </RealizedCtx.Provider>
     </PortfolioCtx.Provider>
   )
@@ -270,6 +321,12 @@ export function useRealized(): RealizedCtxValue {
 export function useIndicatorHistory(): IndicatorHistoryCtxValue {
   const ctx = useContext(IndicatorHistoryCtx)
   if (!ctx) throw new Error('useIndicatorHistory must be used inside <DataProvider>')
+  return ctx
+}
+
+export function useSoldTracker(): SoldTrackerCtxValue {
+  const ctx = useContext(SoldTrackerCtx)
+  if (!ctx) throw new Error('useSoldTracker must be used inside <DataProvider>')
   return ctx
 }
 

@@ -21,6 +21,7 @@ const NS = {
   TREND:         '*추이 기록*',
   HOLIDAYS:      '*휴장일*',
   STOCK_METRICS: '*종목지표*',
+  SOLD_TRACKER:  '*매도추적*',
 
   BROKERS:    ['미래에셋투자증권', '삼성증권'],
   ACCOUNTS: {
@@ -773,6 +774,7 @@ function updatePositionFromLedger() {
   }
 
   computeStockMetrics();   // 보유현황 갱신 후 *종목지표* 재계산 (모든 갱신 경로가 여기 통과)
+  buildSoldTracker();      // 매도 종목 What-if 스냅샷 재계산 (SoldTracker.js)
   buildDashboard();
 }
 

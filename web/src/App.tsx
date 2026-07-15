@@ -6,7 +6,7 @@ import { HoldingsPage } from './components/holdings/HoldingsPage'
 import { AnalysisPage } from './components/analysis/AnalysisPage'
 import { IndicatorsPage } from './components/indicators/IndicatorsPage'
 import { gasApi } from './api/gasApi'
-import type { PortfolioResponse, TrendEntry } from './models/types'
+import type { PortfolioResponse, TrendEntry, SoldTrackerItem } from './models/types'
 import type { Tab } from './components/ui/TabBar'
 
 function SignInScreen() {
@@ -63,6 +63,9 @@ function MainApp() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
   const [historyError, setHistoryError] = useState('')
 
+  // 매도 종목 What-if 추적 state
+  const [soldItems, setSoldItems] = useState<SoldTrackerItem[]>([])
+
   const fetchPortfolio = useCallback(async (opts: { silent?: boolean } = {}) => {
     try {
       if (!opts.silent) setIsLoadingPortfolio(true)
@@ -91,6 +94,14 @@ function MainApp() {
     }
   }, [getToken])
 
+  const fetchSoldTracker = useCallback(async () => {
+    try {
+      const token = await getToken()
+      const res = await gasApi.getSoldTracker(token)
+      if (res.items) setSoldItems(res.items)
+    } catch { /* 비핵심 — 조용히 무시 */ }
+  }, [getToken])
+
   const runUpdate = useCallback(async (
     fn: (token: string) => Promise<PortfolioResponse>,
     msg: string
@@ -104,8 +115,9 @@ function MainApp() {
       if (res.success) {
         setPortfolio(res)
         setPortfolioError('')
-        // 업데이트 후 history도 함께 갱신 (총수익 추이가 바뀌었을 가능성)
+        // 업데이트 후 history·매도추적도 함께 갱신 (총수익 추이·현재가가 바뀌었을 가능성)
         fetchHistory()
+        fetchSoldTracker()
       }
       else setPortfolioError(res.error ?? '업데이트 실패')
     } catch (e: unknown) {
@@ -114,14 +126,15 @@ function MainApp() {
       setIsUpdating(false)
       setUpdateMsg('')
     }
-  }, [getToken, isUpdating, fetchHistory])
+  }, [getToken, isUpdating, fetchHistory, fetchSoldTracker])
 
   useEffect(() => {
     if (isSignedIn) {
       fetchPortfolio()
       fetchHistory()
+      fetchSoldTracker()
     }
-  }, [isSignedIn, fetchPortfolio, fetchHistory])
+  }, [isSignedIn, fetchPortfolio, fetchHistory, fetchSoldTracker])
 
   // 앱이 다시 활성화될 때 (화면 켜기, 탭 복귀) 백그라운드 새로고침
   // silent: true — 로딩 spinner 띄우지 않고 데이터만 교체 (화면 깜빡임 방지)
@@ -131,11 +144,12 @@ function MainApp() {
       if (document.visibilityState === 'visible') {
         fetchPortfolio({ silent: true })
         fetchHistory({ silent: true })
+        fetchSoldTracker()
       }
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [isSignedIn, fetchPortfolio, fetchHistory])
+  }, [isSignedIn, fetchPortfolio, fetchHistory, fetchSoldTracker])
 
   const handleTabChange = (tab: Tab) => {
     if (tab === 'dashboard' && activeTab === 'dashboard') {
@@ -170,6 +184,7 @@ function MainApp() {
           historyEntries={historyEntries}
           isLoadingHistory={isLoadingHistory}
           historyError={historyError}
+          soldItems={soldItems}
         />
       </div>}
       {visited.has('holdings')   && <div className={activeTab === 'holdings'   ? '' : 'hidden'}>

@@ -40,3 +40,11 @@
 ## 2026-07-14
 - 삼성증권 ISA 매도 4건 원장 자동 기록 (카톡 체결 → `post_trade.py`) — TIGER 반도체TOP10(504)·TIGER 차이나테크 TOP10(1367)·KoAct 코리아밸류업액티브(800)·KODEX AI반도체핵심장비(970), 전부 전량매도. GAS 응답 `beforeQty→afterQty:0`·`posFound:true` 4건 검증, 재덤프로 실현손익 확인(합계 +[금액]: +[금액]·+[금액]·+[금액]·+[금액]). 첫 삼성 카톡 → 계좌 매핑(`71528*****-14→ISA`, 국내ETF 매도 수수료 0.0042% 원장 실측)·삼성 포맷 memory 누적.
 - `매매기록!`/`매매기록하자!` 명령어 트리거 고정 — 체결 카톡 붙여넣기 시 매수/매도 원장 기록 프로세스 자동 실행. CLAUDE.md 세션 키워드 표 + "매매기록!" 절차 섹션 추가, memory `feedback_trade_record_command` 신설.
+
+## 2026-07-15
+- 매도 종목 What-if 추적 + 기간별 번 돈 (v1) 구현·배포. 설계 `docs/plans/2026-07-15-매도추적-기간별번돈.md`.
+  - **핵심 발견**: `updateNewPriceHistory`가 *거래_원장* 전체 코드 기준 → 판 종목도 매일 *현재가_이력*에 기록됨(백업 실측: 어제 4건·옛 매도·해외 MU 열 존재). → KIS 신규 호출·별도 append 시트 불필요, 기존 시트 파생으로 저위험 구현.
+  - **GAS** `SoldTracker.js` 신설: `buildSoldTracker`(*실현손익*×*현재가_이력* 파생 → *매도추적* 시트, `updatePositionFromLedger` 말미 훅=모든 경로 통과) + `newMobileGetSoldTracker`(read, 16필드) + `_soldLatestPriceMap`·`_setupSoldTrackerSheet`. 국내만 what-if(해외 MU 가격 스케일 환율 미반영 불일치 [금액]≠[금액] → blank), 예금 코드 빈칸 자동 제외. NS.SOLD_TRACKER 추가.
+  - **웹** `periodProfit.ts`(computePeriodProfits, 추이 AD diff=실현+평가, vitest 6케이스) + 대시보드 "기간별 번 돈" 타일 + `SoldTrackerCard`(매도 복기). **데스크** DataProvider `useSoldTracker` context + Activity `SoldTrackerPanel`.
+  - **검증**: vitest 49통과·web/desk tsc·빌드 통과, node --check 11파일, walk-through(396500 안팔았다면 [금액]/실현 [금액]/차이 +[금액] ✓). **GAS 배포**: push_safe HEAD + gas_redeploy v27(고정 3배포·마커 확인). docs 4종(code-map·api-reference·architecture·features) 갱신.
+  - 잔여: v2 곡선 소급(2026-01-11 이전 매도의 매도일~현재 일별 곡선 — 스냅샷은 전량 커버, KIS 일봉 소급은 효용 확인 후).

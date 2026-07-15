@@ -1,6 +1,6 @@
 # 기능 현황
 
-last updated: 2026-06-06
+last updated: 2026-07-15
 
 ## ✅ 완료
 
@@ -26,6 +26,7 @@ last updated: 2026-06-06
 - 장기 가격 이력 (*장기_가격_이력* 시트, KIS 주봉/일봉 백필) + 신규 종목 자동 1Y 백필
 - 1M/3M/6M/1Y *현재가_이력* + *장기_가격_이력* 통합 직접 계산
 - 종목 상세 API (newMobileGetStockDetail) + 월별 실현손익 API (newMobileGetMonthlyRealized)
+- 매도 복기 What-if — *매도추적* 시트(`buildSoldTracker`, *실현손익*×*현재가_이력* 파생·KIS 신규호출 0) + `newMobileGetSoldTracker` API. "안 팔았다면 오늘 손익" vs "실제 실현" vs "판것 대비 차이" (국내만·해외 환율 미반영 제외). 설계 `docs/plans/2026-07-15-매도추적-기간별번돈.md` (2026-07-15)
 - 대시보드 보유종목 정렬 드롭다운 + 매입금액 컬럼
 - KIS API — 국내주식, 해외주식, 국내지수, 해외지수, 국내선물
 - Yahoo Finance 연동 (선물 데이터)
@@ -63,7 +64,9 @@ last updated: 2026-06-06
 
 ### 웹앱 (React PWA — web/)
 - Google OAuth 로그인 (GIS)
-- 대시보드 — 합계수익/오늘수익/확정운용/환율 + 수익 히스토리 차트
+- 대시보드 — 합계수익/오늘수익/확정운용/**기간별 번 돈(1주·1개월·올해)**/자산배분/계좌유형별/**매도 복기**/환율 + 수익 히스토리 차트
+- 기간별 번 돈 타일 — 추이 AD diff(실현+평가 포함), `computePeriodProfits` 순수함수 (2026-07-15)
+- 매도 복기 카드 (`SoldTrackerCard`) — 판 종목별 실현손익 vs "안 팔았다면" vs 차이, 총 차이 요약 (2026-07-15)
 - 종목 목록 — 검색/계좌필터/정렬/expandable 카드
 - 분석 — 매트릭스/계좌별5탭/연환산차트/52주포지션
 - 참고지표 — 카테고리별 섹션 + 갱신 버튼
@@ -78,7 +81,7 @@ last updated: 2026-06-06
 - **계좌명 표시 규칙**: `{미래/삼성}_{계좌명}` (예: 미래_종합_랩 · 삼성_ISA · 미래_퇴직연금 · 삼성_퇴직연금) — `web-desk/src/lib/accountDisplay.ts` 공통 유틸
 - **Indicators**: Top Gainers/Losers (각 3건) + Market Heatmap (|Δ%| 격자) + 카테고리별 패널
 - **Analysis**: Risk-Return KPI strip(Sharpe·MaxDD·Vol·Win·Best) · Allocation 도넛 · Concentration bar · Profit Contribution(±막대, ₩/% 토글) · Top Winners/Losers
-- **Activity**: 월별 P&L + 5 KPI strip
+- **Activity**: 월별 P&L + 5 KPI strip + **매도 복기(SoldTrackerPanel)** — What-if 요약 4KPI + 10컬럼 테이블(실현손익·안팔았다면·판것대비차이, `useSoldTracker`) (2026-07-15)
 - **Ticker** (상단 스크롤): live indicators + holdings movers, 종목명 메인 표시
 - **표시 규칙**: 모든 숫자 풀(`toLocaleString()`), 종목명 메인 + 종목코드 보조
 - **자동 캐시 구조** (2026-05-25):

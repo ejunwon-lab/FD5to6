@@ -1,6 +1,6 @@
 # 시스템 아키텍처 — FD5to6
 
-last updated: 2026-07-04
+last updated: 2026-07-15
 
 JUN & SOO 주식 포트폴리오 시스템의 전체 그림.
 **작업 시작 전 이 문서를 먼저 본다** — 코드 위치는 `code-map.md`, 기능 체크리스트는 `features.md`, API 응답 필드는 `api-reference.md`, 설계 결정 이유는 `decisions.md`.
@@ -140,6 +140,7 @@ iOS / web / web-desk
 | `MobileAPI.js` | 모든 클라이언트 API: `newMobileGetPortfolio`·`Indicators`·`ProfitHistory`·`StockDetail`·`MonthlyRealized`·`UpdateAll`. `_mIsTradingDay`·`_isTradingDateStr`·`_mFindPrevDayProfitChange` 헬퍼 |
 | `NewSystem.js` | `updatePositionFromLedger`(거래원장→보유현황), `updateFxRates`(환율), `updateNewPriceHistory`(KIS 가격→현재가_이력), `addTransactionFromForm` |
 | `StockMetrics.js` | `computeStockMetrics` — 보유현황+현재가_이력+거래원장으로 종목지표 시트 한 번에 계산 (당일/1주/1달/1M/3M/6M/1Y/52주). 모든 갱신 경로가 끝에 통과 |
+| `SoldTracker.js` | `buildSoldTracker` — 실현손익×현재가_이력 파생으로 매도추적 시트 계산 (안팔았다면·판것대비차이, 국내만·KIS 신규호출 0). `updatePositionFromLedger` 끝에서 호출. `newMobileGetSoldTracker` read |
 | `Dashboard.js` | `buildDashboard`·`_handleDashSortChange` — *대시보드* 시트 렌더 + 정렬 드롭다운 |
 | `KIS_API.js` | KIS 토큰·국내/해외 주식·국내/해외 지수·국내선물 |
 | `Trend.js` | `logToTrendSheet`·`recordTrend` — 추이 기록 누적 |
@@ -163,7 +164,8 @@ iOS / web / web-desk
 | **현재가_이력** | A:날짜 + 종목 Wide. 거래일만 누적 | KIS 가격 캐시. 1M/3M/6M/1Y 계산 |
 | **장기_가격_이력** | KIS 주봉/일봉 백필 (52주·장기 수익률) | StockMetrics |
 | **추이 기록** | 날짜별 합계 자산·운용·확정 누적. AD2=합계최신, U열=어제거래일 행 | 합계수익·전일변동 |
-| **실현손익** | 종목·증권사·계좌별 매도 손익 | `confirmedProfit` 합산 |
+| **실현손익** | 종목·증권사·계좌별 매도 손익 | `confirmedProfit` 합산 · `buildSoldTracker` 입력 |
+| **매도추적** | 매도 이벤트별 What-if 스냅샷: 실현손익·현재가·안팔았다면손익·판것대비차이·경과일 (실현손익×현재가_이력 파생, 국내만) | `buildSoldTracker`(SoldTracker.js)·`newMobileGetSoldTracker` |
 | **설정** | B2=USD/KRW · B3=GBP/KRW · A7:E12 대기자금(A:증권사 B:구분 C:대기자금 D:비고 E:업데이트 날짜 자동 스탬프) | `updateFxRates` · `_mGetCashReserve` · onEdit `_handleCashReserveTimestamp` |
 | **참고지표** | KOSPI·KOSDAQ·SPX·NDX·DJI·SOX·ES·NQ·GC·CL·VIX·TNX·DXY·NVDA·AAPL·MSFT·HSI 등 | `newMobileGetIndicators` |
 | **휴장일** | 증시 휴장일 (스승의날 등 제외, 14종 화이트리스트) | `_isKoreanHoliday`·`_isTradingDateStr` |

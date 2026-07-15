@@ -1,6 +1,6 @@
 import type {
   PortfolioResponse, IndicatorsResponse, TrendHistoryResponse,
-  StockDetailResponse, MonthlyRealizedResponse,
+  StockDetailResponse, MonthlyRealizedResponse, SoldTrackerResponse,
 } from '../models/types'
 
 // 신시스템 GAS Script ID (이전 구시스템: 12MAcPpoVE39N_Sz0B79G0rjGvevJ8-S_ibVC1Ot61fyVPZnaSQmrJyiR)
@@ -49,4 +49,6 @@ export const gasApi = {
     callGAS<StockDetailResponse>('newMobileGetStockDetail', token, [code]),
   getMonthlyRealized: (token: string) =>
     callGAS<MonthlyRealizedResponse>('newMobileGetMonthlyRealized', token),
+  getSoldTracker: (token: string) =>
+    callGAS<SoldTrackerResponse>('newMobileGetSoldTracker', token),
 }

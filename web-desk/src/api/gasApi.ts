@@ -132,6 +132,32 @@ export interface MonthlyRealizedResponse {
   entries?: MonthlyRealizedItem[]
 }
 
+export interface SoldTrackerItem {
+  sellDate: string
+  code: string
+  name: string
+  category: string
+  broker: string
+  account: string
+  sellQty: number | null
+  sellPrice: number | null
+  sellAmount: number | null
+  avgBuyPrice: number | null
+  buyCost: number | null
+  realizedProfit: number | null
+  currentPrice: number | null   // 해외는 null (환율 미반영 스케일)
+  ifHeldProfit: number | null   // 안 팔았다면 오늘 손익
+  diff: number | null           // 판 것 대비 차이(+면 더 벌 수 있었음, −면 잘 팔았음)
+  elapsedDays: number | null
+}
+
+export interface SoldTrackerResponse {
+  success: boolean
+  error?: string
+  asOfDate?: string | null
+  items?: SoldTrackerItem[]
+}
+
 export interface IndicatorHistoryEntry {
   date: string
   [key: string]: number | string
@@ -226,6 +252,7 @@ export const gasApi = {
   getIndicators:     (token: string) => callGAS<IndicatorsResponse>('newMobileGetIndicators', token),
   getProfitHistory:  (token: string) => callGAS<TrendHistoryResponse>('newMobileGetProfitHistory', token),
   getMonthlyRealized:(token: string) => callGAS<MonthlyRealizedResponse>('newMobileGetMonthlyRealized', token),
+  getSoldTracker:    (token: string) => callGAS<SoldTrackerResponse>('newMobileGetSoldTracker', token),
   getIndicatorHistory:(token: string) => callGAS<IndicatorHistoryResponse>('newMobileGetIndicatorHistory', token),
   getStockDetail:    (token: string, code: string) =>
     callGAS<StockDetailResponse>('newMobileGetStockDetail', token, [code]),

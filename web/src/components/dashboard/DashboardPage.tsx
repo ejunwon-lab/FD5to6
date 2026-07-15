@@ -4,10 +4,12 @@ import { useAuth } from '../../auth/AuthContext'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { ProfitHistoryChart } from './ProfitHistoryChart'
+import { SoldTrackerCard } from './SoldTrackerCard'
 import { decideChangeLabel, formatPriceAsOfDate, formatUpdatedAtLine } from '../../utils/changeLabel'
 import { krwCompact, krwCompactSigned, krwFull, pctFormatted, normalizeChangePct } from '../../utils/format'
 import { computeAssetAllocation, computeAccountTypeBreakdown } from '../../utils/assetAllocation'
-import type { PortfolioResponse, TrendEntry } from '../../models/types'
+import { computePeriodProfits } from '../../utils/periodProfit'
+import type { PortfolioResponse, TrendEntry, SoldTrackerItem } from '../../models/types'
 
 type DashboardPageProps = {
   scrollToTopSignal?: number
@@ -20,6 +22,7 @@ type DashboardPageProps = {
   historyEntries: TrendEntry[]
   isLoadingHistory: boolean
   historyError: string
+  soldItems: SoldTrackerItem[]
 }
 
 function UpdateButton({ icon, label, onClick, disabled }: {
@@ -48,6 +51,7 @@ export function DashboardPage({
   historyEntries,
   isLoadingHistory,
   historyError,
+  soldItems,
 }: DashboardPageProps) {
   const { signOut } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -75,6 +79,8 @@ export function DashboardPage({
   // 자산 배분(투자중/대기중/총자산) + 계좌 유형별(일반/퇴직, 증권사별)
   const alloc          = computeAssetAllocation(portfolio)
   const acctBreakdown  = computeAccountTypeBreakdown(portfolio)
+  // 기간별 번 돈 (1주/1개월/올해) — 합계수익 추이 diff, 실현+평가 포함
+  const periodProfits  = computePeriodProfits(historyEntries)
 
   return (
     <div ref={scrollRef} className="h-[100dvh] overflow-y-auto no-scrollbar bg-[rgb(var(--page-bg))]">
@@ -160,6 +166,23 @@ export function DashboardPage({
               </div>
             </Card>
 
+            {/* 기간별 번 돈 (실현+평가 포함, 합계수익 추이 diff) */}
+            <Card className="p-4">
+              <p className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3">기간별 번 돈</p>
+              <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-gray-700">
+                {periodProfits.map(tile => (
+                  <div key={tile.key} className="text-center px-1">
+                    <p className="text-xs text-gray-400 mb-1">{tile.label}</p>
+                    <p className={`text-sm font-bold tabular-nums ${
+                      tile.amount == null ? 'text-gray-400' : tile.amount >= 0 ? 'text-profit' : 'text-loss'
+                    }`}>
+                      {tile.amount == null ? '—' : krwCompactSigned(tile.amount)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
             {/* 자산 배분 */}
             <Card className="p-4">
               <p className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3">자산 배분</p>
@@ -217,6 +240,9 @@ export function DashboardPage({
                 </div>
               </div>
             </Card>
+
+            {/* 매도 복기 (안 팔았다면?) */}
+            <SoldTrackerCard items={soldItems} />
 
             {/* 환율 카드 */}
             <Card>

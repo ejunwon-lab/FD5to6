@@ -1,6 +1,6 @@
 # API Reference — GAS 모바일 엔드포인트 데이터 계약
 
-last updated: 2026-06-18
+last updated: 2026-07-15
 
 `apps-script-v2/MobileAPI.js`의 `newMobile*` 함수가 iOS(`ios2`)·웹(`web`)에 돌려주는 JSON 계약.
 **"어떤 필드가 이상하다"** 류 버그는 코드를 뒤지기 전에 이 표에서 필드 → 계산 위치를 먼저 찾는다.
@@ -68,6 +68,7 @@ last updated: 2026-06-18
 | `newMobileGetStockDetail(code)` | StockDetailResponse | 종목별 positions·summary·transactions·priceHistory·stats |
 | `newMobileGetMonthlyRealized()` | MonthlyRealizedResponse | 실현손익. **응답 두 형태 같이** 보냄 — `entries[]`: 행 단위 14필드 (date·month·code·name·category·broker·account·quantity·sellPrice·sellAmount·avgBuyPrice·buyCost·fee·profit·returnPct, 매도일 desc — 데스크 ActivityPage용) + `monthly[]`: 월별 집계 (month·count·winCount·profit·profitRate·winRate — web·iOS Analysis 후방 호환) |
 | `newMobileGetProfitHistory()` | TrendHistoryResponse | 수익 추이 (entries: date·totalProfit) ← *추이 기록* |
+| `newMobileGetSoldTracker()` | SoldTrackerResponse | 매도 복기 What-if. `asOfDate` + `items[]` 16필드 (sellDate·code·name·category·broker·account·sellQty·sellPrice·sellAmount·avgBuyPrice·buyCost·realizedProfit·**currentPrice**·**ifHeldProfit**(안팔았다면)·**diff**(판것대비차이)·elapsedDays) ← *매도추적*. 국내만 what-if(해외 currentPrice/ifHeldProfit/diff=null·환율 미반영), 매도일 desc |
 | `newMobileGetIndicators()` | IndicatorsResponse | 참고지표 (key·name·category·value·change·changePct) |
 | `newMobileGetIndicatorHistory()` | IndicatorHistoryResponse | **참고지표 시계열** (*참고지표_히스토리* 시트 wide JSON: keys + entries[{date, KOSPI, SPX, ...}]). 벤치마크 outperformance 차트용 — 날짜 asc 정렬, name→key 매핑 |
 | `newMobileUpdateCurrentPrice()` | — | 현재가 갱신 트리거 |

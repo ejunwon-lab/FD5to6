@@ -4,6 +4,7 @@ import { usePortfolio } from '../../lib/usePortfolio'
 import { Panel } from '../ui/Panel'
 import { TaxSimPanel } from './TaxSimPanel'
 import { YearlyComparisonPanel } from './YearlyComparisonPanel'
+import { SoldTrackerPanel } from './SoldTrackerPanel'
 import { holdings as sampleHoldings } from '../../lib/sampleData'
 
 const SAMPLE_REALIZED = [
@@ -67,6 +68,9 @@ export function ActivityPage() {
         <YearlyComparisonPanel entries={data} />
         <TaxSimPanel holdings={holdings} />
       </div>
+
+      {/* 매도 복기 (What-if) */}
+      <SoldTrackerPanel />
 
       {/* Monthly P&L bar */}
       <Panel title="Monthly P&L" meta={loading ? 'loading...' : error ? `ERROR: ${error}` : `${stats.monthly.length} months`}>
