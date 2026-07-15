@@ -655,6 +655,7 @@ function updatePositionFromLedger() {
   // KIS_SKIP 행 백업 (펀드·예금·보험 수동입력 + 수식 보존)
   const skipRowMap     = {};   // 값 백업
   const skipFormulaMap = {};   // 수식 백업 (사용자가 K/L/M 등에 건 수식)
+  const skipAutoFilled = {};   // 자가치유(평가 빈칸→현재단가×수량) 행 키 — 아래 수식복원에서 평가/손익/수익률 제외
   if (posSheet.getLastRow() > 1) {
     const sheetCols   = posSheet.getLastColumn();
     const isOldLayout = sheetCols < 15;
@@ -686,6 +687,19 @@ function updatePositionFromLedger() {
       if (skipRowMap[key]) {
         const row = skipRowMap[key].slice();
         row[5] = _holdingPeriod(p.firstDate);
+        // 자가치유: 평가금액(10) 비었고 현재단가(9)>0 → 평가=현재단가×수량, 손익·수익률 재계산.
+        // (예금처럼 사용자가 현재단가만 넣고 평가금액을 비워 손익 셀에 잘못된 집계 수식이 남는 경우 교정.
+        //  펀드·보험은 평가금액이 진짜값으로 채워져 있어 이 분기 안 탐 → 완전 불변. errors.md 참조)
+        const buyAmt   = Number(row[8]) || 0;
+        const curPrice = Number(row[9]) || 0;
+        if (!(Number(row[10]) > 0) && curPrice > 0) {
+          const qty     = Number(row[6]) || p.qty;
+          const evalAmt = Math.round(curPrice * qty);
+          row[10] = evalAmt;
+          row[11] = evalAmt - buyAmt;
+          row[12] = buyAmt > 0 ? Math.round((evalAmt - buyAmt) / buyAmt * 10000) / 100 : 0;
+          skipAutoFilled[key] = true;
+        }
         return row;
       }
       const avgPrice = p.qty > 0 ? Math.round(p.totalCost / p.qty) : 0;
@@ -718,13 +732,17 @@ function updatePositionFromLedger() {
   posSheet.getRange(2, 14, posRows.length, 1).setNumberFormat('#,##0');
 
   // KIS_SKIP 행 (펀드/예금/보험): 사용자가 걸어둔 수식 복원
+  // 단, 자가치유한 행은 평가/손익/수익률(인덱스 10·11·12) 수식은 복원 안 함
+  // (잘못된 집계 참조 수식을 재계산 값으로 대체 유지 — 예금 74M 오염 재발 방지)
   posRows.forEach((row, i) => {
     const cat = String(row[2]).trim();
     if (!NS.KIS_SKIP.includes(cat)) return;
     const key = `${String(row[1]).trim()}|${String(row[3]).trim()}|${String(row[4]).trim()}`;
     const fml = skipFormulaMap[key];
     if (!fml) return;
+    const auto = skipAutoFilled[key];
     fml.forEach((f, c) => {
+      if (auto && (c === 10 || c === 11 || c === 12)) return;   // 평가/손익/수익률 수식 제외
       if (f) posSheet.getRange(i + 2, c + 1).setFormula(f);
     });
   });
