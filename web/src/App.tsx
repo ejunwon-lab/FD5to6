@@ -5,6 +5,7 @@ import { DashboardPage } from './components/dashboard/DashboardPage'
 import { HoldingsPage } from './components/holdings/HoldingsPage'
 import { AnalysisPage } from './components/analysis/AnalysisPage'
 import { IndicatorsPage } from './components/indicators/IndicatorsPage'
+import { SoldTrackerPage } from './components/soldtracker/SoldTrackerPage'
 import { gasApi } from './api/gasApi'
 import type { PortfolioResponse, TrendEntry, SoldTrackerItem } from './models/types'
 import type { Tab } from './components/ui/TabBar'
@@ -192,6 +193,9 @@ function MainApp() {
       </div>}
       {visited.has('analysis')   && <div className={activeTab === 'analysis'   ? '' : 'hidden'}>
         <AnalysisPage portfolio={portfolio} isLoading={isLoadingPortfolio} error={portfolioError} historyEntries={historyEntries} />
+      </div>}
+      {visited.has('soldtracker') && <div className={activeTab === 'soldtracker' ? '' : 'hidden'}>
+        <SoldTrackerPage items={soldItems} />
       </div>}
       <TabBar active={activeTab} onChange={handleTabChange} />
     </div>

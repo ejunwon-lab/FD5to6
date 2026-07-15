@@ -48,3 +48,4 @@
   - **웹** `periodProfit.ts`(computePeriodProfits, 추이 AD diff=실현+평가, vitest 6케이스) + 대시보드 "기간별 번 돈" 타일 + `SoldTrackerCard`(매도 복기). **데스크** DataProvider `useSoldTracker` context + Activity `SoldTrackerPanel`.
   - **검증**: vitest 49통과·web/desk tsc·빌드 통과, node --check 11파일, walk-through(396500 안팔았다면 [금액]/실현 [금액]/차이 +[금액] ✓). **GAS 배포**: push_safe HEAD + gas_redeploy v27(고정 3배포·마커 확인). docs 4종(code-map·api-reference·architecture·features) 갱신.
   - 잔여: v2 곡선 소급(2026-01-11 이전 매도의 매도일~현재 일별 곡선 — 스냅샷은 전량 커버, KIS 일봉 소급은 효용 확인 후).
+- 웹앱 매도 복기 **전용 탭** 추가(`SoldTrackerPage`, 분석 오른쪽 "복기 ↺"). 정렬 pills(최근/차이/실현/경과/종목명 · 재탭 시 방향 토글, 해외 null 하단) + 요약 3칸 + 종목별 목록. 대시보드 카드는 요약 뷰로 유지. TabBar 5탭 확장. tsc·빌드 통과, GAS·데이터 무변경(기존 soldItems 재사용).

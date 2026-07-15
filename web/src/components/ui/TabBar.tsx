@@ -1,10 +1,11 @@
-type Tab = 'dashboard' | 'holdings' | 'analysis' | 'indicators'
+type Tab = 'dashboard' | 'holdings' | 'analysis' | 'indicators' | 'soldtracker'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'indicators', label: '지표',     icon: '◈' },
-  { id: 'dashboard',  label: '대시보드', icon: '◎' },
-  { id: 'holdings',   label: '종목',     icon: '≡' },
-  { id: 'analysis',   label: '분석',     icon: '△' },
+  { id: 'indicators',  label: '지표',     icon: '◈' },
+  { id: 'dashboard',   label: '대시보드', icon: '◎' },
+  { id: 'holdings',    label: '종목',     icon: '≡' },
+  { id: 'analysis',    label: '분석',     icon: '△' },
+  { id: 'soldtracker', label: '복기',     icon: '↺' },
 ]
 
 interface TabBarProps {
