@@ -104,9 +104,14 @@ jobs:
           GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
           TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
         run: |
-          claude -p "$(cat docs/reports/_config/us-prompt.md)" \
+          # 파일명 결정론화 + 권한 bypass — 첫 시도 실패 수리 (docs/plans/2026-07-16-US리포트-첫시도실패-수리.md)
+          DATE_KST=$(TZ='Asia/Seoul' date +%Y-%m-%d)
+          claude -p "$(cat docs/reports/_config/us-prompt.md)
+
+          [운영 지시] 저장 파일명은 반드시 docs/reports/US-${DATE_KST}.md — 날짜를 스스로 계산하지 말 것." \
             --allowedTools "WebFetch,Bash,Read,Write" \
-            --max-turns 25 \
+            --permission-mode bypassPermissions \
+            --max-turns 40 \
             --model claude-sonnet-4-6
 
       - name: Determine report file path
@@ -241,9 +246,14 @@ jobs:
           GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
           TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
         run: |
-          claude -p "$(cat docs/reports/_config/kr-prompt.md)" \
+          # 파일명 결정론화 + 권한 bypass — US 첫 시도 실패와 동일 부류 예방 (docs/plans/2026-07-16-US리포트-첫시도실패-수리.md)
+          DATE_KST=$(TZ='Asia/Seoul' date +%Y-%m-%d)
+          claude -p "$(cat docs/reports/_config/kr-prompt.md)
+
+          [운영 지시] 저장 파일명은 반드시 docs/reports/KR-${DATE_KST}.md — 날짜를 스스로 계산하지 말 것." \
             --allowedTools "WebFetch,Bash,Read,Write" \
-            --max-turns 25 \
+            --permission-mode bypassPermissions \
+            --max-turns 40 \
             --model claude-sonnet-4-6
 
       - name: Determine report file path
@@ -404,8 +414,13 @@ jobs:
           GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
           TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
         run: |
-          claude -p "$(cat docs/reports/_config/weekly-prompt.md)" \
+          # 파일명 결정론화 + 권한 bypass (docs/plans/2026-07-16-US리포트-첫시도실패-수리.md)
+          DATE_KST=$(TZ='Asia/Seoul' date +%Y-%m-%d)
+          claude -p "$(cat docs/reports/_config/weekly-prompt.md)
+
+          [운영 지시] 저장 파일명은 반드시 docs/reports/WEEK-${DATE_KST}.md — 날짜를 스스로 계산하지 말 것." \
             --allowedTools "WebFetch,Bash,Read,Write" \
+            --permission-mode bypassPermissions \
             --max-turns 40 \
             --model claude-sonnet-4-6
 
