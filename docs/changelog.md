@@ -55,3 +55,4 @@
 - 웹 대시보드에서 매도 복기 카드 제거(전용 "복기" 탭으로 이전 완료), `SoldTrackerCard` 삭제.
 - 계좌 유형별 "일반 투자" 증권사 계좌 단위 분리(삼성 종합/삼성 ISA/삼성 CMA, 미래는 단일계좌면 증권사명만) — `computeAccountTypeBreakdown` 수정, vitest 갱신. tsc·빌드 통과.
 - **프라이버시 정리**: public repo(`ejunwon-lab/FD5to6`) 커밋 docs에 실제 원화 금액이 노출돼 있던 문제. (C) 앞으로 docs·응답에서 금액은 마스킹/비율로만 기록, 정확값은 로컬 시트·backups(gitignore)에만. (B) 기존 히스토리는 git-filter-repo로 금액 리터럴 스크럽(force push). 테스트 픽스처는 합성값으로 익명화.
+- **프라이버시 2차**: 죽은 부트스트랩 함수 `importHistoricalTrades`(실제 과거 거래 80건이 코드에 하드코딩, 호출처 없음) 제거 + git-filter-repo로 전 히스토리에서 거래 행 리터럴 스크럽. node --check·vitest 49통과, GAS 재배포(죽은 함수 제거). 2차 force-push 필요.
