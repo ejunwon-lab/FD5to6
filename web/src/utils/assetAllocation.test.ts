@@ -68,21 +68,21 @@ describe('계좌 유형별', () => {
   it('순서: 일반 투자 먼저', () => {
     expect(b.groups.map(g => g.label)).toEqual(['일반 투자', '퇴직연금'])
   })
-  it('일반 투자 = 362,150,000, 삼성은 계좌별 분리(종합/ISA/CMA), 미래는 단일계좌라 증권사명만', () => {
+  it('일반 투자: 삼성은 계좌별 분리(종합/ISA/CMA), 미래는 단일계좌라 증권사명만', () => {
     const g = b.groups[0]
     expect(g.amount).toBe(362150000)
     // 금액 내림차순: 미래 > 삼성 ISA > 삼성 종합 > 삼성 CMA
     expect(g.brokers.map(x => x.broker)).toEqual(['미래', '삼성 ISA', '삼성 종합', '삼성 CMA'])
-    expect(g.brokers[0].amount).toBe(200050000) // 미래: 투자 200,000,000 + 대기 50,000
-    expect(g.brokers[1].amount).toBe(110000000) // 삼성 ISA: 90,000,000 + [금액],000
-    expect(g.brokers[2].amount).toBe(50100000)  // 삼성 종합: 50,000,000 + 100,000
-    expect(g.brokers[3].amount).toBe(2000000)   // 삼성 CMA: 대기 2,000,000
+    expect(g.brokers[0].amount).toBe(200050000) // 미래 종합_랩 = 투자+대기
+    expect(g.brokers[1].amount).toBe(110000000) // 삼성 ISA = 투자+대기
+    expect(g.brokers[2].amount).toBe(50100000)  // 삼성 종합 = 투자+대기
+    expect(g.brokers[3].amount).toBe(2000000)   // 삼성 CMA = 대기
   })
-  it('퇴직연금 = 123,0[금액] (미래 83M > 삼성 40.0M)', () => {
+  it('퇴직연금: 증권사 단위(미래 > 삼성)', () => {
     const g = b.groups[1]
     expect(g.amount).toBe(123015000)
-    expect(g.brokers[0].amount).toBe(83000000) // 미래: 38,000,000 + 45,000,000
-    expect(g.brokers[1].amount).toBe(40015000) // 삼성: 40,000,000 + [금액]
+    expect(g.brokers[0].amount).toBe(83000000) // 미래 = 투자+대기
+    expect(g.brokers[1].amount).toBe(40015000) // 삼성 = 투자+대기
   })
   it('비중 합 100%', () => {
     const sum = b.groups.reduce((s, g) => s + g.pct, 0)
