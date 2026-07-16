@@ -61,3 +61,4 @@
 - **% 셀 타입 비대칭 버그 발견·수정(v30·v31)** — `_trFmtPct` 부호 % 문자열을 Sheets가 음수만 분수 numeric으로 auto-parse → 음수 날 100배 축소, d5 +8.04%→실제 **-4.45%**. 6/28 주간 리포트 +4.9% 왜곡의 진범으로 확정("6/23 입금"은 오진 — 실제 시장 폭락일). v30 읽기 `_mPctVal`(S·AC·AF 3곳), v31 쓰기 근본 수정(numeric 분수+`_trPctFormat` 서식). errors.md·memory 기록.
 - 신한만기 기록시차 소급 교정 — 시장/기록 요인 분해로 d20 창 22구간 전수 감사(예외 4건 전부 설명), 원장 flow 행 2건 소급(7/7 입금·7/9 출금) → 7/9 -5.78→+2.06 flowAdj 실측·d20 복리 검산 일치. 운영 원칙: 내부 이동은 같은 날 양쪽 반영 or flow 행.
 - 위생 묶음 일괄 처리 — ①desk 로케일 ko-KR 통일·position52w 공용화(kst는 기수정 확인) ②format.test 시각 고정 계산 케이스(web 54통과) ③save.sh 트레일러 모델 무관화·deploy npm ci·desk vitest 신설(8케이스)+배포 테스트 step ④code-map 등재 2건(check_stale 클린) ⑤Trend.js % numeric 전환(/design-check 통과, v31).
+- US 리포트 "매번 실패" 진단·수리 — 실체는 첫 dispatch만 실패(5회/9일, 체인 재시도로 리포트는 매일 도착). 원인: 에이전트 권한 승인 산문 이탈+파일명 오계산+턴 소진. 수리(3 job): `--permission-mode bypassPermissions`·max-turns 40·파일명 결정론화(DATE_KST 프롬프트 주입). `/design-check` 통과, dry_run 스모크 dispatch. 최종 판정은 내일 08:0x 라이브.
