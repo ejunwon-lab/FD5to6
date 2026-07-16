@@ -55,7 +55,7 @@ export function Ticker() {
     : sampleTicker.map((t) => ({
         name: t.name || t.symbol,
         symbol: t.symbol,
-        display: t.price.toLocaleString('en-US', {
+        display: t.price.toLocaleString('ko-KR', {
           minimumFractionDigits: t.price < 100 ? 2 : 0,
           maximumFractionDigits: t.price < 100 ? 2 : 0,
         }),
@@ -90,7 +90,7 @@ function indToDisplay(i: Indicator): DisplayItem {
   return {
     name: i.name || i.symbol,
     symbol: i.symbol,
-    display: i.value.toLocaleString('en-US', {
+    display: i.value.toLocaleString('ko-KR', {
       minimumFractionDigits: i.value > 10_000 ? 0 : 2,
       maximumFractionDigits: 2,
     }),

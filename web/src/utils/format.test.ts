@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   krwFull, krwCompact, krwCompactSigned, pctFormatted, normalizeChangePct,
-  isProfit, position52w, holdingDurationText, annualizedReturn,
+  isProfit, position52w, holdingDays, holdingDurationText, annualizedReturn,
+  profitTextClass, profitBgClass,
 } from './format'
 
 describe('krwFull / krwCompact', () => {
@@ -83,15 +84,49 @@ describe('position52w', () => {
   })
 })
 
-describe('holdingDurationText', () => {
-  it('buyDate 없으면 null', () => {
+// ── 날짜 의존 함수: 시스템 시각 고정으로 결정적 검증 (2026-07-16 테스트 공백 채움) ──
+describe('holdingDays / holdingDurationText / annualizedReturn (시각 고정)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-16T12:00:00+09:00'))
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('holdingDays: 경과 일수 계산', () => {
+    expect(holdingDays('2026-07-15')).toBe(1)
+    expect(holdingDays('2026-06-16')).toBe(30)
+    expect(holdingDays('2025-07-16')).toBe(365)
+  })
+  it('holdingDays: buyDate 없거나 미래면 0 이하', () => {
+    expect(holdingDays(undefined)).toBe(0)
+    expect(holdingDays('2026-07-20')).toBeLessThanOrEqual(0)
+  })
+
+  it('holdingDurationText: 일 → 개월+일 단계 표기', () => {
+    expect(holdingDurationText('2026-07-01')).toBe('15일')          // 30일 미만
+    expect(holdingDurationText('2026-06-16')).toBe('1개월')          // 정확히 30일
+    expect(holdingDurationText('2026-05-02')).toBe('2개월 15일')     // 75일 = 2*30+15
+  })
+  it('holdingDurationText: buyDate 없으면 null', () => {
     expect(holdingDurationText(undefined)).toBeNull()
     expect(holdingDurationText('')).toBeNull()
   })
+
+  it('annualizedReturn: (수익률/보유일)×365', () => {
+    expect(annualizedReturn(10, '2025-07-16')).toBeCloseTo(10, 5)   // 365일 보유 +10% → 연환산 +10%
+    expect(annualizedReturn(10, '2026-06-16')).toBeCloseTo((10 / 30) * 365, 5) // 30일 +10% → +121.67%
+    expect(annualizedReturn(-3, '2026-07-01')).toBeCloseTo((-3 / 15) * 365, 5) // 손실도 동일 공식
+  })
+  it('annualizedReturn: buyDate 없으면 0', () => {
+    expect(annualizedReturn(10, undefined)).toBe(0)
+  })
 })
 
-describe('annualizedReturn', () => {
-  it('buyDate 없으면 0', () => {
-    expect(annualizedReturn(10, undefined)).toBe(0)
+describe('profitTextClass / profitBgClass', () => {
+  it('0 이상 profit, 음수 loss', () => {
+    expect(profitTextClass(0)).toBe('text-profit')
+    expect(profitTextClass(-1)).toBe('text-loss')
+    expect(profitBgClass(1)).toBe('bg-profit')
+    expect(profitBgClass(-1)).toBe('bg-loss')
   })
 })

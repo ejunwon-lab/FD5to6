@@ -67,7 +67,7 @@ if [ "$HAS_HINT" = "1" ]; then
 fi
 
 # 4. commit
-if git commit -m "$MSG" -m "Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"; then
+if git commit -m "$MSG" -m "Co-Authored-By: Claude <noreply@anthropic.com>"; then
   echo "✓ 커밋 완료"
 else
   echo "✗ 커밋 실패"

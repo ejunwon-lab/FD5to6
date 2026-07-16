@@ -58,8 +58,7 @@ function insightTags(h: Holding, totalBuy: number): InsightTag[] {
     if (ann >= 15 && days >= 180) tags.push('핵심 보유')
     if (buyPct >= 8 && ann < 5 && days >= 90) tags.push('잠자는 돈')
   }
-  const range = h.high52 - h.low52
-  if (range > 0 && (h.currentPrice - h.low52) / range >= 0.95) tags.push('고점 근접')
+  if (h.high52 > h.low52 && position52w(h.currentPrice, h.low52, h.high52) >= 95) tags.push('고점 근접')
   if (h.profitRate <= -15) tags.push('깊은 손실')
   if (days > 0 && days < 90) tags.push('단기')
   return tags

@@ -82,10 +82,10 @@ function BigIndicator({ ind, onClick }: { ind: Indicator; onClick: () => void })
         <span className="text-2xs text-ink-faint uppercase tracking-widest">live</span>
       </div>
       <div className="text-[28px] font-medium text-ink tabular leading-tight">
-        {ind.value.toLocaleString('en-US', { minimumFractionDigits: ind.value > 10000 ? 0 : 2, maximumFractionDigits: 2 })}
+        {ind.value.toLocaleString('ko-KR', { minimumFractionDigits: ind.value > 10000 ? 0 : 2, maximumFractionDigits: 2 })}
       </div>
       <div className={`text-xs tabular mt-1 ${up ? 'text-gain' : 'text-loss'}`}>
-        {up ? '▲' : '▼'} {up ? '+' : ''}{ind.changeAbs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        {up ? '▲' : '▼'} {up ? '+' : ''}{ind.changeAbs.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         <span className="ml-2">({up ? '+' : ''}{ind.changePct.toFixed(2)}%)</span>
       </div>
       <svg viewBox="0 0 200 50" preserveAspectRatio="none" className="w-full h-12 mt-3">

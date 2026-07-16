@@ -1,6 +1,6 @@
 # API Reference — GAS 모바일 엔드포인트 데이터 계약
 
-last updated: 2026-07-15
+last updated: 2026-07-16
 
 `apps-script-v2/MobileAPI.js`의 `newMobile*` 함수가 iOS(`ios2`)·웹(`web`)에 돌려주는 JSON 계약.
 **"어떤 필드가 이상하다"** 류 버그는 코드를 뒤지기 전에 이 표에서 필드 → 계산 위치를 먼저 찾는다.
@@ -74,7 +74,7 @@ last updated: 2026-07-15
 | `newMobileUpdateCurrentPrice()` | — | 현재가 갱신 트리거 |
 | `newMobileUpdateHistory()` | — | *현재가_이력* 갱신 트리거 |
 | `newMobileUpdateAll()` | — | 통합 갱신 트리거 |
-| `getPortfolioMetrics()` (doPost `action=portfolioMetrics`+secret) | `{success, assetClassWeights:{분류:%}, holdings:[{name,category,weight}], mdd:음수%, recentReturns:[{date,opRatePct}], dailyReturns:[{date,dRatePct}], portfolioReturn:{d5,d20}}` | **상대 지표만 — 원화 절대액 미포함** (public 리포트용). 비중 분모=보유현황 평가금액 합, MDD=*추이 기록* 일별 총자산(Q열) peak-to-trough. `recentReturns`=운용수익률%(AC열, 원가기준 누적), **`dailyReturns`=일별 총자산 변화율%(S열, 최근 7거래일 — 마지막5 복리=d5, 주간 리포트 일자별용)**, `portfolioReturn{d5,d20}`=S열 dRate 복리누적 |
+| `getPortfolioMetrics()` (doPost `action=portfolioMetrics`+secret) | `{success, assetClassWeights:{분류:%}, holdings:[{name,category,weight}], mdd:음수%, recentReturns:[{date,opRatePct}], dailyReturns:[{date,dRatePct,rawPct?,flowAdj?,suspect?}], portfolioReturn:{d5,d20}}` | **상대 지표만 — 원화 절대액 미포함** (public 리포트용). 비중 분모=보유현황 평가금액 합, MDD=*추이 기록* 일별 총자산(Q열) peak-to-trough. `recentReturns`=운용수익률%(AC열, 원가기준 누적), **`dailyReturns`=일별 총자산 변화율%(S열, 최근 7거래일 — 마지막5 복리=d5, 주간 리포트 일자별용)** + TWR 필드: `flowAdj:true`=원장 입금/출금 행으로 보정됨(원값 `rawPct`), `suspect:true`=|dRate|≥3%인데 입출금 기록 없음(미기록 왜곡 의심). `portfolioReturn{d5,d20}`=보정 dRate 복리누적 |
 
 상세 필드는 web `src/models/types.ts`의 `StockDetailResponse`·`MonthlyRealizedResponse` 등 참조.
 

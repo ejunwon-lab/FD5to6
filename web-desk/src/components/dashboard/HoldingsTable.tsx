@@ -23,7 +23,7 @@ export function HoldingsTable({ holdings }: Props) {
                   {h.name} · <span className="text-cyan text-[9px] tracking-wider">{h.market}</span>
                 </div>
               </td>
-              <td className="px-3 py-2 text-right tabular">{h.value.toLocaleString('en-US')}</td>
+              <td className="px-3 py-2 text-right tabular">{h.value.toLocaleString('ko-KR')}</td>
               <td className={`px-3 py-2 text-right tabular ${h.returnPct >= 0 ? 'text-gain' : 'text-loss'}`}>
                 {h.returnPct >= 0 ? '+' : ''}{h.returnPct.toFixed(1)}%
               </td>

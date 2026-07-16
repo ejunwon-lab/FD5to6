@@ -1,4 +1,5 @@
 import { Panel } from '../ui/Panel'
+import { position52w } from '../../lib/format'
 import type { Holding } from '../../lib/types'
 
 const ROW_LIMIT = 12
@@ -21,8 +22,7 @@ export function Position52WeekPanel({ holdings }: { holdings: Holding[] }) {
     <Panel title="52-Week Position" meta={`top ${sorted.length} by weight`}>
       <div className="px-3 py-3 space-y-2.5">
         {sorted.map((h) => {
-          const range = h.high52 - h.low52
-          const pos = ((h.currentPrice - h.low52) / range) * 100
+          const pos = position52w(h.currentPrice, h.low52, h.high52)
           const clamped = Math.max(0, Math.min(100, pos))
           const nearHigh = clamped >= 75
           const nearLow = clamped <= 25

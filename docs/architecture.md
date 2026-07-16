@@ -1,6 +1,6 @@
 # 시스템 아키텍처 — FD5to6
 
-last updated: 2026-07-15
+last updated: 2026-07-16
 
 JUN & SOO 주식 포트폴리오 시스템의 전체 그림.
 **작업 시작 전 이 문서를 먼저 본다** — 코드 위치는 `code-map.md`, 기능 체크리스트는 `features.md`, API 응답 필드는 `api-reference.md`, 설계 결정 이유는 `decisions.md`.
@@ -158,7 +158,7 @@ iOS / web / web-desk
 
 | 시트 | 컬럼 의미 | 사용처 |
 |---|---|---|
-| **거래_원장** | A:날짜 B:매수/매도 C:종목코드 D:종목명 E:카테고리 F:증권사 G:계좌 H:수량 I:단가 | `updatePositionFromLedger` 입력 |
+| **거래_원장** | A:날짜 B:구분(매수/매도/**입금/출금**) C:종목코드 D:종목명 E:카테고리 F:증권사 G:계좌 H:수량 I:단가 J:금액 K:수수료 L:메모 — 입금/출금 행은 C~E·H~I 빈칸, J만(TWR 현금흐름 이력, 2026-07-16) | `updatePositionFromLedger` 입력(입금/출금은 skip) + `getPortfolioMetrics` TWR flow 맵 |
 | **보유현황** | A:코드 B:종목명 C:카테고리 D:증권사 E:계좌 F:비중 G:수량 H:평단 I:매입금액 J:현재단가 K:평가금액 L:손익 M:수익률 | 모든 클라이언트의 holdings 소스 |
 | **종목지표** | code+broker+account 키. 당일등락·1주PnL·1달PnL·1M%·3M%·6M%·1Y%·52주H·52주L | `_readStockMetrics`(MobileAPI) |
 | **현재가_이력** | A:날짜 + 종목 Wide. 거래일만 누적 | KIS 가격 캐시. 1M/3M/6M/1Y 계산 |

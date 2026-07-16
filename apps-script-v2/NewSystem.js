@@ -30,6 +30,9 @@ const NS = {
   },
   CATEGORIES: ['국내주식', '국내ETF', '해외주식', '해외ETF', '펀드', '예금', '보험', '기타'],
   TX_TYPES:   ['매수', '매도'],
+  // 현금흐름 행 타입 (TWR 입금왜곡 보정, docs/plans/2026-07-16-TWR-입금왜곡보정.md).
+  // TX_TYPES에 합치지 않음 — 입력폼 dv가 TX_TYPES를 쓰는데 폼 경로는 amount=수량×단가라 입금 미지원.
+  FLOW_TYPES: ['입금', '출금'],
   KIS_SKIP:   ['펀드', '예금', '보험', '기타'],
 
   FORM_COL: 2,
@@ -371,6 +374,38 @@ function _appendTradeRow(t) {
       dateStr = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
     }
 
+    // --- 입금/출금 행 (TWR 현금흐름 기록 — docs/plans/2026-07-16-TWR-입금왜곡보정.md) ---
+    // 종목 필드 없이 금액만 기록. 소비자들은 type/빈 코드로 skip → 보유현황·실현손익 무영향이라 재계산 연쇄 불필요.
+    if (NS.FLOW_TYPES.indexOf(type) !== -1) {
+      if (NS.BROKERS.indexOf(broker) === -1) return { success: false, error: 'bad_broker', detail: String(t.broker) };
+      if (!NS.ACCOUNTS[broker] || NS.ACCOUNTS[broker].indexOf(account) === -1)
+        return { success: false, error: 'bad_account', detail: broker + ' / ' + account };
+      const flowAmt = Number(t.amount) || 0;
+      if (flowAmt <= 0) return { success: false, error: 'amount_required', detail: String(t.amount) };
+      // 멱등: 날짜+구분+증권사+계좌+금액 동일 행 존재 시 skip
+      const flr = ledger.getLastRow();
+      if (flr >= 2) {
+        const flv = ledger.getRange(2, 1, flr - 1, 12).getValues();
+        for (let i = 0; i < flv.length; i++) {
+          const r = flv[i];
+          const rowDate = (r[0] instanceof Date) ? Utilities.formatDate(r[0], 'Asia/Seoul', 'yyyy-MM-dd') : String(r[0]).trim();
+          if (rowDate === dateStr && String(r[1]).trim() === type &&
+              String(r[5]).trim() === broker && String(r[6]).trim() === account &&
+              (Number(r[9]) || 0) === flowAmt) {
+            return { success: true, already: true, row: i + 2, flow: true, message: '이미 기록된 입출금(멱등 skip)',
+                     trade: { date: dateStr, type: type, broker: broker, account: account, amount: flowAmt } };
+          }
+        }
+      }
+      const flowRowNum = ledger.getLastRow() + 1;
+      const flowRow = [dateStr, type, '', '', '', broker, account, '', '', flowAmt, 0, String(t.memo || '').trim()];
+      ledger.getRange(flowRowNum, 1, 1, 12).setValues([flowRow])
+        .setBackground(flowRowNum % 2 === 0 ? NS.ROW_EVEN : NS.ROW_ODD);
+      ledger.getRange(flowRowNum, 10, 1, 1).setNumberFormat('#,##0');
+      return { success: true, already: false, row: flowRowNum, flow: true,
+               trade: { date: dateStr, type: type, broker: broker, account: account, amount: flowAmt } };
+    }
+
     // --- 검증 ---
     if (NS.TX_TYPES.indexOf(type) === -1) return { success: false, error: 'bad_type', detail: type };
     if (NS.BROKERS.indexOf(broker) === -1) return { success: false, error: 'bad_broker', detail: String(t.broker) };
@@ -499,6 +534,7 @@ function updatePositionFromLedger() {
   for (const row of rows) {
     const [date, type, code, name, cat, broker, acct, qty, price, amount, fee] = row;
     if (!name || !type) continue;
+    if (type !== '매수' && type !== '매도') continue;   // 입금/출금 등 현금흐름 행은 포지션 무관 (TWR, 방어 이중화)
     const key = `${code}||${name}||${broker}||${acct}`;
     if (!posMap[key]) {
       posMap[key] = { code: String(code), name: String(name), cat: String(cat),

@@ -56,3 +56,8 @@
 - 계좌 유형별 "일반 투자" 증권사 계좌 단위 분리(삼성 종합/삼성 ISA/삼성 CMA, 미래는 단일계좌면 증권사명만) — `computeAccountTypeBreakdown` 수정, vitest 갱신. tsc·빌드 통과.
 - **프라이버시 정리**: public repo(`ejunwon-lab/FD5to6`) 커밋 docs에 실제 원화 금액이 노출돼 있던 문제. (C) 앞으로 docs·응답에서 금액은 마스킹/비율로만 기록, 정확값은 로컬 시트·backups(gitignore)에만. (B) 기존 히스토리는 git-filter-repo로 금액 리터럴 스크럽(force push). 테스트 픽스처는 합성값으로 익명화.
 - **프라이버시 2차**: 죽은 부트스트랩 함수 `importHistoricalTrades`(실제 과거 거래 80건이 코드에 하드코딩, 호출처 없음) 제거 + git-filter-repo로 전 히스토리에서 거래 행 리터럴 스크럽. node --check·vitest 49통과, GAS 재배포(죽은 함수 제거). 2차 force-push 필요.
+- pending 대청소 — 2026-05월 stale 항목 10건을 증거 실측으로 닫음(트리거 생존·주간 pre-fetch 로그·리포트 커밋 실측), 🔴/🟡/⚪ 재구조화. filter-repo가 지운 upstream 추적 복구. GitHub GC 요청 격상.
+- TWR 입금 왜곡 보정(v29) — 원장 `구분=입금/출금` 행 타입(addTrade 확장·멱등) + getPortfolioMetrics read-time 보정(`flowAdj`/`rawPct`) + `suspect` 플래그(|dRate|≥3%·flow 없음) + weekly-prompt 해석 지침. `/design-check` 설계 게이트 첫 실전 적용(원장 소비자 7종 전수 조사). negative 테스트 3건 통과.
+- **% 셀 타입 비대칭 버그 발견·수정(v30·v31)** — `_trFmtPct` 부호 % 문자열을 Sheets가 음수만 분수 numeric으로 auto-parse → 음수 날 100배 축소, d5 +8.04%→실제 **-4.45%**. 6/28 주간 리포트 +4.9% 왜곡의 진범으로 확정("6/23 입금"은 오진 — 실제 시장 폭락일). v30 읽기 `_mPctVal`(S·AC·AF 3곳), v31 쓰기 근본 수정(numeric 분수+`_trPctFormat` 서식). errors.md·memory 기록.
+- 신한만기 기록시차 소급 교정 — 시장/기록 요인 분해로 d20 창 22구간 전수 감사(예외 4건 전부 설명), 원장 flow 행 2건 소급(7/7 입금·7/9 출금) → 7/9 -5.78→+2.06 flowAdj 실측·d20 복리 검산 일치. 운영 원칙: 내부 이동은 같은 날 양쪽 반영 or flow 행.
+- 위생 묶음 일괄 처리 — ①desk 로케일 ko-KR 통일·position52w 공용화(kst는 기수정 확인) ②format.test 시각 고정 계산 케이스(web 54통과) ③save.sh 트레일러 모델 무관화·deploy npm ci·desk vitest 신설(8케이스)+배포 테스트 step ④code-map 등재 2건(check_stale 클린) ⑤Trend.js % numeric 전환(/design-check 통과, v31).

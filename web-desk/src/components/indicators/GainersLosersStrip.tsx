@@ -45,7 +45,7 @@ function Row({ ind, rank, tone }: { ind: Indicator; rank: number; tone: 'gain' |
       </div>
       <div className="text-right shrink-0 ml-2">
         <div className="text-ink tabular text-sm">
-          {ind.value.toLocaleString('en-US', { minimumFractionDigits: ind.value > 10000 ? 0 : 2, maximumFractionDigits: 2 })}
+          {ind.value.toLocaleString('ko-KR', { minimumFractionDigits: ind.value > 10000 ? 0 : 2, maximumFractionDigits: 2 })}
         </div>
         <div className={`tabular text-xs ${color}`}>
           {arrow} {up ? '+' : ''}{ind.changePct.toFixed(2)}%

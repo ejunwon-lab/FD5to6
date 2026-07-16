@@ -2,44 +2,32 @@
 
 완료되면 이 파일에서 삭제하고 해당 세션 문서에 "완료" 기록.
 
+> 2026-07-16 대청소: 2026-05월 stale 항목 10건을 증거 실측으로 닫음(트리거 생존=대시보드 17:32 갱신·현재가_이력 당일 행, 주간 pre-fetch=run 29179140896 로그 HTTP=200, 리포트 커밋=FD5to6-reports 당일 커밋). 상세는 `docs/sessions/2026-07-16-pending대청소-TWR.md`.
+
 ---
 
-## 🟢 예정 작업
+## 🔴 결정·확인 대기 (사용자 액션 필요)
 
-- **🟡 매도 복기 v2 — 곡선 소급 (2026-07-15)** — v1(매도추적 시트+웹/데스크 카드+기간별 번 돈 타일) 배포 완료(GAS v27, `SoldTracker.js`, `docs/plans/2026-07-15-매도추적-기간별번돈.md`). **오늘 스냅샷("판 것 대비 차이")은 판 종목 47건 전량 커버**. 남은 것: *현재가_이력* 시작(2026-01-11) 이전 매도의 **매도일~현재 일별 곡선** gap을 KIS 국내 일봉(FHKST03010100) 1회 소급으로 충전(별도 수동 함수, 트리거엔 안 붙임). 실제 써보고 곡선 효용 확인 후 진행. 해외(MU)는 환율 반영 시 함께.
-
-- **🔴 C: 주간 수익률 입금 왜곡(TWR) 보정 — 사용자 옵션 결정 대기 (2026-07-03)** — 입출금이 일자별로 기록되는 곳 없음(원장은 매수/매도만) → d5가 입금을 수익으로 오인(6/28 +4.9% vs 실질 약 -6%, 7/3 dry_run서도 재확인). 옵션: ①원장에 입금/출금 행 타입+S열 보정(정확, 기록 습관 필요) ②이상치 자동 플래그(코드 최소) ③대기자금 onEdit 로깅(근사). **권고 ①+② 조합** — 결정 후 `/design-check` 진행. 세션: `2026-07-03-naver우회-무음실패-전반점검.md`
 - **🔴 GAS 죽은 코드 정리 — Secret.js 확인 대기 (2026-07-03)** — 모바일 GET 8함수(`newMobileGet*` 등)+KIS 메서드 절반이 로컬 grep 도달 불가. 단 원격 전용 Secret.js가 doGet 라우팅 보유 가능 → **사용자가 GAS 에디터에서 Secret.js 내 `doGet`/`newMobileGet` 참조 유무 확인** 후 삭제 범위 확정. 부수: 환율 fallback 불일치(`_getFxRates` 0 vs `_mGetFxRates` 1400/1700 — 5곳 중복), buildDashboard 셀 단위 I/O 배치화.
-- **🔴 리포트 private 분리 — 라이브 커밋 검증만 잔여 (2026-07-04)** — 구조 전환·dry_run 2회 통과(28702135651·28703070632). **히스토리 재작성 완료**(git-filter-repo, 7/4): 리포트+프롬프트 3종+kr-theses를 전 히스토리에서 purge, force push(fa3e5a0), fresh clone 검증 0건, 재작성 후 Actions 생존 확인(diag 28703488656). 프롬프트·논리 편집은 이제 `docs/reports/_config/`(private). **남은 것**: ① 다음 라이브 run(7/5 토 08:0x US·일 13:0x 주간)이 `FD5to6-reports`에 커밋 확인 ② **다른 맥 3단계** (run.sh가 히스토리 자기복구하므로 폴더 삭제 불필요, 2026-07-04 추가): ⓐ FD5to6에서 세션 열고 `실행@` — run.sh가 자동 재정렬(이전 상태는 backup-* 브랜치 보존)·리포트 clone ⓑ `.env` 생성(`TG_WEBHOOK_SECRET=...` 1줄 — 값은 주 맥북 FD5to6/.env에서 복사) ⓒ `bash scripts/setup_backup_launchd.sh` 1회(백업 자동화) — Claude가 pending 보고 안내하도록 함 ③ (선택) GitHub Support에 dangling 객체 gc 요청: https://support.github.com/request 에 "force-pushed ejunwon-lab/FD5to6 to remove sensitive files; please run GC" 요지로.
-- **🟡 프론트 호스팅 GitHub Pages 의존 탈피 검토 (2026-07-10)** — 7/9 GitHub Actions 광역 장애로 web·desk 배포가 반나절 라이브 미반영(errors.md 2026-07-09~10). Pages 발행 빌드는 무료·공개라 장애 시 우선순위 밀림. 대안 1순위 **Cloudflare Pages**(이미 CF 워커 사용, `wrangler pages deploy dist` 직접 업로드로 GitHub Actions 무관·즉시) / 그 외 Vercel·Netlify·Firebase. 이전 비용 = base 경로 `/FD5to6/`·`/FD5to6/desk/`→루트 rebuild + Google OAuth 승인 도메인 갱신뿐. 사용자 '이번엔 대기' 결정(2026-07-09) — Pages 재발 시 진행.
-- **🟡 web-desk 모바일 컴팩트 모드 (2026-07-04 사용자 요청)** — 2026-07-04 반응형 보강(카드 wrap·터치 타겟 등 11건)으로 급한 불은 껐으나, 장기적으로 폰 전용 컴팩트 모드(밀도 낮춘 레이아웃·List view 카드형 대체·min-w 테이블 재설계) 정식 설계. web(PWA)과의 역할 분담 결정과 함께.
-- **🟡 전반 점검 위생 묶음 (2026-07-03 발견, 승인 불필요)** — ①두 웹앱 드리프트: 통화 표기(₩·로케일) 통일, 52주 공식 공용화, TopBar 로컬시간에 "kst" 라벨 오표기 ②web 테스트 공백 4건(annualizedReturn·holdingDuration 등) ③save.sh 트레일러 "Opus 4.7" 고정, deploy `npm install`→`ci`, desk 배포 테스트 step 없음 ④pending 완료항목(daisy-chain ✅·5월 GAS 트리거 계열) 정리, architecture.md 30일 경과, code-map 미등재 2건(emailKillSwitch_OFF·jsonResponse).
+- **🔴 프라이버시 스크럽 마무리 — GitHub Support GC 요청 (2026-07-16 격상)** — force-push 2회(금액·실거래 스크럽) 완료했으나 **dangling 객체는 GitHub 서버에 남아 옛 SHA URL로 접근 가능**. https://support.github.com/request 에 "force-pushed ejunwon-lab/FD5to6 to remove sensitive files; please run GC" 요지로 요청해야 정리 완결.
+- **🔴 kr-theses.md 투자논리 초안 → 사용자 확정** — 확정 시 리포트의 "(논리 초안)" 라벨 제거. + KR 리포트 로테이션/파이프라인 분석이 실제 유용한지 내용 품질 피드백. (구 "KR 리포트 B+C" 항목의 잔여분)
 
-- **🟡 주간 리포트(일요일 13:00 KST) — 첫 라이브(6/28) 발화 성공, 7/5 라이브에서 개선 2건 확인 (2026-07-03 갱신)** — 6/28 13:02 KST run(28310766520) success·`WEEK-2026-06-28.md` 생성으로 **첫 라이브 발화 확인**. 단 그 run에서 2건 결함: ① 에이전트가 env 주입돼 있는데 "GAS 미접속(환경변수 미설정)" 오판 → dailyReturns 역산 추산 (**해결 2026-07-03**: pre-fetch step 구조 전환, errors.md 참조) ② d5 +4.9%가 6/23 대규모 입금 왜곡 포함(실질 약 -6%) → **입금 왜곡 보정(TWR)** 별도 항목. ⓐ KOSDAQ 주간% fetch 변동도 Yahoo 429가 원인으로 판명 → curl 재시도 전환(2026-07-03). **남은 것**: 🔴 7/5(일) 라이브에서 pre-fetch 로그(`pre-fetch: HTTP=200`)·일자별 수치가 GAS 실값인지 확인(dry_run에서는 7/3 통과 — run 28652226683) + 이메일 도착(사용자, 나중에).
+## 🟡 진행 중 · 예정
 
-- **🟡 PB 리포트 + 이메일 채널 — 라이브 가동 확인, 이메일 도착·논리 확정만 잔여 (2026-07-03 갱신)** — 6/22부터 매 거래일 US·KR 리포트 자동 생성·커밋·텔레그램 발화 확인(7/3까지 무결). **남은 것**: ① 이메일 HTML 실도착 확인(halcyon.public Gmail — **사용자, 나중에 확인하기로**) ② kr-theses.md 투자논리 **초안→사용자 확정** 시 "(논리 초안)" 라벨 제거. 세션: `2026-06-20-PB리포트-이메일채널-안전장치.md`.
+- **🟡 주간 수익률 입금 왜곡(TWR) 보정 — 구현·배포 완료(v29~v30), 소급 기록만 잔여 (2026-07-16)** — ①원장 `구분=입금/출금` 행(addTrade 확장, 멱등) + ②read-time TWR 보정·suspect 플래그 배포, POST 실측 통과. 부수로 **% 셀 비대칭 파싱 버그**(음수 dRate 100배 축소 → d5 +8.04%가 실제 -4.45%) 발견·수정(errors.md 2026-07-16). **소급 기록까지 완료(7/16 저녁)**: "6/23 입금"은 오진(실제 시장 폭락일 — 파싱 버그가 진범), 신한만기 기록시차 2건(7/7·7/9)을 flow 행으로 소급 교정·실측 검증(7/9 -5.78→+2.06 flowAdj). **잔여**: ①내일(7/17) 첫 자동 재계산 후 *보유현황* 정상 확인 ②운영 습관 — 내부 이동은 같은 날 양쪽 반영 or flow 행 기록. 은행 예금 입출금은 시트 직접 행만(addTrade는 미래·삼성 계좌만). 설계·실측: `docs/plans/2026-07-16-TWR-입금왜곡보정.md`
+- **🟡 매도 복기 v2 — 곡선 소급 (2026-07-15)** — v1(매도추적 시트+웹/데스크 카드+기간별 번 돈 타일) 배포 완료(GAS v27). 오늘 스냅샷은 판 종목 47건 전량 커버. 남은 것: *현재가_이력* 시작(2026-01-11) 이전 매도의 매도일~현재 일별 곡선 gap을 KIS 국내 일봉(FHKST03010100) 1회 소급 충전(수동 함수, 트리거 X). 실사용으로 곡선 효용 확인 후 진행. 해외(MU)는 환율 반영 시 함께.
+- **🟡 리포트 private 분리 — 다른 맥 3단계만 잔여 (2026-07-16 갱신)** — 라이브 커밋 검증 완료(7/16 실측: FD5to6-reports에 매 거래일 US·KR + 주간 WEEK-07-05·07-12 커밋). 남은 것: **다른 맥 3단계** ⓐ FD5to6 세션 열고 `실행@`(run.sh 자동 재정렬·리포트 clone) ⓑ `.env` 생성(`TG_WEBHOOK_SECRET=...` — 값은 주 맥북 FD5to6/.env에서 복사) ⓒ `bash scripts/setup_backup_launchd.sh` 1회.
+- **🟡 프론트 호스팅 GitHub Pages 의존 탈피 검토 (2026-07-10)** — 7/9 Actions 광역 장애로 반나절 라이브 미반영. 대안 1순위 Cloudflare Pages(`wrangler pages deploy dist`). 이전 비용 = base 경로 rebuild + OAuth 도메인 갱신. 사용자 '이번엔 대기' 결정 — Pages 재발 시 진행.
+- **🟡 web-desk 모바일 컴팩트 모드 (2026-07-04 사용자 요청)** — 7/4 반응형 보강으로 급한 불은 껐고, 장기적으로 폰 전용 컴팩트 모드(밀도 낮춘 레이아웃·List view 카드형·min-w 테이블 재설계) 정식 설계. web(PWA)과의 역할 분담 결정과 함께.
+- **🟡 위생 묶음 마무리 확인 2건 (2026-07-16 일괄 처리 완료)** — ①~⑤ 전부 처리(로케일 ko-KR 통일·52주 공용화·kst는 기수정 확인 / format 테스트 채움·desk vitest 신설 / save.sh 트레일러·npm ci·desk 테스트 step / code-map 등재 / Trend.js % numeric+서식 v31). **잔여 확인만**: ⓐ내일 첫 `updateAllNew` 후 *추이 기록* % 셀 — 시트 표시 `+X.XX%` 정상 + 덤프에서 S·Y·AC·AF numeric 분수 + POST dailyReturns 정상 ⓑweb/iOS "전일 수익" — 다음 음수 마감일에 화면 확인(AF 파싱 수정 클라 검증).
+- **🟡 PB 리포트 이메일 — 실도착 확인 (사용자, 나중에)** — 매 거래일 US·KR 자동 생성·커밋·텔레그램 발화는 무결 확인(7/16까지). 이메일 HTML 실도착만 확인(halcyon.public Gmail). 주간 리포트 이메일 포함.
+- **🟡 매매기록! 잔여** — ①기록 날짜가 GAS 서버 기준(로컬과 1일 차 가능) — 날짜 민감 건 사용자 확인 ②기록 정정/삭제 수단 없음(append만) — 필요 시 deleteTrade/editTrade. 새 마스킹 계좌 등장 시 memory 누적.
+- **🟢 코딩 전 설계 게이트 2단계 — hook 강제 (2026-06-09)** — 1단계(전역 규칙+`/design-check` skill) 구축 완료. 남은 것: 위험 변경에 첫 적용해 효과 증명(→ 2026-07-16 TWR에 적용 중) → 확인되면 PreToolUse hook으로 강제 게이트 추가.
 
-- **🟢 코딩 전 설계 게이트 2단계 — hook 강제 (2026-06-09)** — 1단계(전역 CLAUDE.md "변경 전 설계 절차" + `/design-check` skill + repo SSOT 동기화) 구축·전역화 완료(세션 문서 `2026-06-09-설계게이트-전역화.md`). **남은 것**: 다음 위험 변경(텔레그램 스케줄러 수정 등)에 `/design-check` 첫 적용해 **코딩 전 에러 차단 효과 증명** → 확인되면 PreToolUse hook으로 위험 경로 Edit 시 강제 게이트 추가. + 맥북 M1에서 `실행@` 1회로 전역 동기화 확인(첫 실행 시 `~/.claude/CLAUDE.md.bak` 점검).
+## ⚪ 백로그 (착수 전)
 
-- ~~**🟡 market-report 정시화 daisy-chain**~~ ✅ **라이브 검증 완료 (2026-06-19 실측, 검증 2026-06-20)** — telegram 24/7 체인이 창(KST 08:0x US / 17:0x KR) 감지 → market-report `-f type=<t> -f auto=true` 이벤트 dispatch. **실측 6/15~6/19**: KR work run이 **08:04~08:06 UTC = KST 17:04~17:06 정시 발화**(과거 ~20:4x → 정시화 성공), US work run **23:0x~23:5x UTC = KST 08:0x 발화**. **멱등성 확인**: 지연된 cron(sche) run들(예 6/19 12:13Z·12:34Z = KST 21시)이 "Skip if already sent today" guard로 **Generate·Send to Telegram·Commit 전부 skipped** = 중복 발송 0. cron 백업은 매일 4~6회 cancelled/지연-skip으로 돌지만 전부 무해(설계대로 흡수). 세션: `2026-06-11-텔레그램체인검증-market리포트정시화.md`. → **닫음** (cron 백업 노이즈는 안전망이므로 유지).
-
-- **🟢 KR 리포트 B+C 개편 — Phase 1·2 구현 완료, 게이트 통과 (2026-06-10)** — 단순 리캡 → **의사결정 지원 + 기회 발굴** 개편 완료. Phase 1(로테이션 렌즈+파이프라인+출처 가드레일) + **Phase 2a 익스포저%·MDD 구현·배포 완료**(커밋 25f1d1d): GAS `getPortfolioMetrics`+doPost `portfolioMetrics` — **v12 배포를 Apps Script API로 직접 검증**(고정 배포 3개 전부 v12, 소스에 마커 실재). **dry_run 게이트 통과**(run 27282075067): 1-F fetch 성공(MDD -17.4%), 익스포저 44% 합산, 원화 절대액 0건(본문 전수 검사), 기존 환각 목표가 제거 확인. 2b 섹터 구성종목 자동선별도 프롬프트 반영 완료. **실측(2026-06-20 검증)**: 6/11~6/19 매 거래일 KR 리포트 자동 생성·커밋 확인(`docs/reports/KR-2026-06-1X.md` 7개), `_kr_pipeline.md` 누적 가동. **남은 것**: ① `kr-theses.md` 논리 초안 **🔴 사용자 검토**(여전히 열림) ② 리포트 *내용 품질* 사용자 검토 — 정시화·자동화는 끝났으나 로테이션/파이프라인 분석이 실제 유용한지는 사용자 피드백 필요.
-  - (과거 KR 수급/업종 N/A는 B+C에서 종목별 수급·업종 로테이션으로 흡수. US 리포트는 별도 정상.)
-- **대시보드 우측 상단 버튼 정리** — 버튼 역할 재정의 논의 완료, 실제 UI/레이블 정리 작업 예정
-- **iOS 공휴일 전일 수익 표시 버그** — DashboardView.swift 수정 완료, Xcode 빌드 후 확인 필요
-- **새 시스템 → iOS 연결** — mobileGetPortfolio 데이터 소스를 *포지션*/*가격_히스토리* 기반으로 전환 (Phase 3)
-- **웹앱 다크모드 스타일 개선** — 다크모드에서 색상/대비 보정 필요
-- **2차 분석/시각화 보강** — MDD/변동성/Sharpe ratio, 매매 패턴 분석 (월별 거래 빈도, 보유기간 vs 수익률 산점도) 등 — 1차 결과 사용자 검토 후 결정
-- **🟢 카톡 매매 → 원장 자동기록 — 구현·라이브 검증 완료 (2026-06-12)** — 카톡 체결 알림 붙여넣기 → 파싱→확인→`action=addTrade` POST→*거래_원장* 1행→연쇄 갱신. GAS `_appendTradeRow`(멱등+분류룩업), 헬퍼 `scripts/{post_trade,gas_redeploy}.py`, 매핑 memory `reference_kakao_account_map`. 거래 2건 기록 검증(row 110 실리콘투 매도·111 TIGER반도체 매수). 세션: `2026-06-12-카톡매매-원장자동기록.md`. **열린 것**: ① 🔴 기록 날짜가 GAS 서버 기준(2026-06-12, 로컬 6/11과 1일 차) — 날짜 민감 건 사용자 확인 ② 🟡 **삼성증권 카톡 포맷 미확보** — 첫 메시지 받으면 파서·매핑 확장 ③ 🟡 기록 정정/삭제 수단 없음(append만) — 필요 시 deleteTrade/editTrade. 새 마스킹 계좌 등장 시 memory에 누적.
-- **17:30 자동 트리거 등록 확인** — 사용자가 GAS 메뉴 "⏰ 매일 17:30 자동 트리거 등록" 한 번 클릭 후 정상 작동 검증
-- **installable onEdit 트리거 등록** — Apps Script 에디터에서 onEdit installable 트리거 추가 (대시보드 정렬 드롭다운 작동)
-- **새 *보유현황*의 K/L/M 수식 수동 입력 안내** — 펀드/예금/보험 종목: J(현재단가) + K(평가금액)=G*J, L(손익)=K-I, M(수익률)=IF(I>0,L/I,0) 수식 한 번 입력 후 보존됨
-- **변동 라벨(오늘/전일/최근) 클라이언트 검증** — 원인 확정·수정 완료(errors.md 2026-05-17 참조). 비거래일 행이 *현재가_이력*에 누적되던 버그. GAS(NewSystem/MobileAPI) 배포 완료 → iOS·웹 모두 새 fetch 시 "최근"으로 표시됨. 사용자 앱 재실행/새로고침 후 최종 확인 필요. 클라이언트 방어 코드(changeLabel.ts/ChangeLabel.swift)는 다음 웹 배포·iOS 빌드 시 반영
-- **Telegram 봇 자동 푸시 워치 알림 검증** — 2026-05-23 구축 완료. 다음 거래일(2026-05-26 월) 09:00~16:00 사이 워치에 자동 손익 알림 도착 여부 최종 확인. 트리거 3개(`tgPushPnL`, 매시 :00/:20/:40 근처) Apps Script 트리거 화면에서 확인됨
-- **🕐 장중 매시 :30 자동 트리거 등록** — 2026-05-25 GAS 함수 배포 완료. 사용자가 시트 메뉴 🛠️ 유지보수 → 🕐 매시 :30 장중 자동 트리거 등록 1회 클릭 필요. 다음 거래일(2026-05-26 월) 10:30 이후 *대시보드* 시트 상단 "마지막 업데이트" 시각으로 정상 작동 검증
-- **데스크 Account P&L · Phase A 신규 컴포넌트 사용자 검증** — 2026-05-25 배포 완료. Holdings/Indicators/Analysis 페이지에서 새 패널(Account P&L · Gainers/Losers · Market Heatmap · Profit Contribution) 표시·동작·디자인 사용자 확인. 보완 요청 받아 다음 세션에서 반영
-- **Trade Log 전면 재설계 사용자 검증** — 2026-05-25 배포 완료 (GAS `newMobileGetMonthlyRealized` 행 단위 응답 + ActivityPage KPI 6칸·테이블 9컬럼·표시 규칙 적용). hard refresh 후 ① KPI 우측 Total Fees 칸 ② 막대 라벨 풀 숫자 ③ 종목명 메인+코드 보조 ④ 실제 매매 데이터 표시 (sample 아님) 확인. 세션 문서: `2026-05-25-trade-log-재설계.md`
-- **Today 페이지 + 휴장일 drop + Footer 라벨 + web/iOS 동기화 사용자 검증** — 2026-05-27~28 배포 완료. 세션 문서: `2026-05-27-today-동기화-인프라.md`. 확인 항목: ① 데스크 단축키 Y → Today 페이지 (KPI 4칸 + 막대 카드) ② Dashboard ProfitChart·Analysis BenchmarkPanel·Monthly Heatmap·Indicator Detail Modal 차트 X축에 토·일·공휴일 안 보임 ③ 데스크 Footer 라벨 D/Y/H/A/I/T ④ web Holdings 카드 우측 3줄 (현재가 / +N원 +X.XX% / +N × M주 = +NM원). iOS HoldingCard 식은 별도 — Xcode 빌드 + 기기 설치 필요
-- **데스크 사이드바 메뉴 중복 제거 + 단축키 첫글자 사용자 검증** — 2026-05-25 배포 완료. Realized P&L 메뉴 제거 (Workspace > Trade Log 한 곳만) + 사이드바 단축키 F1~F9 → 첫글자 단일키 (D/H/A/I/T/P/V/K/S) + App.tsx keydown 리스너 신규. hard refresh 후 ① Data 섹션에 Price History·Dividends 2개만 ② 사이드바 hint 단일 글자 ③ D/H/A/I/T 누르면 즉시 페이지 전환 ④ 검색창에 글자 입력 시 단축키 무시 ⑤ Cmd+D 브라우저 북마크 정상 동작 확인
-- ~~**🌅🌆 시장 리포트 — Claude Routines → 시트 → Telegram**~~ ✅ **2026-06-03 GitHub Actions로 최종 전환·자동화 완료** (세션 문서: `2026-06-03-github-actions-market-report.md`). routine 환경의 outbound allowlist 격리로 GAS·Cloudflare Worker·Telegram API 모두 차단됨이 확정 → GitHub Actions cron + Claude CLI(Max OAuth) + Telegram Bot API 직접 발송으로 정착. cron #4(자동) + #5(manual)에서 US/KR 둘 다 ✅ Success, Telegram 두 분 도착, `docs/reports/{US|KR}-YYYY-MM-DD.md` 자동 commit 검증. 다음 자동: 6/4(수) KST 08:05 US, 17:05 KR. routine 2개 `enabled: false`로 disable, GAS 측 시장리포트 큐 함수는 수동 발송용으로 유지. **운영 모니터링만 — 매 거래일 Telegram 도착 확인. 형식·prompt 수정 필요 시 `.github/scripts/{us,kr}-prompt.md` 편집 후 commit**
-- **UrlFetchApp 권한 재승인 (긴급)** — 2026-05-29 09:13 권한 에러 발생. `appsscript.json`에 `oauthScopes` 명시 + 재배포 완료. **사용자 작업**: Apps Script 에디터에서 **`updateNewPriceHistory`** (NewSystem.js) 함수 ▶ Run → 권한 모달 → "고급 → 이동" → 모든 권한 허용 1회. 그 다음 시트 ⚡ 전체 업데이트 정상 동작 확인. 자세한 내용 `docs/errors.md` 2026-05-29 항목
+- **대시보드 우측 상단 버튼 정리** — 역할 재정의 논의 완료, UI/레이블 정리 작업 예정
+- **iOS 묶음** — ①공휴일 전일 수익 표시 버그: DashboardView.swift 수정 완료, Xcode 빌드 후 확인 ②새 시스템 연결: mobileGetPortfolio를 *포지션*/*가격_히스토리* 기반으로 전환(Phase 3) ③HoldingCard 3줄 식 반영 빌드
+- **installable onEdit 트리거 등록** — Apps Script 에디터에서 onEdit installable 트리거 추가(대시보드 정렬 드롭다운). 미등록이어도 다른 기능 무영향
+- **웹앱 다크모드 스타일 개선** — 다크모드 색상/대비 보정
+- **2차 분석/시각화 보강** — MDD/변동성/Sharpe, 매매 패턴 분석(월별 거래 빈도, 보유기간 vs 수익률 산점도) — 1차 결과 사용자 검토 후 결정

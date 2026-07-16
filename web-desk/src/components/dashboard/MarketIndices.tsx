@@ -76,10 +76,10 @@ function IndexCard({ label, ind }: { label: string; ind?: Indicator }) {
         )}
       </div>
       <div className="text-[19px] font-medium text-ink tabular leading-tight">
-        {ind.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        {ind.value.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </div>
       <div className={`text-2xs tabular mt-0.5 ${noChangeData ? 'text-ink-faint' : (up ? 'text-gain' : 'text-loss')}`}>
-        {noChangeData ? '변동 데이터 없음' : `${up ? '+' : ''}${ind.changeAbs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+        {noChangeData ? '변동 데이터 없음' : `${up ? '+' : ''}${ind.changeAbs.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
       </div>
       <svg viewBox="0 0 100 28" preserveAspectRatio="none" className="w-full h-5 mt-1.5">
         <path d={points} stroke={stroke} strokeWidth={1.5} fill="none" vectorEffect="non-scaling-stroke" />

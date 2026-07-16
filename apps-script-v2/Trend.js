@@ -89,6 +89,8 @@ function logToTrendSheet(ss) {
     ];
     trend.getRange(lastFilled + 1, updStartCol, 1, updCols).setValues([updRow]);
     trend.getRange('B2:L2').setValues([updRow]);
+    const uR = lastFilled + 1;
+    _trPctFormat(trend, ['F2', 'I2', 'L2', 'F' + uR, 'I' + uR, 'L' + uR]);   // % 열 = updStartCol+4/7/10
   }
 
   // ─────────────────────────────────────────────
@@ -124,6 +126,7 @@ function logToTrendSheet(ss) {
     const dWriteRow = dTodayRow ? dTodayRow : (dLastFilled + 1);
     trend.getRange(dWriteRow, dStartCol, 1, dCols).setValues([dRow]);
     trend.getRange('N2:S2').setValues([dRow]);
+    _trPctFormat(trend, ['S2', 'S' + dWriteRow]);   // % 열 = dStartCol+5
   }
 
   // ─────────────────────────────────────────────
@@ -166,11 +169,13 @@ function logToTrendSheet(ss) {
 
     trend.getRange(writeRow, pStartCol, 1, pCols).setValues([profitRow]);
     trend.getRange('U2:AF2').setValues([profitRow]);
+    _trPctFormat(trend, ['Y2', 'AC2', 'AF2', 'Y' + writeRow, 'AC' + writeRow, 'AF' + writeRow]);   // % 열 = pStartCol+4/8/11
 
     // 거래일이면 AH/AI 캐시 (mobile에서 8:51 이전 표시용)
     const _nowDow2 = now.getDay();
     if (_nowDow2 !== 0 && _nowDow2 !== 6 && !_trIsKoreanHoliday(now)) {
       trend.getRange(2, pStartCol + 13, 1, 2).setValues([[_trFmtNum(diffProfit), _trFmtPct(diffRate)]]);
+      _trPctFormat(trend, ['AI2']);
     }
   }
 
@@ -198,9 +203,16 @@ function _trFmtNum(n) {
   return Math.round(_trNum(n)).toLocaleString('ko-KR');
 }
 
+// % 값(예: -7.08)을 **numeric 분수**(-0.0708)로 반환 — 셀엔 숫자로 저장하고 표시는 _trPctFormat 서식이 담당.
+// ⚠️ 과거엔 '+5.04%'/'-7.08%' 문자열을 반환했는데, Sheets가 음수만 분수 numeric으로 auto-parse해
+// 같은 컬럼에 타입이 섞였고 읽기에서 음수 날이 100배 축소됐다 (errors.md 2026-07-16, docs/plans/2026-07-16-Trend-pct-numeric.md).
 function _trFmtPct(n) {
-  const v = _trNum(n);
-  return (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+  return _trNum(n) / 100;
+}
+
+// % 셀 표시 서식: 양수 +5.04% / 음수 -7.08% / 0 +0.00% — 구 문자열 표기와 동일
+function _trPctFormat(trend, a1s) {
+  trend.getRangeList(a1s).setNumberFormat('+0.00%;-0.00%;+0.00%');
 }
 
 // *설정* 시트 5행 이하 대기 섹션에서 합계 행 자동 감지 → C열 값 반환

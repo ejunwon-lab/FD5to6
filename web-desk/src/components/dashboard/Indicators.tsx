@@ -28,10 +28,10 @@ export function Indicators({ indicators }: Props) {
             <div key={i.symbol} className="bg-bg-elev p-3">
               <div className="text-xs text-amber tracking-wide mb-1">{i.name}</div>
               <div className="text-base text-ink tabular mb-0.5">
-                {i.value >= 1000 ? i.value.toLocaleString('en-US', { minimumFractionDigits: i.value > 10000 ? 0 : 2, maximumFractionDigits: 2 }) : i.value.toFixed(2)}
+                {i.value >= 1000 ? i.value.toLocaleString('ko-KR', { minimumFractionDigits: i.value > 10000 ? 0 : 2, maximumFractionDigits: 2 }) : i.value.toFixed(2)}
               </div>
               <div className={`text-xxs tabular ${up ? 'text-gain' : 'text-loss'}`}>
-                {up ? '+' : ''}{i.changeAbs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({up ? '+' : ''}{i.changePct.toFixed(2)}%)
+                {up ? '+' : ''}{i.changeAbs.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({up ? '+' : ''}{i.changePct.toFixed(2)}%)
               </div>
               <svg viewBox="0 0 100 24" preserveAspectRatio="none" className="w-full h-6 mt-1.5">
                 <path d={points} stroke={stroke} strokeWidth={1.5} fill="none" vectorEffect="non-scaling-stroke" />

@@ -147,7 +147,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'up
 }
 
 function formatValue(n: number): string {
-  return n.toLocaleString('en-US', {
+  return n.toLocaleString('ko-KR', {
     minimumFractionDigits: n >= 10000 ? 0 : 2,
     maximumFractionDigits: 2,
   })

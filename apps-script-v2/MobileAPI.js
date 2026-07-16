@@ -268,6 +268,16 @@ function getPortfolioMetrics() {
     }
   }
 
+  // ── % 셀 파서: _trFmtPct가 쓰는 '+X.XX%'는 텍스트로 남지만 '-X.XX%'는 Sheets가 분수(numeric)로
+  //    자동 파싱함 (예: '-7.08%' → -0.0708). 숫자면 ×100, 텍스트면 % 숫자 그대로.
+  //    (2026-05-17 이후 현세대 행 기준 — d5/d20/dailyReturns/recentReturns 소비 창은 전부 현세대.
+  //     이 비대칭 탓에 음수 날이 100배 축소돼 d5가 상방 왜곡되던 버그 수정, errors.md 2026-07-16)
+  const _mPctVal = v => {
+    if (typeof v === 'number') return v * 100;
+    const r = parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
+    return isNaN(r) ? NaN : r;
+  };
+
   // ── 최근 운용수익률% 추세 (추이기록 수익추이 U=col21 날짜·AC=col29 운용수익률%; 원화 절대액 0) ──
   // PB 리포트 "최근 현황"용 — 오늘 한 점이 아닌 며칠 흐름. 벤치(KOSPI/S&P) 비교는 에이전트가 Yahoo로.
   if (trend && trend.getLastRow() >= 5) {
@@ -281,18 +291,41 @@ function getPortfolioMetrics() {
         ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
         : String(raw || '').slice(0, 10);
       if (!_isTradingDateStr(d)) continue;   // 주말·공휴일 행 제외 — '최근 N거래일' 보장 (errors.md:317 비거래일 행 누적)
-      const r = parseFloat(String(rts[i]).replace(/[^0-9.\-]/g, ''));
+      const r = _mPctVal(rts[i]);
       if (!isNaN(r)) recent.push({ date: d, opRatePct: Math.round(r * 100) / 100 });
     }
     result.recentReturns = recent.slice(-10);   // 최근 10거래일 운용수익률%(누적 수준) — 원화 미포함
   }
 
-  // ── 최근 포트 수익률 (일별 총자산 변화율 dRate 복리누적; 매매엔 강건·입출금만 근사) ──
-  // 추이기록 일별추이 N(col14)=날짜·S(col19)=일별 총자산 변화율%. KOSPI/KOSDAQ N일 변화율과 단위 일치.
-  // dRate는 현금↔주식(매수/매도)엔 총자산 불변이라 0 → 시장 변동만 반영. 입출금일만 왜곡(리포트 단서).
+  // ── 최근 포트 수익률 (일별 총자산 변화율 dRate 복리누적; 매매엔 강건) ──
+  // 추이기록 일별추이 N(col14)=날짜·Q(col17)=총자산·S(col19)=일별 총자산 변화율%. KOSPI/KOSDAQ N일 변화율과 단위 일치.
+  // dRate는 현금↔주식(매수/매도)엔 총자산 불변이라 0 → 시장 변동만 반영.
+  // 입출금 왜곡은 *거래_원장* 구분=입금/출금 행으로 read-time 보정 (TWR, docs/plans/2026-07-16-TWR-입금왜곡보정.md).
   if (trend && trend.getLastRow() >= 5) {
+    // 원장 현금흐름 맵: 날짜 → 순입금(입금 +, 출금 −). 비거래일 입금은 다음 거래일 행 diff에 들어가므로 롤포워드.
+    const flows = {};
+    const ledgerFl = ss.getSheetByName(NS.LEDGER);
+    if (ledgerFl && ledgerFl.getLastRow() >= 2) {
+      ledgerFl.getRange(2, 1, ledgerFl.getLastRow() - 1, 10).getValues().forEach(fr => {
+        const ft = String(fr[1] || '').trim();
+        if (ft !== '입금' && ft !== '출금') return;
+        let fd = fr[0] instanceof Date
+          ? Utilities.formatDate(fr[0], 'Asia/Seoul', 'yyyy-MM-dd')
+          : String(fr[0]).slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(fd)) return;
+        for (let g = 0; g < 14 && !_isTradingDateStr(fd); g++) {   // 주말·연휴 롤포워드 (상한 14일)
+          const nx = new Date(fd + 'T12:00:00+09:00');
+          nx.setDate(nx.getDate() + 1);
+          fd = Utilities.formatDate(nx, 'Asia/Seoul', 'yyyy-MM-dd');
+        }
+        const fAmt = Number(fr[9]) || 0;
+        if (fAmt > 0) flows[fd] = (flows[fd] || 0) + (ft === '입금' ? fAmt : -fAmt);
+      });
+    }
+    const FLOW_SUSPECT_PCT = 3.0;   // |dRate| ≥ 이 값인데 입출금 기록 없으면 미기록 왜곡 의심
     const dn2 = trend.getLastRow() - 5 + 1;
     const dd = trend.getRange(5, 14, dn2, 1).getValues().flat();   // N 날짜
+    const dq = trend.getRange(5, 17, dn2, 1).getValues().flat();   // Q 총자산
     const dr = trend.getRange(5, 19, dn2, 1).getValues().flat();   // S 일별 총자산 변화율%
     const series = [];
     const dated = [];   // 날짜 동반 일별 변화율 — 주간 리포트 일자별 표용 (마지막5 복리 = d5, 구조적 정합)
@@ -302,8 +335,26 @@ function getPortfolioMetrics() {
         ? Utilities.formatDate(raw, 'Asia/Seoul', 'yyyy-MM-dd')
         : String(raw || '').slice(0, 10);
       if (!_isTradingDateStr(d)) continue;   // 주말·공휴일 행 제외 — d5/d20/dailyReturns 창을 '거래일' 기준으로 (errors.md:317)
-      const r = parseFloat(String(dr[i]).replace(/[^0-9.\-]/g, ''));
-      if (!isNaN(r)) { series.push(r); dated.push({ date: d, dRatePct: Math.round(r * 100) / 100 }); }
+      const r = _mPctVal(dr[i]);
+      if (isNaN(r)) continue;
+      const entry = { date: d, dRatePct: Math.round(r * 100) / 100 };
+      let rEff = r;
+      const f = flows[d] || 0;
+      if (f !== 0 && r > -100) {
+        // TWR(end-of-day flow): V_prev = Q/(1+S), r_adj = (Q − F − V_prev)/V_prev. F=0이면 r_adj ≡ S.
+        const q = Number(String(dq[i]).replace(/[^0-9.\-]/g, '')) || 0;
+        const vPrev = q > 0 ? q / (1 + r / 100) : 0;
+        if (vPrev > 0) {
+          rEff = (q - f - vPrev) / vPrev * 100;
+          entry.rawPct = entry.dRatePct;
+          entry.dRatePct = Math.round(rEff * 100) / 100;
+          entry.flowAdj = true;   // 입출금 반영 표시 (₩ 금액은 비노출 — public 리포트 정책)
+        }
+      } else if (Math.abs(r) >= FLOW_SUSPECT_PCT) {
+        entry.suspect = true;   // 큰 총자산 변동인데 원장에 입출금 기록 없음 — 입금 왜곡 의심 단서
+      }
+      series.push(rEff);
+      dated.push(entry);
     }
     const cum = arr => (arr.reduce((a, r) => a * (1 + r / 100), 1) - 1) * 100;   // 복리 누적%
     const l5 = series.slice(-5), l20 = series.slice(-20);
@@ -1102,11 +1153,16 @@ function _mFindPrevDayProfitChange(trendSht) {
       const ae = data[i][10];  // AE = idx 10 (합계 변동)
       const af = data[i][11];  // AF = idx 11 (합계 변동률)
       const aeN = Number(String(ae || '').replace(/,/g, ''));
-      const afS = String(af || '').trim();
-      return {
-        amount: isNaN(aeN) ? null : aeN,
-        pct: afS ? ((afS.startsWith('+') || afS.startsWith('-')) ? afS : '+' + afS) : null
-      };
+      // AF도 '+X.XX%'(텍스트)/음수 분수(numeric) 혼합 — 숫자면 ×100 후 재포맷 (errors.md 2026-07-16 % 셀 비대칭)
+      let pct = null;
+      if (typeof af === 'number') {
+        const p = af * 100;
+        pct = (p >= 0 ? '+' : '') + p.toFixed(2) + '%';
+      } else {
+        const afS = String(af || '').trim();
+        pct = afS ? ((afS.startsWith('+') || afS.startsWith('-')) ? afS : '+' + afS) : null;
+      }
+      return { amount: isNaN(aeN) ? null : aeN, pct: pct };
     }
   }
   return { amount: null, pct: null };
