@@ -38,3 +38,4 @@
 - [PB 리포트·이메일 채널](project_pb_report_email.md) — 시장 리포트 PB 격상 + 이메일 셀프발송(안전장치 5중)·데이터 정합성·휴장 폴백
 - [WebFetch vs curl (헤드리스)](reference_webfetch_vs_curl_headless.md) — GH Actions에서 "차단" 보고는 층위 진단(서비스≠IP≠WebFetch), 리포트 fetch는 Bash curl
 - [매매기록! 명령어](feedback_trade_record_command.md) — "매매기록!"/"매매기록하자!" + 체결 카톡 → 원장 자동 기록 프로세스 실행 (묻지 말고)
+- [public repo 금액 금지](feedback_public_repo_no_amounts.md) — repo가 PUBLIC, docs·응답에 실제 원화 금액 쓰지 말 것(마스킹/비율), 정확값은 로컬·backups만
