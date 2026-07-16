@@ -4,12 +4,11 @@ import { useAuth } from '../../auth/AuthContext'
 import { Card } from '../ui/Card'
 import { LoadingSpinner } from '../ui/LoadingSpinner'
 import { ProfitHistoryChart } from './ProfitHistoryChart'
-import { SoldTrackerCard } from './SoldTrackerCard'
 import { decideChangeLabel, formatPriceAsOfDate, formatUpdatedAtLine } from '../../utils/changeLabel'
 import { krwCompact, krwCompactSigned, krwFull, pctFormatted, normalizeChangePct } from '../../utils/format'
 import { computeAssetAllocation, computeAccountTypeBreakdown } from '../../utils/assetAllocation'
 import { computePeriodProfits } from '../../utils/periodProfit'
-import type { PortfolioResponse, TrendEntry, SoldTrackerItem } from '../../models/types'
+import type { PortfolioResponse, TrendEntry } from '../../models/types'
 
 type DashboardPageProps = {
   scrollToTopSignal?: number
@@ -22,7 +21,6 @@ type DashboardPageProps = {
   historyEntries: TrendEntry[]
   isLoadingHistory: boolean
   historyError: string
-  soldItems: SoldTrackerItem[]
 }
 
 function UpdateButton({ icon, label, onClick, disabled }: {
@@ -51,7 +49,6 @@ export function DashboardPage({
   historyEntries,
   isLoadingHistory,
   historyError,
-  soldItems,
 }: DashboardPageProps) {
   const { signOut } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -240,9 +237,6 @@ export function DashboardPage({
                 </div>
               </div>
             </Card>
-
-            {/* 매도 복기 (안 팔았다면?) */}
-            <SoldTrackerCard items={soldItems} />
 
             {/* 환율 카드 */}
             <Card>

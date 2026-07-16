@@ -185,7 +185,6 @@ function MainApp() {
           historyEntries={historyEntries}
           isLoadingHistory={isLoadingHistory}
           historyError={historyError}
-          soldItems={soldItems}
         />
       </div>}
       {visited.has('holdings')   && <div className={activeTab === 'holdings'   ? '' : 'hidden'}>

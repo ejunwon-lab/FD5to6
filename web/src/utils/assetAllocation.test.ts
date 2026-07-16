@@ -7,27 +7,27 @@ import {
 } from './assetAllocation'
 import type { PortfolioResponse } from '../models/types'
 
-// 실제 시트 수치를 축약한 픽스처
+// 익명화된 합성 픽스처(실제 금액 아님, 합산 관계만 유지)
 const p: PortfolioResponse = {
   success: true,
-  summary: { totalCurrent: [금액] } as PortfolioResponse['summary'] as never,
+  summary: { totalCurrent: 418000000 } as PortfolioResponse['summary'] as never,
   holdings: [
-    { accountType: '종합_랩', broker: '미래에셋투자증권', opCurrent: [금액] },
-    { accountType: 'ISA', broker: '삼성증권', opCurrent: [금액] },
-    { accountType: '종합', broker: '삼성증권', opCurrent: [금액] },
-    { accountType: '퇴직연금_개인IRP(범용)', broker: '삼성증권', opCurrent: [금액] },
-    { accountType: '퇴직연금_개인IRP', broker: '미래에셋투자증권', opCurrent: [금액] },
+    { accountType: '종합_랩', broker: '미래에셋투자증권', opCurrent: 200000000 },
+    { accountType: 'ISA', broker: '삼성증권', opCurrent: 90000000 },
+    { accountType: '종합', broker: '삼성증권', opCurrent: 50000000 },
+    { accountType: '퇴직연금_개인IRP(범용)', broker: '삼성증권', opCurrent: 40000000 },
+    { accountType: '퇴직연금_개인IRP', broker: '미래에셋투자증권', opCurrent: 38000000 },
   ] as PortfolioResponse['holdings'] as never,
   nonStockAssets: { items: [], total: 0 },
   cashReserve: {
-    total: [금액],
+    total: 67165000,
     items: [
-      { broker: '미래애셋투자증권', account: '종합_랩', amount: [금액] },
-      { broker: '미래애셋투자증권', account: '퇴직연금_개인IRP', amount: [금액] },
-      { broker: '삼성증권', account: '종합', amount: [금액] },
-      { broker: '삼성증권', account: 'ISA', amount: [금액] },
-      { broker: '삼성증권', account: '퇴직연금(다이렉트IRP)', amount: [금액] },
-      { broker: '삼성증권', account: 'CMA', amount: [금액] },
+      { broker: '미래애셋투자증권', account: '종합_랩', amount: 50000 },
+      { broker: '미래애셋투자증권', account: '퇴직연금_개인IRP', amount: 45000000 },
+      { broker: '삼성증권', account: '종합', amount: 100000 },
+      { broker: '삼성증권', account: 'ISA', amount: 20000000 },
+      { broker: '삼성증권', account: '퇴직연금(다이렉트IRP)', amount: 15000 },
+      { broker: '삼성증권', account: 'CMA', amount: 2000000 },
     ],
   },
 }
@@ -50,10 +50,10 @@ describe('분류 규칙', () => {
 describe('자산 배분', () => {
   it('투자중/대기중/총자산/노는돈%', () => {
     const a = computeAssetAllocation(p)
-    expect(a.invested).toBe([금액])
-    expect(a.idle).toBe([금액])
-    expect(a.total).toBe([금액])
-    expect(a.idlePct).toBeCloseTo(14.36, 1)
+    expect(a.invested).toBe(418000000)
+    expect(a.idle).toBe(67165000)
+    expect(a.total).toBe(485165000)
+    expect(a.idlePct).toBeCloseTo(13.84, 1)
   })
   it('null 안전', () => {
     expect(computeAssetAllocation(null)).toEqual({ invested: 0, idle: 0, total: 0, idlePct: 0 })
@@ -63,23 +63,26 @@ describe('자산 배분', () => {
 describe('계좌 유형별', () => {
   const b = computeAccountTypeBreakdown(p)
   it('합계 = 총자산', () => {
-    expect(b.total).toBe([금액])
+    expect(b.total).toBe(485165000)
   })
   it('순서: 일반 투자 먼저', () => {
     expect(b.groups.map(g => g.label)).toEqual(['일반 투자', '퇴직연금'])
   })
-  it('일반 투자 = 381,164,069 (미래 > 삼성)', () => {
+  it('일반 투자 = 362,150,000, 삼성은 계좌별 분리(종합/ISA/CMA), 미래는 단일계좌라 증권사명만', () => {
     const g = b.groups[0]
-    expect(g.amount).toBe([금액])
-    expect(g.brokers.map(x => x.broker)).toEqual(['미래', '삼성'])
-    expect(g.brokers[0].amount).toBe([금액]) // 미래: 투자 212,423,750 + 대기 52,796
-    expect(g.brokers[1].amount).toBe([금액]) // 삼성: 종합+ISA+CMA (투자+대기)
+    expect(g.amount).toBe(362150000)
+    // 금액 내림차순: 미래 > 삼성 ISA > 삼성 종합 > 삼성 CMA
+    expect(g.brokers.map(x => x.broker)).toEqual(['미래', '삼성 ISA', '삼성 종합', '삼성 CMA'])
+    expect(g.brokers[0].amount).toBe(200050000) // 미래: 투자 200,000,000 + 대기 50,000
+    expect(g.brokers[1].amount).toBe(110000000) // 삼성 ISA: 90,000,000 + [금액],000
+    expect(g.brokers[2].amount).toBe(50100000)  // 삼성 종합: 50,000,000 + 100,000
+    expect(g.brokers[3].amount).toBe(2000000)   // 삼성 CMA: 대기 2,000,000
   })
-  it('퇴직연금 = 129,616,380 (미래 88.5M > 삼성 41.1M)', () => {
+  it('퇴직연금 = 123,0[금액] (미래 83M > 삼성 40.0M)', () => {
     const g = b.groups[1]
-    expect(g.amount).toBe([금액])
-    expect(g.brokers[0].amount).toBe([금액]) // 미래: 40,598,550 + 47,909,381
-    expect(g.brokers[1].amount).toBe([금액]) // 삼성: 41,092,235 + 16,214
+    expect(g.amount).toBe(123015000)
+    expect(g.brokers[0].amount).toBe(83000000) // 미래: 38,000,000 + 45,000,000
+    expect(g.brokers[1].amount).toBe(40015000) // 삼성: 40,000,000 + [금액]
   })
   it('비중 합 100%', () => {
     const sum = b.groups.reduce((s, g) => s + g.pct, 0)
