@@ -15,6 +15,11 @@ on:
     - cron: '10 12 * * *'   # 21:10 KST
     - cron: '10 13 * * *'   # 22:10 KST (백업)
   workflow_dispatch:        # 수동 테스트 — dedup 무시하고 항상 실행
+    inputs:
+      dry_run:
+        description: '검사만 실행, 텔레그램 발송 생략 (러너 env·GAS 도달 스모크용)'
+        type: boolean
+        default: false
 
 permissions:
   actions: read     # telegram-push run 목록·로그 조회
@@ -54,8 +59,9 @@ jobs:
           kst = timezone(timedelta(hours=9))
           mid = datetime.now(kst).replace(hour=0, minute=0, second=0, microsecond=0)
           print(mid.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))")
+          # schedule run만 집계 — 수동 dispatch(특히 dry_run, 발송 없음)가 저녁 cron을 억제하지 않게
           n=$(gh run list -R "${{ github.repository }}" -w watchdog.yml -s success -L 20 \
-            --json createdAt --jq "[.[]|select(.createdAt>=\"$SINCE_UTC\")]|length")
+            --json createdAt,event --jq "[.[]|select(.createdAt>=\"$SINCE_UTC\" and .event==\"schedule\")]|length")
           if [ "${n:-0}" -ge 1 ]; then
             echo "skip=yes" >> "$GITHUB_OUTPUT"
             echo "⏭️ 오늘 성공 run ${n}건 — 중복 발송 방지 skip"
@@ -76,7 +82,7 @@ jobs:
         run: bash scripts/watchdog_check.sh
 
       - name: Send heartbeat to Telegram
-        if: steps.dedup.outputs.skip == 'no'
+        if: steps.dedup.outputs.skip == 'no' && inputs.dry_run != true
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
