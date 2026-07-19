@@ -79,6 +79,13 @@ def main():
 
     print(f"OK {stamp}: {len(data['sheets'])}시트 {total_rows}행 → {outdir}")
 
+    # 타입 계약 검증 (경고만 — 백업 자체는 이미 성공) — % 문자열·비거래일 행 등 조기 검출
+    import subprocess
+    rc = subprocess.run([sys.executable, str(Path(__file__).parent / "check_sheet_types.py"),
+                         str(outdir)]).returncode
+    if rc == 1:
+        print("⚠️ 타입계약 위반 발견 — 위 목록 확인 (backup은 정상 저장됨)", file=sys.stderr)
+
 
 if __name__ == "__main__":
     main()

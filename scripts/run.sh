@@ -69,4 +69,7 @@ if [ -d config/skills ]; then
     && echo "✓ 전역 skill 동기화" || echo "⚠ 전역 skill 복사 실패"
 fi
 
+# 5. pending 만기 확인 (⏰YYYY-MM-DD 태그, 2026-07-20) — 확인 예정일 지난 항목 표시
+bash scripts/check_pending_due.sh || true
+
 echo "── 기계적 단계 완료 → 이제 docs/pending.md 요약 ──"

@@ -103,20 +103,32 @@ function syncHolidays() {
   }
   const thisYear = new Date().getFullYear();
   const events = cal.getEvents(new Date(thisYear, 0, 1), new Date(thisYear + 2, 0, 1));
-  // 구글 캘린더엔 스승의날·어버이날 등 '기념일'도 섞여 있음 → 실제 증시 휴장일 이름만 채택
+  // 채택 기준: 구글 캘린더의 공식 분류(DESCRIPTION '공휴일'/'기념일') — 1차 권위.
+  // 이름 화이트리스트는 desc가 빈 경우의 폴백만 (손질 목록 낡음 사고 2회: 스승의날 5/17·제헌절 7/17,
+  // + 잠복: 지방선거일 6/3은 화이트리스트 미매칭이었음. ics 실측·설계: docs/plans/2026-07-20-휴장일-권위소스.md)
   const HOLIDAY_NAMES = [
     '신정', '새해', '설날', '삼일절', '3·1', '어린이날', '부처', '석가탄',
     '현충일', '제헌절', '광복절', '추석', '개천절', '한글날', '성탄', '기독탄신', '크리스마스',
-    '대체공휴일', '임시공휴일', '근로자',
+    '대체공휴일', '임시공휴일', '근로자', '선거',
   ];
   const map = {};
+  let nAdopt = 0, nSkip = 0, nFallback = 0;
   events.forEach(ev => {
     const title = String(ev.getTitle() || '');
-    if (!HOLIDAY_NAMES.some(n => title.indexOf(n) !== -1)) return;  // 기념일 제외
+    const desc = String(ev.getDescription() || '');
+    if (desc) {
+      if (desc.indexOf('공휴일') !== 0) { nSkip++; return; }  // '기념일' 등 비공휴일 분류 제외
+      nAdopt++;
+    } else {
+      // desc 없음(API 변동 대비) → 기존 화이트리스트 폴백 — 최악의 경우가 현행 동작
+      if (!HOLIDAY_NAMES.some(n => title.indexOf(n) !== -1)) { nSkip++; return; }
+      nFallback++;
+    }
     const dt = ev.isAllDayEvent() ? ev.getAllDayStartDate() : ev.getStartTime();
     const ds = Utilities.formatDate(dt, 'Asia/Seoul', 'yyyy-MM-dd');
     map[ds] = title;
   });
+  Logger.log('syncHolidays 분류: 공휴일채택 ' + nAdopt + ' / 제외 ' + nSkip + ' / 폴백채택 ' + nFallback);
 
   // KRX 전용 고정 휴장일 (공휴일 캘린더에 없을 수 있음)
   for (let y = thisYear; y <= thisYear + 1; y++) {
@@ -146,21 +158,23 @@ function syncHolidays() {
   _HOLIDAY_SET = null;  // 캐시 무효화
 
   _ensureHolidayTrigger();
-  ss.toast(rows.length + '개 휴장일 동기화 완료', '🗓️', 4);
+  ss.toast(rows.length + '개 동기화 (공휴일분류 ' + nAdopt + '·제외 ' + nSkip + '·폴백 ' + nFallback + ')', '🗓️', 5);
   Logger.log('syncHolidays 완료: ' + rows.length + '건');
 }
 
-// 매년 12월 자동 동기화 트리거 (매월 25일 발동, scheduledHolidaySync가 12월에만 실행)
+// 매월 25일 자동 동기화 트리거
 function _ensureHolidayTrigger() {
   const exists = ScriptApp.getProjectTriggers()
     .some(t => t.getHandlerFunction() === 'scheduledHolidaySync');
   if (!exists) {
     ScriptApp.newTrigger('scheduledHolidaySync')
       .timeBased().onMonthDay(25).atHour(4).create();
-    Logger.log('휴장일 트리거 등록: 매년 12/25');
+    Logger.log('휴장일 트리거 등록: 매월 25일');
   }
 }
 
+// 매월 실행 (구 12월 게이트 제거, 2026-07-20) — 연중 임시공휴일 신설·재지정을 ≤1개월 지연으로
+// 자동 수용 (제헌절 7/17 사고 재발 방지). 멱등(수동 행 보존 + 전체 재작성)이라 반복 무해.
 function scheduledHolidaySync() {
-  if (new Date().getMonth() === 11) syncHolidays();  // 12월에만 실행 = 매년 1회
+  syncHolidays();
 }

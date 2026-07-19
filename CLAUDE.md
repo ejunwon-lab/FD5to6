@@ -71,7 +71,7 @@ cp config/global-claude.md ~/.claude/CLAUDE.md
 | `scheduledDailyUpdate` | 매일 17:30 (장 마감 후) | `updateAllNew` |
 | `scheduledHourlyUpdate` | 거래일 09:30~16:30 매시 :30 | `updateAllNew` (8회/일) |
 | `tgPushPnL` | 거래일 09:00~16:00 매시 :00/:20/:40 | 가격 갱신 후 Telegram 푸시 |
-| `scheduledHolidaySync` | 매년 12월 | 구글 공휴일 캘린더 동기화 |
+| `scheduledHolidaySync` | 매월 25일 | 구글 공휴일 캘린더 동기화 (공휴일 분류 필터) |
 
 **데스크 표시 규칙** (모든 새 컴포넌트에 자동 적용 — memory: `feedback_number_display`·`feedback_stock_name_primary`):
 - 숫자: `Math.round(n).toLocaleString()` 풀. `compactKRW`·`억`·`만`·`M`·`K` 등 축약 금지

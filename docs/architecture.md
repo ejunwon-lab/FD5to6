@@ -1,6 +1,6 @@
 # 시스템 아키텍처 — FD5to6
 
-last updated: 2026-07-16
+last updated: 2026-07-20
 
 JUN & SOO 주식 포트폴리오 시스템의 전체 그림.
 **작업 시작 전 이 문서를 먼저 본다** — 코드 위치는 `code-map.md`, 기능 체크리스트는 `features.md`, API 응답 필드는 `api-reference.md`, 설계 결정 이유는 `decisions.md`.
@@ -98,7 +98,7 @@ C. tgPushPnL                     — 거래일 09:00~16:00, GitHub Actions(teleg
                                     → 18분 dedup으로 ~20분 카덴스(F 구조, 2026-06-09)
                                     → updateNewPriceHistory + updatePositionFromLedger
                                     → Telegram 텔레그램 푸시 (자동 손익 알림)
-D. scheduledHolidaySync          — 매년 12월 휴장일 동기화 (구글 공휴일 캘린더)
+D. scheduledHolidaySync          — 매월 25일 휴장일 동기화 (구글 공휴일 캘린더, 공휴일 분류 필터)
 E. tgFlushReportQueue            — 매일 08:05·17:05 KST (시장 리포트 큐)
                                     → claude.ai routine이 *시장리포트_큐* 시트에 적재한 "대기" 행
                                     → Telegram 발송 → "발송완료" 마킹
@@ -144,7 +144,7 @@ iOS / web / web-desk
 | `Dashboard.js` | `buildDashboard`·`_handleDashSortChange` — *대시보드* 시트 렌더 + 정렬 드롭다운 |
 | `KIS_API.js` | KIS 토큰·국내/해외 주식·국내/해외 지수·국내선물 |
 | `Trend.js` | `logToTrendSheet`·`recordTrend` — 추이 기록 누적 |
-| `Holidays.js` | `syncHolidays`·`_isKoreanHoliday`·`HOLIDAY_NAMES` 화이트리스트 (스승의날 등 기념일 제외) |
+| `Holidays.js` | `syncHolidays`(캘린더 DESCRIPTION '공휴일' 분류가 1차 권위, 이름 화이트리스트는 desc 부재 폴백)·`_isKoreanHoliday` |
 | `Telegram.js` | 워치 봇 전체 — webhook 핸들러·자동 푸시 `tgPushPnL`·트리거 등록 `tgSetupPushTrigger` · **시장 리포트 큐** (`_tgHandleMarketReportPost`·`tgFlushReportQueue`·`tgSetupReportQueueTrigger`) |
 | `Diag.js` | `runDiag` — 진단 함수 (보유현황·종목지표·추이 등 점검) |
 | `Secret.js` | ⚠️ 로컬에 없음. 원격(Google)에만 존재. **절대 push 금지** |
@@ -183,7 +183,7 @@ iOS / web / web-desk
 | `scheduledDailyUpdate` | 매일 17:30 (±15분) | — | `updateAllNew` | 없음 (장 마감 후) |
 | `scheduledHourlyUpdate` | 매 30분 (everyMinutes) | **거래일 + 09:25~16:35 + minute 25~35** | `updateAllNew` | LockService.tryLock(2000) |
 | `tgPushPnL` | GitHub Actions 5분 poke(F 구조) | **거래일 + 09:00~16:00 + 18분 dedup** | 가격+보유현황 갱신 후 Telegram 푸시 (~20분 카덴스) | LockService.tryLock(1000) + `tg_lastPushEpoch` |
-| `scheduledHolidaySync` | 매년 12월 | — | 구글 공휴일 캘린더 → 휴장일 시트 | 없음 |
+| `scheduledHolidaySync` | 매월 25일 | — | 구글 공휴일 캘린더 → 휴장일 시트 (공휴일 분류 필터) | 없음 |
 | `tgFlushReportQueue` | 매일 08:05·17:05 KST (2개 트리거) | — (큐 비어 있으면 즉시 종료) | *시장리포트_큐* 시트의 "대기" 행 → Telegram 발송 → 마킹 | 없음 (큐가 직렬화) |
 
 > 트리거 등록은 시트 메뉴(🛠️ 유지보수)에서 사용자가 1회 클릭. 등록은 `setup*Trigger` 함수, 해제는 `delete*Trigger`.
