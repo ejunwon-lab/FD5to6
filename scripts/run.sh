@@ -58,6 +58,10 @@ else
   echo "⚠ config/global-claude.md 없음"
 fi
 
+# 3b. pre-commit 스캐너 활성화 — 금액·시크릿 커밋 차단 (scripts/git-hooks/pre-commit, 2026-07-19)
+chmod +x scripts/git-hooks/* 2>/dev/null || true
+git config core.hooksPath scripts/git-hooks && echo "✓ pre-commit 스캐너 활성화"
+
 # 4. 전역 skill 동기화 (config/skills/* → ~/.claude/skills/)
 if [ -d config/skills ]; then
   mkdir -p "$HOME/.claude/skills"

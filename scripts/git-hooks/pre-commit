@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# pre-commit 스캐너 — public repo 금액·시크릿 유출을 커밋 시점에 차단.
+# 배경: force-push 스크럽 2회 전과 (pending.md GitHub GC 항목) — 사후 스크럽 대신 사전 차단.
+# 정책: memory [[feedback_public_repo_no_amounts]] — md 문서에 실제 원화 금액 금지. 시크릿은 전 파일 금지.
+# 활성화: git config core.hooksPath scripts/git-hooks  (run.sh가 실행@ 때 자동 설정)
+# 우회(의도된 예외만): SCAN_BYPASS=1 git commit ...   또는 git commit --no-verify
+set -uo pipefail
+[ "${SCAN_BYPASS:-0}" = "1" ] && exit 0
+
+files=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$files" ] && exit 0
+
+fail=0
+
+# ── 1. 경로 차단 — 존재 자체가 금지 ─────────────────────────────────────────
+while IFS= read -r f; do
+  case "$f" in
+    .env|*/.env|Secret.js|*/Secret.js|backups/*|*.pem|*id_rsa*)
+      echo "🔴 커밋 금지 경로: $f"; fail=1 ;;
+  esac
+done <<< "$files"
+
+# 시크릿 패턴: GAS 배포 URL id / 텔레그램 봇토큰 / Anthropic·GitHub·Slack·Google 키 / 개인키 / chat_id
+SECRET_RE='AKfycb[A-Za-z0-9_-]{10,}|[0-9]{8,10}:AA[A-Za-z0-9_-]{30,}|sk-ant-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[a-z]-[A-Za-z0-9-]{10,}|AIza[A-Za-z0-9_-]{30,}|-----BEGIN [A-Z ]*PRIVATE KEY|chat_id[^0-9A-Za-z]{0,3}-?[0-9]{6,}'
+# 원화 금액 패턴(md만): 콤마 100만+ / ₩표기 / 억·천만원 표기
+AMOUNT_RE='[0-9]{1,3}(,[0-9]{3}){2,}|₩[0-9][0-9,]{5,}|[0-9][0-9,.]*(억|천만) ?원'
+
+while IFS= read -r f; do
+  case "$f" in
+    scripts/git-hooks/*) continue ;;                                  # 스캐너 자신(패턴 소스)
+    package-lock.json|*/package-lock.json|*.lock|pnpm-lock.yaml|*.min.*|*.map) continue ;;  # 생성물 — base64 우연 매치 FP
+  esac
+  # 추가된 줄만 검사 (기존 줄은 대상 아님 — 이미 히스토리에 있음)
+  added=$(git diff --cached -U0 -- "$f" | grep -E '^\+' | grep -vE '^\+\+\+' || true)
+  [ -z "$added" ] && continue
+
+  hits=$(printf '%s\n' "$added" | grep -nE "$SECRET_RE" || true)
+  if [ -n "$hits" ]; then
+    echo "🔴 시크릿 패턴 감지: $f"
+    printf '%s\n' "$hits" | cut -c1-60 | sed 's/^/     /'
+    fail=1
+  fi
+
+  case "$f" in
+    *.md)
+      hits=$(printf '%s\n' "$added" | grep -nE "$AMOUNT_RE" || true)
+      if [ -n "$hits" ]; then
+        echo "🔴 원화 금액 의심(md): $f — public repo 금액 금지 정책"
+        printf '%s\n' "$hits" | cut -c1-80 | sed 's/^/     /'
+        fail=1
+      fi ;;
+  esac
+done <<< "$files"
+
+if [ "$fail" -eq 1 ]; then
+  echo ""
+  echo "커밋 차단됨 — 마스킹/비율로 바꾸거나, 의도된 예외면 SCAN_BYPASS=1 git commit ..."
+  exit 1
+fi
+exit 0

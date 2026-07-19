@@ -1,0 +1,96 @@
+name: Watchdog (automation healthcheck)
+
+# 자동화 침묵 실패 감지 — 매일 저녁 "실행됐어야 할 것이 실제 실행됐나" 대사 후 텔레그램 heartbeat.
+# 기존 알림(체인 끊김·리포트 생성실패)은 "실행됐지만 실패"만 잡는다 — 실행 자체가 없으면(체인 사망
+# +cron 드롭) 무음. 그 구멍을 매일 1회 read-only 점검으로 메움. heartbeat는 이상 없어도 발송 —
+# "메시지 부재 = watchdog 사망"을 사용자가 감지(감시자의 감시자). 검사 로직은 scripts/watchdog_check.sh
+# (로컬 실행 가능 — 같은 스크립트로 스모크). 설계: docs/plans/2026-07-19-자동화-watchdog.md
+#
+# cron 2개는 백업 관계(21:10 실패/드롭 시 22:10) — 오늘 성공 run이 있으면 뒤 cron은 skip(중복 발송 방지).
+# 이상(🔴) 발견 시 job도 red — 그날 뒤 cron이 재점검·재발송(의도: 고장난 날은 더 시끄럽게).
+# daisy-chain(telegram-push.yml)은 무수정 — watchdog은 크리티컬 경로 밖 (cron 지연은 무해).
+
+on:
+  schedule:
+    - cron: '10 12 * * *'   # 21:10 KST
+    - cron: '10 13 * * *'   # 22:10 KST (백업)
+  workflow_dispatch:        # 수동 테스트 — dedup 무시하고 항상 실행
+
+permissions:
+  actions: read     # telegram-push run 목록·로그 조회
+  contents: read
+
+concurrency:
+  group: watchdog
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 리포트 존재 확인용 — 실패해도 검사 진행(스크립트가 ⚠️ skip 처리)
+      - name: Checkout reports (private)
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          repository: ejunwon-lab/FD5to6-reports
+          ssh-key: ${{ secrets.REPORTS_DEPLOY_KEY }}
+          path: docs/reports
+
+      - name: Dedup (오늘 KST 성공 run 있으면 skip)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "skip=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          SINCE_UTC=$(python3 -c "
+          from datetime import datetime, timedelta, timezone
+          kst = timezone(timedelta(hours=9))
+          mid = datetime.now(kst).replace(hour=0, minute=0, second=0, microsecond=0)
+          print(mid.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))")
+          n=$(gh run list -R "${{ github.repository }}" -w watchdog.yml -s success -L 20 \
+            --json createdAt --jq "[.[]|select(.createdAt>=\"$SINCE_UTC\")]|length")
+          if [ "${n:-0}" -ge 1 ]; then
+            echo "skip=yes" >> "$GITHUB_OUTPUT"
+            echo "⏭️ 오늘 성공 run ${n}건 — 중복 발송 방지 skip"
+          else
+            echo "skip=no" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run healthcheck
+        id: checks
+        if: steps.dedup.outputs.skip == 'no'
+        continue-on-error: true   # 🔴여도 메시지 발송 step은 진행 — 최종 red는 아래 Fail step이
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
+          TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
+          REPORTS_DIR: docs/reports
+          OUT_FILE: /tmp/watchdog_msg.txt
+        run: bash scripts/watchdog_check.sh
+
+      - name: Send heartbeat to Telegram
+        if: steps.dedup.outputs.skip == 'no'
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
+        run: |
+          IFS=',' read -ra IDS <<< "$TG_CHAT_IDS"
+          for id in "${IDS[@]}"; do
+            curl -sS -m 15 "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d chat_id="$(echo "$id" | tr -d ' ')" \
+              --data-urlencode "text@/tmp/watchdog_msg.txt" >/dev/null || true
+          done
+          echo "heartbeat 발송 완료"
+
+      - name: Fail if anomalies
+        if: steps.dedup.outputs.skip == 'no' && steps.checks.outcome == 'failure'
+        run: |
+          echo "🔴 이상 항목 존재 — run을 red로 (그날 뒤 cron이 재점검)"
+          exit 1

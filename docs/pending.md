@@ -14,6 +14,7 @@
 
 ## 🟡 진행 중 · 예정
 
+- **🟡 자동화 watchdog — 첫 정기 heartbeat 확인만 잔여 (2026-07-19 구축)** — `watchdog.yml`(매일 21:10·22:10 KST) + `scripts/watchdog_check.sh` + pre-commit 금액·시크릿 스캐너(`scripts/git-hooks/pre-commit`, run.sh가 각 맥 자동 활성화) 배포. 로컬 스모크·자가테스트 8/8·라이브 dispatch 통과. **잔여**: 첫 cron heartbeat가 21:1x~22:1x에 텔레그램 도착하는지 + 거래일 항목(발송 N건·시트 오늘·리포트 US/KR) 전부 ✅인지 확인. 설계: `docs/plans/2026-07-19-자동화-watchdog.md`
 - **🟡 제헌절 휴장 반영 — 월요일 푸시 정상 확인만 잔여 (2026-07-17)** — 제헌절 공휴일 재지정(당일 첫 적용) 미반영으로 텔레그램 오발송. Holidays.js 3곳 수정·배포(HOLIDAY_NAMES '제헌절'·고정휴장 루프 7/17·fallback) + 시트 동기화 완료 + workflow 재가동. **잔여**: 다음 거래일(월 7/20) 09:00~ 첫 푸시가 정상 발송되는지 확인(체인 재시드 후). 설계·상세: `docs/plans/2026-07-17-제헌절-휴장일-반영.md`, 세션 `docs/sessions/2026-07-17-제헌절-휴장일.md`
 - **🟡 US 리포트 첫 시도 실패 수리 — 라이브 검증 대기 (2026-07-16)** — permission bypass·max-turns 40·파일명 결정론화 배포(dc464c4). 확인: ①dry_run 스모크(run 29490849045) 결과 ②내일 08:0x 첫 US dispatch success + ⚠️ 알림 부재 ③17:0x KR·일요일 weekly도 같은 변경 적용됨. 설계: `docs/plans/2026-07-16-US리포트-첫시도실패-수리.md`
 
