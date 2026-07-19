@@ -62,3 +62,12 @@
 - 신한만기 기록시차 소급 교정 — 시장/기록 요인 분해로 d20 창 22구간 전수 감사(예외 4건 전부 설명), 원장 flow 행 2건 소급(7/7 입금·7/9 출금) → 7/9 -5.78→+2.06 flowAdj 실측·d20 복리 검산 일치. 운영 원칙: 내부 이동은 같은 날 양쪽 반영 or flow 행.
 - 위생 묶음 일괄 처리 — ①desk 로케일 ko-KR 통일·position52w 공용화(kst는 기수정 확인) ②format.test 시각 고정 계산 케이스(web 54통과) ③save.sh 트레일러 모델 무관화·deploy npm ci·desk vitest 신설(8케이스)+배포 테스트 step ④code-map 등재 2건(check_stale 클린) ⑤Trend.js % numeric 전환(/design-check 통과, v31).
 - US 리포트 "매번 실패" 진단·수리 — 실체는 첫 dispatch만 실패(5회/9일, 체인 재시도로 리포트는 매일 도착). 원인: 에이전트 권한 승인 산문 이탈+파일명 오계산+턴 소진. 수리(3 job): `--permission-mode bypassPermissions`·max-turns 40·파일명 결정론화(DATE_KST 프롬프트 주입). `/design-check` 통과, dry_run 스모크 dispatch. 최종 판정은 내일 08:0x 라이브.
+
+## 2026-07-20
+- **자동화 watchdog 구축** — `watchdog.yml`(매일 21:10·22:10 KST, dedup·dry_run) + `scripts/watchdog_check.sh` 5종 대사(체인 생존·실발송 건수·휴장 판정·시트 신선도·리포트 커밋) → 텔레그램 매일 heartbeat. "실행 자체가 없는" 침묵 실패(6/5·6/9·7/9 공통 뿌리) 감시. 로컬 스모크 + 라이브 dry_run(run 29692244557) 통과 — 러너에서 GAS 도달·private 리포트 checkout·red 전환 실증. daisy-chain 무수정, 신규 secret 0.
+- **pre-commit 금액·시크릿 스캐너** — `scripts/git-hooks/pre-commit`: 경로 차단(.env·Secret.js·backups·키파일)+시크릿 패턴(전 파일)+원화 금액 패턴(md만). 자가 테스트 8/8, 기존 파일 소급 false-positive 0. run.sh가 각 맥 자동 활성화(core.hooksPath). force-push 스크럽 2회 전과의 사전 차단 장치.
+- **휴장일 권위 소스 전환** — 채택 기준을 이름 화이트리스트 → 구글 캘린더 DESCRIPTION '공휴일' 분류(공개 ics 280건 실측: 공휴일 205/기념일 75 정확 이분). **지방선거일 6/3 잠복 결함 발견**(화이트리스트 미매칭 — 제헌절 동일 클래스, errors.md 기록). desc 부재 시 화이트리스트 폴백 = 회귀 불가능 설계. `scheduledHolidaySync` 12월 게이트 제거 → 매월 25일. push_safe 배포. KRX 직접 연동은 검증 불가 리스크로 기각(설계 노트에 근거).
+- **시트 타입계약 검증** — `scripts/check_sheet_types.py`: 백업 `_raw.json`에 5시트 계약 assert(% 문자열·주말/휴장일 행·비숫자 등 6클래스, 합성 테스트 전건 검출). `backup_sheets.py` 백업 직후 자동 실행. % 비대칭(7/16) 클래스 조기 검출 장치.
+- **pending ⏰ 만기 추적** — `⏰YYYY-MM-DD` 태그 규약 + `scripts/check_pending_due.sh`(실행@ 자동) — 첫 실행에서 당일 만기 4건 즉시 표시.
+- memory 강화 — Secret.js는 백업 제안·안내 포함 일절 금지(사용자 재확인) 반영·미러.
+- 개선 아이디어 10건 총정리 — 2·3·5·9·1 구현 완료, 10(체인 재시드)은 watchdog으로 해소 종결, 7·8 보류, 4 점진, 6 작업 금지 확정.
