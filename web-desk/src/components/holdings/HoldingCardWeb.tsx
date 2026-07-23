@@ -33,7 +33,7 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
     >
       <div className="p-5">
         {/* Top — 모바일: 이름에 최소폭 보장, 수식 블록은 다음 줄로 wrap (종목명 잘림 방지) */}
-        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
+        <div className={`flex flex-wrap items-start justify-between gap-x-3 gap-y-2 ${isExpanded ? 'mb-4' : ''}`}>
           <div className="min-w-[9rem] flex-1">
             <p className="font-semibold text-base text-ink truncate">{h.name}</p>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -64,41 +64,41 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
           <span className="text-ink-faint text-sm mt-1">{isExpanded ? '▲' : '▼'}</span>
         </div>
 
-        {/* Middle: 매입 / 평가 / 수익 */}
-        <div className="grid grid-cols-3 gap-2 bg-bg/40 rounded-xl p-3 mb-3">
-          <Stat label="매입" value={`₩${Math.round(h.opBuy).toLocaleString()}`} />
-          <Stat label="평가" value={`₩${Math.round(h.value).toLocaleString()}`} />
-          <Stat label="수익" value={`${h.opProfit >= 0 ? '+' : ''}₩${Math.round(h.opProfit).toLocaleString()}`} tone={isProfit ? 'gain' : 'loss'} />
-        </div>
-
-        {/* Bottom: 오늘 등락 / 수익률 */}
-        <div className="grid grid-cols-2 gap-2">
-          <ColoredCell label={`${changeLabel} 등락`} value={h.changePct} tone={isUp ? 'gain' : 'loss'} />
-          <ColoredCell
-            label="수익률"
-            value={`${h.returnPct >= 0 ? '+' : ''}${h.returnPct.toFixed(2)}%`}
-            tone={isProfit ? 'gain' : 'loss'}
-          />
-        </div>
-
-        {/* Expanded detail */}
+        {/* 펼침(2단 통합): 요약 + 상세 전부. 접힘이면 헤더만 (2026-07-23 A안) */}
         {isExpanded && (
-          <div className="mt-4 pt-4 border-t border-line">
-            <div className="grid grid-cols-3 gap-x-4 gap-y-3">
-              <Field label="평가금액"  value={`₩${Math.round(h.value).toLocaleString()}`} />
-              <Field label="매입금액"  value={`₩${Math.round(h.opBuy).toLocaleString()}`} />
-              <Field label="수익금"    value={`${h.opProfit >= 0 ? '+' : ''}₩${Math.round(h.opProfit).toLocaleString()}`} tone={isProfit ? 'gain' : 'loss'} />
-              <Field label="현재 단가" value={`₩${Math.round(h.currentPrice).toLocaleString()}`} />
-              <Field label="평균 단가" value={h.market === 'KR' ? `₩${Math.round(h.avgPrice).toLocaleString()}` : `$${h.avgPrice.toFixed(2)}`} />
-              <Field label="수량"      value={`${h.shares.toLocaleString()}주`} />
-              <Field label="1개월"     value={pctStr(h.m1)} tone={h.m1 >= 0 ? 'gain' : 'loss'} />
-              <Field label="3개월"     value={pctStr(h.m3)} tone={h.m3 >= 0 ? 'gain' : 'loss'} />
-              <Field label="12개월"    value={pctStr(h.y1)} tone={h.y1 >= 0 ? 'gain' : 'loss'} />
-              <Field label="52주 고"   value={`₩${Math.round(h.high52).toLocaleString()}`} />
-              <Field label="52주 저"   value={`₩${Math.round(h.low52).toLocaleString()}`} />
-              <Field label="계좌"      value={accountDisplay(h.broker, h.accountType)} />
+          <>
+            {/* Middle: 매입 / 평가 / 수익 */}
+            <div className="grid grid-cols-3 gap-2 bg-bg/40 rounded-xl p-3 mb-3">
+              <Stat label="매입" value={`₩${Math.round(h.opBuy).toLocaleString()}`} />
+              <Stat label="평가" value={`₩${Math.round(h.value).toLocaleString()}`} />
+              <Stat label="수익" value={`${h.opProfit >= 0 ? '+' : ''}₩${Math.round(h.opProfit).toLocaleString()}`} tone={isProfit ? 'gain' : 'loss'} />
             </div>
-          </div>
+
+            {/* Bottom: 오늘 등락 / 수익률 */}
+            <div className="grid grid-cols-2 gap-2">
+              <ColoredCell label={`${changeLabel} 등락`} value={h.changePct} tone={isUp ? 'gain' : 'loss'} />
+              <ColoredCell
+                label="수익률"
+                value={`${h.returnPct >= 0 ? '+' : ''}${h.returnPct.toFixed(2)}%`}
+                tone={isProfit ? 'gain' : 'loss'}
+              />
+            </div>
+
+            {/* 상세 — 요약과 중복인 평가/매입/수익금 3필드는 제외 */}
+            <div className="mt-4 pt-4 border-t border-line">
+              <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+                <Field label="현재 단가" value={`₩${Math.round(h.currentPrice).toLocaleString()}`} />
+                <Field label="평균 단가" value={h.market === 'KR' ? `₩${Math.round(h.avgPrice).toLocaleString()}` : `$${h.avgPrice.toFixed(2)}`} />
+                <Field label="수량"      value={`${h.shares.toLocaleString()}주`} />
+                <Field label="1개월"     value={pctStr(h.m1)} tone={h.m1 >= 0 ? 'gain' : 'loss'} />
+                <Field label="3개월"     value={pctStr(h.m3)} tone={h.m3 >= 0 ? 'gain' : 'loss'} />
+                <Field label="12개월"    value={pctStr(h.y1)} tone={h.y1 >= 0 ? 'gain' : 'loss'} />
+                <Field label="52주 고"   value={`₩${Math.round(h.high52).toLocaleString()}`} />
+                <Field label="52주 저"   value={`₩${Math.round(h.low52).toLocaleString()}`} />
+                <Field label="계좌"      value={accountDisplay(h.broker, h.accountType)} />
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

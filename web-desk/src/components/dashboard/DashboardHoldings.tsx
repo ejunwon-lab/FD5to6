@@ -35,7 +35,25 @@ export function DashboardHoldings({ holdings }: Props) {
   const [query, setQuery] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('card-web')
   const [showAll, setShowAll] = useState(false)
-  const [expandedCardId, setExpandedCardId] = useState<string | null>(null)
+  // 카드 접기(A안 2단): 기본 = 데스크톱 펼침 / 모바일 접힘. 전역 토글 시 개별 오버라이드 리셋.
+  const [globalUnfold, setGlobalUnfold] = useState<boolean>(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(min-width: 1024px)').matches
+      : true
+  )
+  const [foldOverrides, setFoldOverrides] = useState<Set<string>>(new Set())
+  const isUnfolded = (id: string) => (foldOverrides.has(id) ? !globalUnfold : globalUnfold)
+  const toggleCard = (id: string) =>
+    setFoldOverrides((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const toggleAll = () => {
+    setGlobalUnfold((v) => !v)
+    setFoldOverrides(new Set())
+  }
   const [detailStock, setDetailStock] = useState<{ code: string; name: string } | null>(null)
 
   // 계좌 → 증권사 매핑
@@ -132,6 +150,15 @@ export function DashboardHoldings({ holdings }: Props) {
           </div>
           {/* View mode toggle — 3-state (순서: Web → Terminal → List) */}
           <div className="lg:ml-auto flex items-center gap-2">
+            {viewMode !== 'list' && (
+              <button
+                onClick={toggleAll}
+                className="shrink-0 px-2.5 py-1.5 lg:py-0.5 text-2xs uppercase tracking-widest border border-line text-ink-dim hover:text-amber hover:border-amber"
+                title="모든 카드 접기/펼치기"
+              >
+                {globalUnfold ? '▲ 모두 접기' : '▼ 모두 펼치기'}
+              </button>
+            )}
             <div className="inline-flex border border-line">
               <button
                 onClick={() => setViewMode('card-web')}
@@ -178,8 +205,8 @@ export function DashboardHoldings({ holdings }: Props) {
                 key={id}
                 holding={h}
                 sortKey={sortKey}
-                isExpanded={expandedCardId === id}
-                onExpand={() => setExpandedCardId((cur) => cur === id ? null : id)}
+                isExpanded={isUnfolded(id)}
+                onExpand={() => toggleCard(id)}
                 onDetail={() => setDetailStock({ code: h.symbol, name: h.name })}
               />
             )
@@ -200,8 +227,8 @@ export function DashboardHoldings({ holdings }: Props) {
                 key={id}
                 holding={h}
                 sortKey={sortKey}
-                isExpanded={expandedCardId === id}
-                onExpand={() => setExpandedCardId((cur) => cur === id ? null : id)}
+                isExpanded={isUnfolded(id)}
+                onExpand={() => toggleCard(id)}
                 onDetail={() => setDetailStock({ code: h.symbol, name: h.name })}
               />
             )
