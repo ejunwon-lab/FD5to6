@@ -4,6 +4,12 @@
 
 ## 2026-07-23
 
+### 웹(PWA) 배포 7일 침묵 실패 — vitest 4 추가 시 lock 미재생성 + npm ci 전환이 겹침
+- **증상**: `Deploy Web to GitHub Pages`가 2026-07-16부터 전 실행 failure — 웹앱이 7/16 이후 한 번도 배포 안 됨(7/23 "기간별 수익" 라벨 포함). 아무도 눈치 못 챔 — 사이트는 구버전으로 계속 떠 있어서.
+- **원인**: 7/16 위생 묶음이 ①web/package.json에 vitest ^4.1.7 추가(테스트 채움) ②배포 워크플로를 npm install→`npm ci`로 전환 — 그런데 **package-lock.json을 재생성하지 않음**. vitest 4는 내부 vite 7→esbuild 0.28.1을 요구하는데 lock엔 0.21.5(vite 5)만 있음 → CI npm(node 20/npm 10)이 "Missing @esbuild/*@0.28.1 from lock file"로 거부. **로컬 npm 11은 같은 lock으로 npm ci 통과**(버전별 엄격도 차이)라 로컬 재현 불가였음.
+- **해결 (2026-07-23)**: `rm -rf node_modules package-lock.json && npm install`로 완전 재생성(esbuild 0.21.5+0.28.1 공존 확인) → npm ci·vitest 54·tsc·build 전부 통과 → 커밋·push로 배포 복구.
+- **교훈**: ①package.json에 dep 추가하면 **같은 커밋에 lock 재생성** — npm ci 전환과 겹치면 배포가 조용히 죽는다. ②"로컬 npm ci 통과"는 CI 통과의 증거가 아님(npm 메이저별 lock 검증 엄격도 다름) — CI 실패는 CI 로그로 진단. ③배포 워크플로 성공 여부는 watchdog 감시 대상이 아니었음 — push 후 deploy run conclusion 확인 습관 필요(이번에 백그라운드 대기로 잡음).
+
 ### 데스크 Monthly Heatmap 첫 달 부풀림 + 웹 "올해" 타일 잠복 결함 — 히스토리 180거래일 고정 윈도의 두 얼굴
 - **증상**: ① 데스크 Analysis Monthly Heatmap의 윈도 내 가장 오래된 달(당시 2025-11) 셀에 그 달 수익이 아닌 **시스템 누적수익 전체**가 표시 — 색 스케일 maxAbs를 지배해 나머지 달이 전부 옅어지고, 해당 연도 YTD 합도 오염. 롤링 윈도라 매달 부풀려진 달이 한 칸씩 이동. ② 웹 "기간별 수익"의 "올해"는 당시엔 정상이지만, 10월경 180거래일 윈도 시작이 1/1을 지나면 라벨 변화 없이 "윈도 시작 이후 수익"으로 변질될 잠복 결함.
 - **원인**: 공통 뿌리 = `newMobileGetProfitHistory`의 `entries.slice(-180)` 고정 윈도. ① MonthlyHeatmapPanel이 윈도 첫 달의 전월 baseline 부재 시 `prev=0`으로 계산 → delta = 누적수익 전체. ② periodProfit `pickBaseline`이 1/1 이전 entry 부재 시 `entries[0]` fallback → silent 변질. 부수: EquityChart `slice(-30)`은 30**거래일**(≈6주)인데 "1M" 라벨 (errors.md 2026-06-21 "slice(-N)≠최근 N거래일" 부류).
