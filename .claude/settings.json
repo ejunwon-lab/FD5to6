@@ -7,7 +7,8 @@
       "Bash(git push *)",
       "Bash(git status)",
       "Bash(cp ~/.claude/projects/*/memory/* *)",
-      "Bash(python3 apps-script/push_safe.py)"
+      "Bash(python3 apps-script/push_safe.py)",
+      "Bash(node -e \"const l=require\\('./package-lock.json'\\); const nb=l.packages['node_modules/@esbuild/netbsd-arm64']; console.log\\('netbsd-arm64 entry:', JSON.stringify\\({optional:nb?.optional, os:nb?.os, cpu:nb?.cpu}\\)\\)\")"
     ]
   }
 }
