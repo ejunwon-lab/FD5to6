@@ -83,3 +83,5 @@
 - **데스크 신뢰성 정리 묶음** — TopBar 고정 pill("CONNECTED·KIS"/"KRX OPEN"/"NYSE PRE") → 실배선(DATA LIVE/SAMPLE·KRX/NYSE 개장 요일·시각 판정), ActivityFeed 무조건 더미 → 실현손익 최근 8건, Dividends 배지 '3' 삭제, Indicators "live"·Markets "LIVE" 라벨 실상태 연동, 죽은 코드 HoldingsTable.tsx 삭제, Placeholder 문구 현행화.
 - 데스크 전수 분석 보고 — 가짜 데이터 노출 5곳·미구현 nav 4개·Phase A/B 완료 확인(잔여: 시장/섹터 도넛·Phase C 전체)·포맷 헬퍼 미사용 107곳. 로드맵 5단계 수립.
 - **KIS Status 페이지 신설 (로드맵 ②)** — GAS `newMobileGetSystemStatus`(_buildDiag 재사용 + kis_carried_status, 금액·종목명 없는 진단 페이로드, scripts.run OAuth 전용) + 데스크 KisStatusPage(단축키 K: KIS 시세 carried/total·시스템 상태·지표 충족도 바·최근 이력/휴장일·Refresh). /design-check 통과, push_safe 배포.
+- **모바일 2단계(로드맵 ③)** — Today 정렬/필터 컨트롤 가로 스크롤 한 줄(줄바꿈 제거)·updated 라벨 lg+만. Analysis·히트맵·벤치마크는 기대응 확인(구조 수정 불요).
+- **Analysis Total Return 교정** — 곡선 diff(서버 윈도 내 수익으로 축소됨) → summary 전체 누적(대시보드 KPI와 동일 정의). 부수 발견: Sharpe·Vol·MDD 등 리스크 지표가 누적수익 곡선 %변화 기반이라 왜곡 — 일별 총자산 API 노출 필요, pending ⑥ 등재.

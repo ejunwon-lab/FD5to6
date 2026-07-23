@@ -38,11 +38,16 @@ export function AnalysisPage() {
 
   const stats = useMemo(() => computeStats(holdings, equity), [holdings, equity])
 
+  // Total Return은 curve diff가 아니라 summary(전체 누적, 대시보드 KPI와 동일 정의) 우선.
+  // curve는 서버 윈도(최소 180거래일) 안만 커버라 diff가 "윈도 내 수익"으로 축소된다 (2026-07-23).
+  const totalReturnAmt = summary ? summary.totalReturn : stats.totalReturn
+  const totalReturnPct = summary ? summary.totalReturnPct : stats.totalReturnPct
+
   return (
     <div className="overflow-y-auto p-2 sm:p-3 grid gap-2.5 grid-cols-1 lg:grid-cols-2">
       {/* Risk metrics strip */}
       <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-line border border-line">
-        <Stat label="Total Return" value={`${stats.totalReturn >= 0 ? '+' : ''}${stats.totalReturnPct.toFixed(2)}%`} tone={stats.totalReturn >= 0 ? 'up' : 'down'} sub={`₩${stats.totalReturn.toLocaleString()}`} />
+        <Stat label="Total Return" value={`${totalReturnAmt >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`} tone={totalReturnAmt >= 0 ? 'up' : 'down'} sub={`${totalReturnAmt >= 0 ? '+' : '-'}₩${Math.abs(Math.round(totalReturnAmt)).toLocaleString()}`} />
         <Stat label="Sharpe (90d)" value={stats.sharpe.toFixed(2)} sub="annualized" tone="cyan" />
         <Stat label="Max Drawdown" value={`-${stats.maxDD.toFixed(1)}%`} sub={`${stats.maxDDDays}d ago`} tone="down" />
         <Stat label="Volatility" value={`${stats.vol.toFixed(2)}%`} sub="daily σ" />

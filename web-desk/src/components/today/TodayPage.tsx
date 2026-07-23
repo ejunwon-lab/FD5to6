@@ -64,18 +64,18 @@ export function TodayPage() {
         <Stat label="⏸ 보합" value={`${summary.flatCount}`} sub="종목" tone="neutral" />
       </div>
 
-      {/* 2. Sort + Filter 컨트롤 */}
-      <div className="flex items-center gap-2 text-xs flex-wrap">
-        <span className="text-ink-faint uppercase tracking-widest text-2xs mr-1">정렬</span>
+      {/* 2. Sort + Filter 컨트롤 — 모바일은 줄바꿈 대신 가로 스크롤 한 줄 */}
+      <div className="flex items-center gap-2 text-xs overflow-x-auto">
+        <span className="text-ink-faint uppercase tracking-widest text-2xs mr-1 shrink-0">정렬</span>
         <Toggle active={sortKey === 'pct'}    onClick={() => setSortKey('pct')}    label="등락률" />
         <Toggle active={sortKey === 'amount'} onClick={() => setSortKey('amount')} label="₩등락액" />
         <Toggle active={sortKey === 'name'}   onClick={() => setSortKey('name')}   label="종목명" />
-        <span className="text-ink-faint uppercase tracking-widest text-2xs ml-3 mr-1">필터</span>
+        <span className="text-ink-faint uppercase tracking-widest text-2xs ml-3 mr-1 shrink-0">필터</span>
         <Toggle active={filter === 'all'}  onClick={() => setFilter('all')}  label="ALL" />
         <Toggle active={filter === 'gain'} onClick={() => setFilter('gain')} label="▲ GAIN" tone="up" />
         <Toggle active={filter === 'loss'} onClick={() => setFilter('loss')} label="▼ LOSS" tone="down" />
         <Toggle active={filter === 'flat'} onClick={() => setFilter('flat')} label="⏸ FLAT" />
-        <span className="ml-auto text-ink-faint text-2xs tabular">
+        <span className="ml-auto text-ink-faint text-2xs tabular hidden lg:inline shrink-0">
           {updatedAt ? `updated ${updatedAt}` : ''}
         </span>
       </div>
@@ -179,7 +179,7 @@ function Toggle({ active, onClick, label, tone }: { active: boolean; onClick: ()
   return (
     <button
       onClick={onClick}
-      className={`border px-2.5 py-1.5 lg:py-0.5 text-2xs tracking-widest uppercase ${activeClass}`}
+      className={`shrink-0 whitespace-nowrap border px-2.5 py-1.5 lg:py-0.5 text-2xs tracking-widest uppercase ${activeClass}`}
     >
       {label}
     </button>
