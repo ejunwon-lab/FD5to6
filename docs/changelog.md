@@ -87,3 +87,4 @@
 - **Analysis Total Return 교정** — 곡선 diff(서버 윈도 내 수익으로 축소됨) → summary 전체 누적(대시보드 KPI와 동일 정의). 부수 발견: Sharpe·Vol·MDD 등 리스크 지표가 누적수익 곡선 %변화 기반이라 왜곡 — 일별 총자산 API 노출 필요, pending ⑥ 등재.
 - **Analysis 리스크 지표 자산 기반 교정 (로드맵 ⑥)** — newMobileGetProfitHistory entries에 totalAsset(추이 기록 Q열) additive 추가 → 데스크 Sharpe·Volatility·Win Days·Best Day·MDD를 자산 시리즈 기반으로 교체(누적수익 분모 과대 제거, MDD 정의를 GAS getPortfolioMetrics와 통일). TWR 한계 명시(raw 자산 diff — 입출금일 왜곡 잔존). /design-check 통과, push_safe 배포.
 - **포맷 로케일 통일 (로드맵 ④)** — 데스크 전 소스 107곳 `toLocaleString()` → `toLocaleString('ko-KR')` 일괄 지정 (브라우저 로케일 드리프트 제거). fmtKRW 전면 치환은 표기 회귀 위험 대비 이득 없어 제외.
+- **로드맵 ⑤ 1차분** — ⓐPrice History 페이지(종목 리스트→가격 차트·매수/매도 마커·내 평균단가선·기간 KPI, 단축키 P) ⓑSettings 페이지(localStorage: 뷰모드·상위 N 접기·카드 폴드 기본값, 단축키 S) ⓒPhase C 3종: Drawdown underwater 차트(자산 시리즈)·분류 도넛·홀딩스 CSV 내보내기(BOM). 전부 클라이언트만 — GAS 무변경.

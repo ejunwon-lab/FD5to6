@@ -11,6 +11,8 @@ import { AnalysisPage } from './components/analysis/AnalysisPage'
 import { IndicatorsPage } from './components/indicators/IndicatorsPage'
 import { ActivityPage } from './components/activity/ActivityPage'
 import { KisStatusPage } from './components/system/KisStatusPage'
+import { PriceHistoryPage } from './components/pricehist/PriceHistoryPage'
+import { SettingsPage } from './components/system/SettingsPage'
 import { DataProvider } from './lib/DataProvider'
 
 function PlaceholderPage({ title }: { title: string }) {
@@ -69,6 +71,8 @@ function App() {
       case 'indicators':  return <IndicatorsPage />
       case 'tradelog':    return <ActivityPage />
       case 'kis':         return <KisStatusPage />
+      case 'pricehist':   return <PriceHistoryPage />
+      case 'settings':    return <SettingsPage />
       default:            return <PlaceholderPage title={active} />
     }
   })()

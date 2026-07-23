@@ -6,6 +6,7 @@ import { Panel } from '../ui/Panel'
 import { ContributionBar } from './ContributionBar'
 import { BenchmarkPanel } from './BenchmarkPanel'
 import { MonthlyHeatmapPanel } from './MonthlyHeatmapPanel'
+import { DrawdownPanel } from './DrawdownPanel'
 
 // 증권사 base 색상 + 같은 증권사 내 계좌별 명도 변형
 const BROKER_SHADES: Record<string, string[]> = {
@@ -29,6 +30,8 @@ function accountShade(b: string, localIdx: number): string {
 }
 
 import { accountDisplay } from '../../lib/accountDisplay'
+
+const CATEGORY_COLORS = ['#ffa500', '#00d4ff', '#00ff7f', '#c084fc', '#f472b6', '#facc15', '#6b7280']
 
 export function AnalysisPage() {
   const { holdings: live, equityCurve: liveEquity, summary } = usePortfolio()
@@ -63,6 +66,11 @@ export function AnalysisPage() {
       {/* Monthly heatmap (전체 폭) */}
       <div className="lg:col-span-2">
         <MonthlyHeatmapPanel equityCurve={equity} />
+      </div>
+
+      {/* Drawdown underwater (전체 폭) — 자산 시리즈 기반 */}
+      <div className="lg:col-span-2">
+        <DrawdownPanel equityCurve={equity} />
       </div>
 
       {/* Allocation by 증권사 → 계좌 (nested) */}
@@ -136,6 +144,42 @@ export function AnalysisPage() {
               <span className="text-ink-faint">Total</span>
               <span className="text-amber tabular normal-case">₩{Math.round(stats.totalValue).toLocaleString('ko-KR')}</span>
             </div>
+          </div>
+        </div>
+      </Panel>
+
+      {/* Allocation by 분류 (Phase C — 시장/자산군 도넛) */}
+      <Panel title="Allocation · 분류" meta={`${stats.byCategory.length} categories`}>
+        <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-3 p-3">
+          <div className="h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={stats.byCategory} dataKey="value" nameKey="category" innerRadius={45} outerRadius={85} strokeWidth={0}>
+                  {stats.byCategory.map((c, i) => (
+                    <Cell key={c.category} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: '#11151c', border: '1px solid #1f2630', fontSize: 11, fontFamily: 'JetBrains Mono' }}
+                  labelStyle={{ color: '#6b7280' }} itemStyle={{ color: '#d4d8e0' }}
+                  formatter={(v, name) => [`₩${Math.round(Number(v)).toLocaleString('ko-KR')}`, name]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-col gap-1.5 text-xs justify-center">
+            {stats.byCategory.map((c, i) => (
+              <div key={c.category} className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-2.5 h-2.5 shrink-0" style={{ background: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }} />
+                  <span className="text-ink-dim truncate">{c.category}</span>
+                  <span className="text-ink-faint text-2xs shrink-0">({c.count})</span>
+                </div>
+                <span className="tabular text-ink shrink-0 ml-2">
+                  ₩{Math.round(c.value).toLocaleString('ko-KR')} · {c.pct.toFixed(2)}%
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </Panel>
@@ -214,7 +258,7 @@ export function AnalysisPage() {
   )
 }
 
-function computeStats(holdings: { symbol: string; name: string; market: string; broker: string; accountType: string; value: number; returnPct: number; weightPct: number }[], equity: { date: string; value: number; asset?: number | null }[]) {
+function computeStats(holdings: { symbol: string; name: string; market: string; broker: string; accountType: string; category?: string; value: number; returnPct: number; weightPct: number }[], equity: { date: string; value: number; asset?: number | null }[]) {
   const totalValue = holdings.reduce((s, h) => s + h.value, 0) || 1
   // Re-compute weight from value (in case prop weightPct missing)
   const withW = holdings.map((h) => ({ ...h, w: (h.value / totalValue) * 100 }))
@@ -252,6 +296,17 @@ function computeStats(holdings: { symbol: string; name: string; market: string; 
   }))
   // Pie용 평탄 데이터 (외부 도넛, 같은 broker 끼리 인접 정렬 유지)
   const byBrokerAccount = byBrokerHierarchy.flatMap((b) => b.accounts)
+
+  // 분류(한국주식/미국주식/펀드 등)별 집계 — Phase C 도넛 (2026-07-23)
+  const catMap = new Map<string, { value: number; count: number }>()
+  withW.forEach((h) => {
+    const key = (h as { category?: string }).category || h.market || '기타'
+    const cur = catMap.get(key) ?? { value: 0, count: 0 }
+    catMap.set(key, { value: cur.value + h.value, count: cur.count + 1 })
+  })
+  const byCategory = Array.from(catMap.entries())
+    .map(([category, v]) => ({ category, value: v.value, count: v.count, pct: (v.value / totalValue) * 100 }))
+    .sort((a, b) => b.value - a.value)
 
   const topWeights = [...withW]
     .sort((a, b) => b.w - a.w)
@@ -351,6 +406,7 @@ function computeStats(holdings: { symbol: string; name: string; market: string; 
     byBroker,
     byBrokerAccount,
     byBrokerHierarchy,
+    byCategory,
     topWeights,
     winners,
     losers,

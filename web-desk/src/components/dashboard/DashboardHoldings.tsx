@@ -21,26 +21,24 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 ]
 
 import { accountDisplay } from '../../lib/accountDisplay'
+import { loadSettings, resolveFoldDefault } from '../../lib/settings'
+import { downloadCsv } from '../../lib/csv'
 
 // 계좌 우선 정렬 (계좌명 raw 기준 — 시트의 원본 값)
 const ACCOUNT_ORDER = ['종합_랩', '종합', 'ISA', '퇴직연금_개인IRP', '퇴직연금_개인형IRP(범용)']
 
-// 기본 표시 종목 수 — 전체 펼침은 스크롤이 길어져 접기 기본 (2026-07-23 사용자 요청)
-const INITIAL_VISIBLE = 9
+// 기본 표시 종목 수·뷰 모드·카드 폴드 기본값은 Settings(localStorage)에서 — 마운트 시 1회 읽음 (2026-07-23)
 
 export function DashboardHoldings({ holdings }: Props) {
   const [selectedAccount, setSelectedAccount] = useState<string>('전체')
   const [sortKey, setSortKey] = useState<SortKey>('allInfo')
   const [sortAsc, setSortAsc] = useState(false)
   const [query, setQuery] = useState('')
-  const [viewMode, setViewMode] = useState<ViewMode>('card-web')
+  const [prefs] = useState(() => loadSettings())
+  const [viewMode, setViewMode] = useState<ViewMode>(prefs.holdingsViewMode)
   const [showAll, setShowAll] = useState(false)
-  // 카드 접기(A안 2단): 기본 = 데스크톱 펼침 / 모바일 접힘. 전역 토글 시 개별 오버라이드 리셋.
-  const [globalUnfold, setGlobalUnfold] = useState<boolean>(() =>
-    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      ? window.matchMedia('(min-width: 1024px)').matches
-      : true
-  )
+  // 카드 접기(A안 2단): 기본값은 Settings의 cardFoldDefault (auto = 데스크톱 펼침 / 모바일 접힘)
+  const [globalUnfold, setGlobalUnfold] = useState<boolean>(() => resolveFoldDefault(prefs.cardFoldDefault))
   const [foldOverrides, setFoldOverrides] = useState<Set<string>>(new Set())
   const isUnfolded = (id: string) => (foldOverrides.has(id) ? !globalUnfold : globalUnfold)
   const toggleCard = (id: string) =>
@@ -53,6 +51,20 @@ export function DashboardHoldings({ holdings }: Props) {
   const toggleAll = () => {
     setGlobalUnfold((v) => !v)
     setFoldOverrides(new Set())
+  }
+  // 현재 필터·정렬 상태 그대로 CSV (Phase C — 2026-07-23). visible이 아닌 filtered 전체.
+  const exportCsv = () => {
+    const today = new Date().toISOString().slice(0, 10)
+    downloadCsv(
+      `holdings_${today}.csv`,
+      ['종목명', '코드', '시장', '증권사', '계좌', '수량', '평균단가', '현재가', '매입금액', '평가금액', '손익', '수익률%', '당일등락액'],
+      filtered.map((h) => [
+        h.name, h.symbol, h.market, h.broker, h.accountType,
+        h.shares, Math.round(h.avgPrice), Math.round(h.currentPrice),
+        Math.round(h.opBuy), Math.round(h.value), Math.round(h.opProfit),
+        h.returnPct.toFixed(2), Math.round(h.dayChange),
+      ]),
+    )
   }
   const [detailStock, setDetailStock] = useState<{ code: string; name: string } | null>(null)
 
@@ -97,8 +109,9 @@ export function DashboardHoldings({ holdings }: Props) {
 
   const totalWeight = holdings.reduce((s, h) => s + h.value, 0) || 1
 
-  // 접힌 상태에선 상위 N개만 (정렬·필터·합계는 전체 filtered 기준 유지)
-  const visible = showAll ? filtered : filtered.slice(0, INITIAL_VISIBLE)
+  // 접힌 상태에선 상위 N개만 (정렬·필터·합계는 전체 filtered 기준 유지). 0 = 항상 전체
+  const initialVisible = prefs.holdingsInitialVisible
+  const visible = showAll || initialVisible <= 0 ? filtered : filtered.slice(0, initialVisible)
   const hiddenCount = filtered.length - visible.length
 
   return (
@@ -150,6 +163,13 @@ export function DashboardHoldings({ holdings }: Props) {
           </div>
           {/* View mode toggle — 3-state (순서: Web → Terminal → List) */}
           <div className="lg:ml-auto flex items-center gap-2">
+            <button
+              onClick={exportCsv}
+              className="shrink-0 px-2.5 py-1.5 lg:py-0.5 text-2xs uppercase tracking-widest border border-line text-ink-dim hover:text-amber hover:border-amber"
+              title="현재 필터 상태 그대로 CSV 다운로드"
+            >
+              ⬇ CSV
+            </button>
             {viewMode !== 'list' && (
               <button
                 onClick={toggleAll}
@@ -341,13 +361,13 @@ export function DashboardHoldings({ holdings }: Props) {
       )}
 
       {/* 접기/펼치기 — 상위 N개 초과분 토글 */}
-      {filtered.length > INITIAL_VISIBLE && (
+      {initialVisible > 0 && filtered.length > initialVisible && (
         <button
           onClick={() => setShowAll((v) => !v)}
           className="w-full py-2.5 text-2xs uppercase tracking-widest text-ink-dim hover:text-amber border-t border-line-dim"
         >
           {showAll
-            ? `▴ 접기 — 상위 ${INITIAL_VISIBLE}종목만 표시`
+            ? `▴ 접기 — 상위 ${initialVisible}종목만 표시`
             : `▾ 전체 ${filtered.length}종목 보기 (+${hiddenCount})`}
         </button>
       )}
