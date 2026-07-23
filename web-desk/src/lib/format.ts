@@ -1,8 +1,10 @@
 // 표시 규칙: 숫자 축약(억/만/M/K) 금지 — 항상 풀 표기 (memory: feedback_number_display)
 // 로케일: web(utils/format.ts)과 동일하게 ko-KR — 두 앱 표기 통일 (2026-07-16 드리프트 정리)
+// 음수는 "-₩1,234" (통화기호 앞 부호 — "₩-1,234" 방지)
 export function fmtKRW(n: number, opts: { signed?: boolean } = {}): string {
-  const sign = opts.signed && n > 0 ? '+' : ''
-  return `${sign}₩${Math.round(n).toLocaleString('ko-KR')}`
+  const r = Math.round(n)
+  const sign = r < 0 ? '-' : opts.signed && r > 0 ? '+' : ''
+  return `${sign}₩${Math.abs(r).toLocaleString('ko-KR')}`
 }
 
 export function fmtPct(n: number, opts: { signed?: boolean; digits?: number } = {}): string {
