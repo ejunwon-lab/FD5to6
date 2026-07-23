@@ -247,8 +247,26 @@ async function callGAS<T>(functionName: string, token: string, parameters?: unkn
   return (typeof result === 'string' ? JSON.parse(result) : result) as T
 }
 
+export interface SystemStatusResponse {
+  success: boolean
+  error?: string
+  diag?: {
+    now?: string
+    isTradingDay?: boolean
+    isMarketDay?: boolean
+    priceAsOfDate?: string
+    priceHistTail?: string[]
+    holidaysTail?: string[]
+    stockCount?: number
+    metricFill?: Record<string, string>
+    lastUpdate?: string
+  }
+  kis?: { date?: string; carried?: number; total?: number } | null
+}
+
 export const gasApi = {
   getPortfolio:      (token: string) => callGAS<PortfolioResponse>('newMobileGetPortfolio', token),
+  getSystemStatus:   (token: string) => callGAS<SystemStatusResponse>('newMobileGetSystemStatus', token),
   getIndicators:     (token: string) => callGAS<IndicatorsResponse>('newMobileGetIndicators', token),
   getProfitHistory:  (token: string) => callGAS<TrendHistoryResponse>('newMobileGetProfitHistory', token),
   getMonthlyRealized:(token: string) => callGAS<MonthlyRealizedResponse>('newMobileGetMonthlyRealized', token),

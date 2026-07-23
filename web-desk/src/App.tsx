@@ -10,6 +10,7 @@ import { HoldingsPage } from './components/holdings/HoldingsPage'
 import { AnalysisPage } from './components/analysis/AnalysisPage'
 import { IndicatorsPage } from './components/indicators/IndicatorsPage'
 import { ActivityPage } from './components/activity/ActivityPage'
+import { KisStatusPage } from './components/system/KisStatusPage'
 import { DataProvider } from './lib/DataProvider'
 
 function PlaceholderPage({ title }: { title: string }) {
@@ -67,6 +68,7 @@ function App() {
       case 'analysis':    return <AnalysisPage />
       case 'indicators':  return <IndicatorsPage />
       case 'tradelog':    return <ActivityPage />
+      case 'kis':         return <KisStatusPage />
       default:            return <PlaceholderPage title={active} />
     }
   })()

@@ -71,6 +71,7 @@ last updated: 2026-07-23
 | `newMobileGetSoldTracker()` | SoldTrackerResponse | 매도 복기 What-if. `asOfDate` + `items[]` 16필드 (sellDate·code·name·category·broker·account·sellQty·sellPrice·sellAmount·avgBuyPrice·buyCost·realizedProfit·**currentPrice**·**ifHeldProfit**(안팔았다면)·**diff**(판것대비차이)·elapsedDays) ← *매도추적*. 국내만 what-if(해외 currentPrice/ifHeldProfit/diff=null·환율 미반영), 매도일 desc |
 | `newMobileGetIndicators()` | IndicatorsResponse | 참고지표 (key·name·category·value·change·changePct) |
 | `newMobileGetIndicatorHistory()` | IndicatorHistoryResponse | **참고지표 시계열** (*참고지표_히스토리* 시트 wide JSON: keys + entries[{date, KOSPI, SPX, ...}]). 벤치마크 outperformance 차트용 — 날짜 asc 정렬, name→key 매핑 |
+| `newMobileGetSystemStatus()` | SystemStatusResponse | 시스템 상태 (데스크 KIS Status) — `_buildDiag`(날짜·참거짓·개수·충족도만) + `kis_carried_status`{date·carried·total}. 금액·종목명 없음 (2026-07-23) |
 | `newMobileUpdateCurrentPrice()` | — | 현재가 갱신 트리거 |
 | `newMobileUpdateHistory()` | — | *현재가_이력* 갱신 트리거 |
 | `newMobileUpdateAll()` | — | 통합 갱신 트리거 |

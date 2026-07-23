@@ -1354,3 +1354,25 @@ function _newUpsertIndicatorsHistory(sheet, today, hhmmss, results) {
   const row = [today, hhmmss, ...results.map(r => r.value)];
   sheet.getRange(existingRow || (lastRow + 1), 1, 1, row.length).setValues([row]);
 }
+
+// ══════════════════════════════════════════════════════
+//  시스템 상태 (데스크 KIS Status 페이지용) — 2026-07-23
+//  _buildDiag(Diag.js) 재사용 + kis_carried_status(Properties).
+//  ⚠️ Diag.js 규칙 유지: 날짜·참거짓·개수·충족도만. 금액·종목명·계좌 절대 금지.
+//  scripts.run(소유자 OAuth) 전용 — doGet 공개 엔드포인트 아님.
+// ══════════════════════════════════════════════════════
+function newMobileGetSystemStatus() {
+  try {
+    const out = { success: true, diag: _buildDiag() };
+    try {
+      const raw = PropertiesService.getScriptProperties().getProperty('kis_carried_status');
+      out.kis = raw ? JSON.parse(raw) : null;   // {date, carried, total}
+    } catch (e) {
+      out.kis = null;
+    }
+    return JSON.stringify(out);
+  } catch (e) {
+    Logger.log('newMobileGetSystemStatus 오류: ' + e);
+    return JSON.stringify({ success: false, error: String(e) });
+  }
+}
