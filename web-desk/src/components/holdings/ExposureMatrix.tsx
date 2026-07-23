@@ -56,7 +56,7 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
   return (
     <Panel
       title="Account P&L"
-      meta={`순자산 ₩${Math.round(netWorth).toLocaleString()}`}
+      meta={`순자산 ₩${Math.round(netWorth).toLocaleString('ko-KR')}`}
     >
       {/* 1. 상단 4 그룹 카드 — 한눈에 자산 구조 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-line border-b border-line">
@@ -109,16 +109,16 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
                     <div className="text-2xs text-ink-faint tabular">{r.count}개 종목</div>
                   </td>
                   <td className="px-3 py-2 text-right tabular text-ink">
-                    ₩{Math.round(r.opBuy).toLocaleString()}
+                    ₩{Math.round(r.opBuy).toLocaleString('ko-KR')}
                   </td>
                   <td className={`px-3 py-2 text-right tabular ${r.opProfit >= 0 ? 'text-gain' : 'text-loss'}`}>
-                    <div>{r.opProfit >= 0 ? '+' : ''}₩{Math.round(r.opProfit).toLocaleString()}</div>
+                    <div>{r.opProfit >= 0 ? '+' : ''}₩{Math.round(r.opProfit).toLocaleString('ko-KR')}</div>
                     <div className="text-2xs opacity-80">
                       {r.returnPct >= 0 ? '+' : ''}{r.returnPct.toFixed(2)}%
                     </div>
                   </td>
                   <td className="px-3 py-2 text-right tabular bg-bg-elev">
-                    <div className="text-amber font-medium">₩{Math.round(r.value).toLocaleString()}</div>
+                    <div className="text-amber font-medium">₩{Math.round(r.value).toLocaleString('ko-KR')}</div>
                   </td>
                 </tr>
               ))}
@@ -152,12 +152,12 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
                       </div>
                     </td>
                     <td className="px-3 py-2 text-right tabular text-ink">
-                      {a.opBuy > 0 ? `₩${Math.round(a.opBuy).toLocaleString()}` : '—'}
+                      {a.opBuy > 0 ? `₩${Math.round(a.opBuy).toLocaleString('ko-KR')}` : '—'}
                     </td>
                     <td className={`px-3 py-2 text-right tabular ${a.opProfit === 0 ? 'text-ink-faint' : (isProfit ? 'text-gain' : 'text-loss')}`}>
                       {a.opProfit !== 0 ? (
                         <>
-                          <div>{isProfit ? '+' : ''}₩{Math.round(a.opProfit).toLocaleString()}</div>
+                          <div>{isProfit ? '+' : ''}₩{Math.round(a.opProfit).toLocaleString('ko-KR')}</div>
                           <div className="text-2xs opacity-80">
                             {a.profitRate >= 0 ? '+' : ''}{a.profitRate.toFixed(2)}%
                           </div>
@@ -165,7 +165,7 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
                       ) : '—'}
                     </td>
                     <td className="px-3 py-2 text-right tabular bg-bg-elev">
-                      <div className="text-ink-dim font-medium">₩{Math.round(a.value).toLocaleString()}</div>
+                      <div className="text-ink-dim font-medium">₩{Math.round(a.value).toLocaleString('ko-KR')}</div>
                     </td>
                   </tr>
                 )
@@ -199,7 +199,7 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
                       {c.updatedAt || '—'}
                     </td>
                     <td className="px-3 py-2 text-right tabular bg-bg-elev">
-                      <div className="text-cyan font-medium">₩{Math.round(c.amount).toLocaleString()}</div>
+                      <div className="text-cyan font-medium">₩{Math.round(c.amount).toLocaleString('ko-KR')}</div>
                     </td>
                   </tr>
                 )
@@ -241,12 +241,12 @@ function GroupCard({ label, value, subtitle, returnPct, opProfit, open, onClick,
         )}
       </div>
       <div className={`text-base tabular font-medium ${valueTone}`}>
-        ₩{Math.round(value).toLocaleString()}
+        ₩{Math.round(value).toLocaleString('ko-KR')}
       </div>
       <div className="text-xxs text-ink-dim mt-0.5">{subtitle}</div>
       {opProfit !== undefined && returnPct !== undefined && (
         <div className={`text-xxs tabular mt-1 ${profitTone}`}>
-          {opProfit >= 0 ? '+' : ''}₩{Math.round(opProfit).toLocaleString()} · {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%
+          {opProfit >= 0 ? '+' : ''}₩{Math.round(opProfit).toLocaleString('ko-KR')} · {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%
         </div>
       )}
     </button>
@@ -258,7 +258,7 @@ function NetWorthCard({ value }: { value: number }) {
     <div className="bg-amber/10 border-l border-amber/40 px-3.5 py-3 flex flex-col justify-center">
       <div className="text-2xs uppercase tracking-widest text-amber mb-1 font-semibold">순자산</div>
       <div className="text-lg tabular font-bold text-amber leading-tight">
-        ₩{Math.round(value).toLocaleString()}
+        ₩{Math.round(value).toLocaleString('ko-KR')}
       </div>
       <div className="text-xxs text-ink-faint mt-0.5">주식 + 비주식 + 대기자금</div>
     </div>

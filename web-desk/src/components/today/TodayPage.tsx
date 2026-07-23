@@ -55,7 +55,7 @@ export function TodayPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border border-line">
         <Stat
           label="포트 변동 (당일)"
-          value={`${summary.totalDayChange >= 0 ? '+' : ''}₩${Math.round(summary.totalDayChange).toLocaleString()}`}
+          value={`${summary.totalDayChange >= 0 ? '+' : ''}₩${Math.round(summary.totalDayChange).toLocaleString('ko-KR')}`}
           sub={`${summary.totalPct >= 0 ? '+' : ''}${summary.totalPct.toFixed(2)}%`}
           tone={summary.totalDayChange >= 0 ? 'up' : 'down'}
         />
@@ -135,14 +135,14 @@ function MoverRow({ h, rank, maxAbsPct }: MoverProps) {
       {/* Row 2: 현재가 · 1주변동 식 · 등락액 */}
       <div className="flex items-baseline justify-between gap-3 mt-1 pl-9">
         <div className="text-xs text-ink-dim tabular">
-          {Math.round(h.currentPrice).toLocaleString()}원
+          {Math.round(h.currentPrice).toLocaleString('ko-KR')}원
           <span className="text-ink-faint mx-2">·</span>
           <span className={toneClass}>
-            {h.change >= 0 ? '+' : ''}{Math.round(h.change).toLocaleString()}원/주 × {h.shares.toLocaleString()}주
+            {h.change >= 0 ? '+' : ''}{Math.round(h.change).toLocaleString('ko-KR')}원/주 × {h.shares.toLocaleString('ko-KR')}주
           </span>
         </div>
         <span className={`text-sm font-medium tabular ${toneClass}`}>
-          {h.dayChange >= 0 ? '+' : ''}₩{Math.round(h.dayChange).toLocaleString()}
+          {h.dayChange >= 0 ? '+' : ''}₩{Math.round(h.dayChange).toLocaleString('ko-KR')}
         </span>
       </div>
 

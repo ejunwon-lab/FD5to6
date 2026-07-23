@@ -76,7 +76,7 @@ export function MonthlyHeatmapPanel({ equityCurve }: { equityCurve: EquityPoint[
   }
 
   const hoverMeta = hovered && hovered.hasData
-    ? `${hovered.year}-${String(hovered.month + 1).padStart(2, '0')}: ${hovered.delta >= 0 ? '+' : ''}₩${Math.round(hovered.delta).toLocaleString()}`
+    ? `${hovered.year}-${String(hovered.month + 1).padStart(2, '0')}: ${hovered.delta >= 0 ? '+' : ''}₩${Math.round(hovered.delta).toLocaleString('ko-KR')}`
     : `${years.length} year${years.length !== 1 ? 's' : ''}`
 
   return (
@@ -124,7 +124,7 @@ export function MonthlyHeatmapPanel({ equityCurve }: { equityCurve: EquityPoint[
                     )
                   })}
                   <td className={`px-2 py-1.5 text-right font-medium tabular ${ytd >= 0 ? 'text-gain' : 'text-loss'}`}>
-                    {ytd >= 0 ? '+' : ''}₩{Math.round(ytd).toLocaleString()}
+                    {ytd >= 0 ? '+' : ''}₩{Math.round(ytd).toLocaleString('ko-KR')}
                   </td>
                 </tr>
               )

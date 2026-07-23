@@ -62,12 +62,12 @@ export function EquityChart({ equityCurve, meta }: Props) {
               <CartesianGrid stroke="#1f2630" strokeDasharray="0" vertical={false} />
               <XAxis dataKey="date" stroke="#4a5568" tick={{ fill: '#4a5568', fontSize: 10 }} interval={tickInterval} />
               <YAxis stroke="#4a5568" tick={{ fill: '#4a5568', fontSize: 10 }} width={92}
-                tickFormatter={(v) => Math.round(Number(v)).toLocaleString()} />
+                tickFormatter={(v) => Math.round(Number(v)).toLocaleString('ko-KR')} />
               <Tooltip
                 contentStyle={{ background: '#11151c', border: '1px solid #1f2630', fontSize: 11, fontFamily: 'JetBrains Mono' }}
                 labelStyle={{ color: '#6b7280' }}
                 itemStyle={{ color: '#d4d8e0' }}
-                formatter={(v) => [`₩${Math.round(Number(v)).toLocaleString()}`, 'Equity']}
+                formatter={(v) => [`₩${Math.round(Number(v)).toLocaleString('ko-KR')}`, 'Equity']}
               />
               <Area type="monotone" dataKey="value" stroke="#00ff7f" strokeWidth={1.5} fill="url(#eq-grad)" />
             </AreaChart>

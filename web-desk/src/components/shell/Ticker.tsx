@@ -41,7 +41,7 @@ export function Ticker() {
       list.push({
         name: h.name || h.symbol,
         symbol: h.symbol,
-        display: `₩${Math.round(h.currentPrice).toLocaleString()}`,
+        display: `₩${Math.round(h.currentPrice).toLocaleString('ko-KR')}`,
         changePct: h.dayChangePct,
       })
     }

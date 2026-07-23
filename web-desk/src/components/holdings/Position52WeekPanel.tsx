@@ -39,12 +39,12 @@ export function Position52WeekPanel({ holdings }: { holdings: Holding[] }) {
                   <div
                     className={`absolute top-0 bottom-0 w-1 ${markerTone}`}
                     style={{ left: `calc(${clamped}% - 2px)` }}
-                    title={`${Math.round(h.currentPrice).toLocaleString()} (${clamped.toFixed(1)}%)`}
+                    title={`${Math.round(h.currentPrice).toLocaleString('ko-KR')} (${clamped.toFixed(1)}%)`}
                   />
                 </div>
                 <div className="flex justify-between text-2xs text-ink-faint tabular mt-0.5">
-                  <span>{Math.round(h.low52).toLocaleString()}</span>
-                  <span>{Math.round(h.high52).toLocaleString()}</span>
+                  <span>{Math.round(h.low52).toLocaleString('ko-KR')}</span>
+                  <span>{Math.round(h.high52).toLocaleString('ko-KR')}</span>
                 </div>
               </div>
               <div className={`text-right tabular text-xs ${pctTone}`}>

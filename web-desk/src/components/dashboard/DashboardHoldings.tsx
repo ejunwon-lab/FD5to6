@@ -104,7 +104,7 @@ export function DashboardHoldings({ holdings }: Props) {
   return (
     <Panel
       title={`Holdings · ${filtered.length}${selectedAccount === '전체' ? '' : ' / ' + accountDisplay(accountBrokerMap[selectedAccount] ?? '', selectedAccount)}`}
-      meta={`₩${Math.round(stats.value).toLocaleString()}`}
+      meta={`₩${Math.round(stats.value).toLocaleString('ko-KR')}`}
       className="col-span-full"
     >
       {/* 필터 + 정렬 + 검색 바 */}
@@ -286,20 +286,20 @@ export function DashboardHoldings({ holdings }: Props) {
               <div className="text-right tabular text-ink-dim">{h.shares}</div>
               {/* Avg cost */}
               <div className="text-right tabular text-ink-dim text-xxs">
-                {h.market === 'KR' ? `₩${Math.round(h.avgPrice).toLocaleString()}` : `$${h.avgPrice.toFixed(2)}`}
+                {h.market === 'KR' ? `₩${Math.round(h.avgPrice).toLocaleString('ko-KR')}` : `$${h.avgPrice.toFixed(2)}`}
               </div>
               {/* Value */}
-              <div className="text-right tabular text-ink font-medium">₩{h.value.toLocaleString()}</div>
+              <div className="text-right tabular text-ink font-medium">₩{h.value.toLocaleString('ko-KR')}</div>
               {/* Day change — 카드와 동일: 1주변동/등락률 + 1주변동 × 수량 = 종목 전체 */}
               <div className={`text-right tabular ${dayUp ? 'text-gain' : 'text-loss'}`}>
-                <div>{dayUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 / {dayUp ? '+' : ''}{h.dayChangePct.toFixed(2)}%</div>
+                <div>{dayUp ? '+' : ''}{Math.round(h.change).toLocaleString('ko-KR')}원 / {dayUp ? '+' : ''}{h.dayChangePct.toFixed(2)}%</div>
                 <div className="text-2xs opacity-80">
-                  {dayUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 × {h.shares.toLocaleString()}주 = {dayUp ? '+' : ''}{Math.round(h.dayChange).toLocaleString()}원
+                  {dayUp ? '+' : ''}{Math.round(h.change).toLocaleString('ko-KR')}원 × {h.shares.toLocaleString('ko-KR')}주 = {dayUp ? '+' : ''}{Math.round(h.dayChange).toLocaleString('ko-KR')}원
                 </div>
               </div>
               {/* Total P&L */}
               <div className={`text-right tabular ${totalUp ? 'text-gain' : 'text-loss'}`}>
-                <div>{totalUp ? '+' : ''}{h.opProfit.toLocaleString()}</div>
+                <div>{totalUp ? '+' : ''}{h.opProfit.toLocaleString('ko-KR')}</div>
                 <div className="text-2xs opacity-80">{totalUp ? '+' : ''}{h.returnPct.toFixed(2)}%</div>
               </div>
               {/* Held days */}
@@ -327,12 +327,12 @@ export function DashboardHoldings({ holdings }: Props) {
              style={{ gridTemplateColumns: '1.8fr 1.4fr 60px 90px 1.1fr 2.2fr 1.4fr 60px 90px' }}>
           <span className="text-ink-faint uppercase tracking-widest text-2xs">소계 · {accountDisplay(accountBrokerMap[selectedAccount] ?? '', selectedAccount)}</span>
           <span></span><span></span><span></span>
-          <span className="text-right tabular font-medium">₩{stats.value.toLocaleString()}</span>
+          <span className="text-right tabular font-medium">₩{stats.value.toLocaleString('ko-KR')}</span>
           <span className={`text-right tabular ${stats.dayChange >= 0 ? 'text-gain' : 'text-loss'}`}>
-            {stats.dayChange >= 0 ? '+' : ''}{stats.dayChange.toLocaleString()}
+            {stats.dayChange >= 0 ? '+' : ''}{stats.dayChange.toLocaleString('ko-KR')}
           </span>
           <span className={`text-right tabular ${stats.profit >= 0 ? 'text-gain' : 'text-loss'}`}>
-            {stats.profit >= 0 ? '+' : ''}{stats.profit.toLocaleString()}
+            {stats.profit >= 0 ? '+' : ''}{stats.profit.toLocaleString('ko-KR')}
           </span>
           <span></span><span></span>
         </div>

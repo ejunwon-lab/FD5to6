@@ -34,7 +34,7 @@ export function ContributionBar({ holdings }: Props) {
   return (
     <Panel
       title="Profit Contribution"
-      meta={`total ${totalProfit >= 0 ? '+' : ''}₩${Math.round(totalProfit).toLocaleString()}`}
+      meta={`total ${totalProfit >= 0 ? '+' : ''}₩${Math.round(totalProfit).toLocaleString('ko-KR')}`}
       className="lg:col-span-2"
     >
       {/* Mode toggle */}
@@ -80,7 +80,7 @@ function Side({ title, rows, mode, maxAbs, tone }: { title: string; rows: Row[];
         {rows.map((r) => {
           const widthPct = (Math.abs(r.profit) / maxAbs) * 100
           const display = mode === 'value'
-            ? `${r.profit >= 0 ? '+' : ''}₩${Math.round(r.profit).toLocaleString()}`
+            ? `${r.profit >= 0 ? '+' : ''}₩${Math.round(r.profit).toLocaleString('ko-KR')}`
             : `${r.contribPct >= 0 ? '+' : ''}${r.contribPct.toFixed(1)}%`
           return (
             <div key={`${r.symbol}-${r.profit}`} className="text-2xs">

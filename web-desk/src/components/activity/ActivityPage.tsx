@@ -56,11 +56,11 @@ export function ActivityPage() {
       {/* Summary strip — 6 KPI */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-line border border-line">
         <Stat label="Realized P&L"  value={fmtSignedKrw(stats.total)}                                   sub="all-time"                                                    tone={stats.total >= 0 ? 'up' : 'down'} />
-        <Stat label="Win Trades"    value={`${stats.winCount}`}                                         sub={`+₩${Math.round(stats.winSum).toLocaleString()}`}              tone="up" />
-        <Stat label="Loss Trades"   value={`${stats.lossCount}`}                                        sub={`₩${Math.round(stats.lossSum).toLocaleString()}`}              tone="down" />
+        <Stat label="Win Trades"    value={`${stats.winCount}`}                                         sub={`+₩${Math.round(stats.winSum).toLocaleString('ko-KR')}`}              tone="up" />
+        <Stat label="Loss Trades"   value={`${stats.lossCount}`}                                        sub={`₩${Math.round(stats.lossSum).toLocaleString('ko-KR')}`}              tone="down" />
         <Stat label="Win Rate"      value={`${data.length ? Math.round((stats.winCount / data.length) * 100) : 0}%`} sub={`${data.length} closed`} />
         <Stat label="Avg Trade"     value={fmtSignedKrw(stats.total / Math.max(data.length, 1))}        sub="per close"                                                    tone="cyan" />
-        <Stat label="Total Fees"    value={`₩${Math.round(stats.totalFee).toLocaleString()}`}           sub={`${data.length ? Math.round(stats.totalFee / data.length).toLocaleString() : 0}/trade`} />
+        <Stat label="Total Fees"    value={`₩${Math.round(stats.totalFee).toLocaleString('ko-KR')}`}           sub={`${data.length ? Math.round(stats.totalFee / data.length).toLocaleString('ko-KR') : 0}/trade`} />
       </div>
 
       {/* Yearly + Tax-loss (신규 Phase B) */}
@@ -154,10 +154,10 @@ export function ActivityPage() {
                   <div>{e.broker ?? '—'}</div>
                   <div className="text-ink-faint">{e.account ?? ''}</div>
                 </td>
-                <td className="px-3 py-2 text-right tabular">{e.quantity.toLocaleString()}</td>
-                <td className="px-3 py-2 text-right tabular text-ink-dim">{e.avgBuyPrice != null ? Math.round(e.avgBuyPrice).toLocaleString() : '—'}</td>
-                <td className="px-3 py-2 text-right tabular text-ink-dim">{e.sellPrice != null ? Math.round(e.sellPrice).toLocaleString() : '—'}</td>
-                <td className="px-3 py-2 text-right tabular text-ink-faint">{e.fee != null ? Math.round(e.fee).toLocaleString() : '—'}</td>
+                <td className="px-3 py-2 text-right tabular">{e.quantity.toLocaleString('ko-KR')}</td>
+                <td className="px-3 py-2 text-right tabular text-ink-dim">{e.avgBuyPrice != null ? Math.round(e.avgBuyPrice).toLocaleString('ko-KR') : '—'}</td>
+                <td className="px-3 py-2 text-right tabular text-ink-dim">{e.sellPrice != null ? Math.round(e.sellPrice).toLocaleString('ko-KR') : '—'}</td>
+                <td className="px-3 py-2 text-right tabular text-ink-faint">{e.fee != null ? Math.round(e.fee).toLocaleString('ko-KR') : '—'}</td>
                 <td className={`px-3 py-2 text-right tabular ${e.profit >= 0 ? 'text-gain' : 'text-loss'}`}>
                   {fmtSignedKrw(e.profit)}
                 </td>
@@ -179,7 +179,7 @@ export function ActivityPage() {
 
 function fmtSignedKrw(n: number): string {
   const v = Math.round(n)
-  return `${v >= 0 ? '+' : ''}₩${v.toLocaleString()}`
+  return `${v >= 0 ? '+' : ''}₩${v.toLocaleString('ko-KR')}`
 }
 
 function Stat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: 'up' | 'down' | 'cyan' }) {

@@ -18,7 +18,7 @@ export function AccountTypePanel({ holdings, cashReserve, nonStockAssets }: Prop
   )
 
   return (
-    <Panel title="계좌 유형별" meta={`총자산 ₩${Math.round(total).toLocaleString()}`}>
+    <Panel title="계좌 유형별" meta={`총자산 ₩${Math.round(total).toLocaleString('ko-KR')}`}>
       <div className="overflow-x-auto">
         <table className="w-full text-xs min-w-[420px]">
           <thead>
@@ -34,7 +34,7 @@ export function AccountTypePanel({ holdings, cashReserve, nonStockAssets }: Prop
                 <tr className="border-b border-line-dim bg-bg-deep/20">
                   <td className="px-3 py-2 text-ink font-medium">{g.label}</td>
                   <td className="px-3 py-2 text-right tabular text-amber font-medium">
-                    ₩{Math.round(g.amount).toLocaleString()}
+                    ₩{Math.round(g.amount).toLocaleString('ko-KR')}
                   </td>
                   <td className="px-3 py-2 text-right tabular text-ink-dim">{g.pct.toFixed(1)}%</td>
                 </tr>
@@ -42,7 +42,7 @@ export function AccountTypePanel({ holdings, cashReserve, nonStockAssets }: Prop
                   <tr key={`${g.label}-${b.broker}`} className="border-b border-line-dim">
                     <td className="px-3 py-1.5 pl-7 text-ink-dim">{b.broker}</td>
                     <td className="px-3 py-1.5 text-right tabular text-ink">
-                      ₩{Math.round(b.amount).toLocaleString()}
+                      ₩{Math.round(b.amount).toLocaleString('ko-KR')}
                     </td>
                     <td className="px-3 py-1.5 text-right tabular text-ink-faint text-2xs">
                       {b.pct.toFixed(1)}%
@@ -54,7 +54,7 @@ export function AccountTypePanel({ holdings, cashReserve, nonStockAssets }: Prop
             <tr className="border-t border-line bg-bg-elev font-medium">
               <td className="px-3 py-2 text-ink">합계</td>
               <td className="px-3 py-2 text-right tabular text-amber">
-                ₩{Math.round(total).toLocaleString()}
+                ₩{Math.round(total).toLocaleString('ko-KR')}
               </td>
               <td className="px-3 py-2 text-right tabular text-ink-dim">100.0%</td>
             </tr>

@@ -59,9 +59,9 @@ export function SoldTrackerPanel() {
                     <div>{it.broker || '—'}</div>
                     <div className="text-ink-faint">{it.account || ''}</div>
                   </td>
-                  <td className="px-3 py-2 text-right tabular">{it.sellQty != null ? it.sellQty.toLocaleString() : '—'}</td>
-                  <td className="px-3 py-2 text-right tabular text-ink-dim">{it.sellPrice != null ? Math.round(it.sellPrice).toLocaleString() : '—'}</td>
-                  <td className="px-3 py-2 text-right tabular text-ink-dim">{it.currentPrice != null ? Math.round(it.currentPrice).toLocaleString() : '—'}</td>
+                  <td className="px-3 py-2 text-right tabular">{it.sellQty != null ? it.sellQty.toLocaleString('ko-KR') : '—'}</td>
+                  <td className="px-3 py-2 text-right tabular text-ink-dim">{it.sellPrice != null ? Math.round(it.sellPrice).toLocaleString('ko-KR') : '—'}</td>
+                  <td className="px-3 py-2 text-right tabular text-ink-dim">{it.currentPrice != null ? Math.round(it.currentPrice).toLocaleString('ko-KR') : '—'}</td>
                   <td className={`px-3 py-2 text-right tabular ${(it.realizedProfit ?? 0) >= 0 ? 'text-gain' : 'text-loss'}`}>
                     {it.realizedProfit != null ? fmtSignedKrw(it.realizedProfit) : '—'}
                   </td>
@@ -90,7 +90,7 @@ export function SoldTrackerPanel() {
 
 function fmtSignedKrw(n: number): string {
   const v = Math.round(n)
-  return `${v >= 0 ? '+' : ''}₩${v.toLocaleString()}`
+  return `${v >= 0 ? '+' : ''}₩${v.toLocaleString('ko-KR')}`
 }
 
 function Stat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: 'up' | 'down' | 'amber' }) {

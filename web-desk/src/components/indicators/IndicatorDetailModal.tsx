@@ -111,11 +111,11 @@ export function IndicatorDetailModal({ ind, onClose }: Props) {
                     <YAxis
                       tick={{ fontSize: 10, fill: '#6b7280' }}
                       domain={['auto', 'auto']}
-                      tickFormatter={(v: number) => v.toLocaleString()}
+                      tickFormatter={(v: number) => v.toLocaleString('ko-KR')}
                     />
                     <Tooltip
                       contentStyle={{ background: '#0c0f15', border: '1px solid #374151', fontSize: 11 }}
-                      formatter={(v) => Number(v).toLocaleString()}
+                      formatter={(v) => Number(v).toLocaleString('ko-KR')}
                     />
                     <Line
                       type="monotone"

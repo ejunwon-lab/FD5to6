@@ -32,16 +32,16 @@ export function HoldingsStatusStrip({ holdings, sortKey, selectedAccount }: Prop
   return (
     <div className="px-3 pt-2.5 pb-3 border-b border-line-dim bg-bg/30">
       <div className={`grid grid-cols-2 sm:grid-cols-3 ${lgCols} gap-px bg-line border border-line`}>
-        <KpiCell label="평가금액" value={`₩${stats.value.toLocaleString()}`} sub={`${stats.count}개 종목`} />
+        <KpiCell label="평가금액" value={`₩${stats.value.toLocaleString('ko-KR')}`} sub={`${stats.count}개 종목`} />
         <KpiCell
           label="누적 손익"
-          value={`${stats.profit >= 0 ? '+' : ''}₩${stats.profit.toLocaleString()}`}
+          value={`${stats.profit >= 0 ? '+' : ''}₩${stats.profit.toLocaleString('ko-KR')}`}
           sub={`${stats.profit >= 0 ? '+' : ''}${stats.profitPct.toFixed(2)}%`}
           tone={stats.profit >= 0 ? 'gain' : 'loss'}
         />
         <KpiCell
           label="오늘 등락"
-          value={`${stats.dayChange >= 0 ? '+' : ''}₩${stats.dayChange.toLocaleString()}`}
+          value={`${stats.dayChange >= 0 ? '+' : ''}₩${stats.dayChange.toLocaleString('ko-KR')}`}
           sub={`${stats.dayChange >= 0 ? '+' : ''}${stats.dayPct.toFixed(2)}%`}
           tone={stats.dayChange >= 0 ? 'gain' : 'loss'}
         />
@@ -115,7 +115,7 @@ function DynamicCell({ holdings, sortKey, selectedAccount }: Props) {
           value={<span className="text-amber">{h.name}</span>}
           sub={
             <span className={up ? 'text-gain' : 'text-loss'}>
-              {up ? '+' : ''}₩{h.dayChange.toLocaleString()} ({h.changePct})
+              {up ? '+' : ''}₩{h.dayChange.toLocaleString('ko-KR')} ({h.changePct})
             </span>
           }
           tone="amber"
@@ -162,11 +162,11 @@ function DynamicCell({ holdings, sortKey, selectedAccount }: Props) {
           <div className="text-xs space-y-0.5">
             <div className="flex items-baseline gap-1.5 justify-between">
               <span className="text-amber font-medium truncate">{best.name}</span>
-              <span className="text-gain tabular text-2xs shrink-0">+₩{Math.abs(best.opProfit).toLocaleString()}</span>
+              <span className="text-gain tabular text-2xs shrink-0">+₩{Math.abs(best.opProfit).toLocaleString('ko-KR')}</span>
             </div>
             <div className="flex items-baseline gap-1.5 justify-between">
               <span className="text-amber font-medium truncate">{worst.name}</span>
-              <span className="text-loss tabular text-2xs shrink-0">−₩{Math.abs(worst.opProfit).toLocaleString()}</span>
+              <span className="text-loss tabular text-2xs shrink-0">−₩{Math.abs(worst.opProfit).toLocaleString('ko-KR')}</span>
             </div>
           </div>
         </div>

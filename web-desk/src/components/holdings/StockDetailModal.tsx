@@ -87,12 +87,12 @@ export function StockDetailModal({ code, initialName, onClose }: Props) {
             {summary && (
               <Section title="요약" meta="SUMMARY">
                 <div className="grid grid-cols-2 gap-px bg-line border border-line">
-                  <KV label="총 수량"      value={`${summary.totalQuantity.toLocaleString()}주`} />
-                  <KV label="평가금액"    value={`₩${Math.round(summary.totalCurrentValue).toLocaleString()}`} />
-                  <KV label="매입금액"    value={`₩${Math.round(summary.totalBuyAmount).toLocaleString()}`} />
+                  <KV label="총 수량"      value={`${summary.totalQuantity.toLocaleString('ko-KR')}주`} />
+                  <KV label="평가금액"    value={`₩${Math.round(summary.totalCurrentValue).toLocaleString('ko-KR')}`} />
+                  <KV label="매입금액"    value={`₩${Math.round(summary.totalBuyAmount).toLocaleString('ko-KR')}`} />
                   <KV
                     label="손익 / 수익률"
-                    value={`${summary.totalProfit >= 0 ? '+' : ''}₩${Math.round(summary.totalProfit).toLocaleString()}`}
+                    value={`${summary.totalProfit >= 0 ? '+' : ''}₩${Math.round(summary.totalProfit).toLocaleString('ko-KR')}`}
                     sub={`${summary.profitRate >= 0 ? '+' : ''}${summary.profitRate.toFixed(2)}%`}
                     tone={summary.totalProfit >= 0 ? 'gain' : 'loss'}
                   />
@@ -115,7 +115,7 @@ export function StockDetailModal({ code, initialName, onClose }: Props) {
                           interval="preserveStartEnd"
                         />
                         <YAxis
-                          tickFormatter={(v) => Math.round(Number(v)).toLocaleString()}
+                          tickFormatter={(v) => Math.round(Number(v)).toLocaleString('ko-KR')}
                           tick={{ fontSize: 10, fill: '#4a5568', fontFamily: 'JetBrains Mono' }}
                           tickLine={false} axisLine={{ stroke: '#1f2630' }} width={78}
                           domain={[minP - padding, maxP + padding]}
@@ -124,7 +124,7 @@ export function StockDetailModal({ code, initialName, onClose }: Props) {
                           contentStyle={{ background: '#11151c', border: '1px solid #1f2630', fontSize: 11, fontFamily: 'JetBrains Mono' }}
                           labelStyle={{ color: '#6b7280' }}
                           itemStyle={{ color: '#d4d8e0' }}
-                          formatter={(v) => `₩${Math.round(Number(v)).toLocaleString()}`}
+                          formatter={(v) => `₩${Math.round(Number(v)).toLocaleString('ko-KR')}`}
                         />
                         <Line type="monotone" dataKey="price" stroke="#00d4ff" strokeWidth={1.5} dot={false} />
                         {txMarkers.map((m, i) => (
@@ -156,12 +156,12 @@ export function StockDetailModal({ code, initialName, onClose }: Props) {
                       <div>
                         <div className="text-amber font-medium">{p.broker}<span className="text-ink-faint"> / </span>{p.accountType}</div>
                         <div className="text-ink-faint text-2xs tabular mt-0.5">
-                          {p.quantity}주 · 평균 ₩{Math.round(p.avgPrice).toLocaleString()}
+                          {p.quantity}주 · 평균 ₩{Math.round(p.avgPrice).toLocaleString('ko-KR')}
                         </div>
                       </div>
                       <div className="text-right">
                         <div className={`tabular font-medium ${p.opProfit >= 0 ? 'text-gain' : 'text-loss'}`}>
-                          {p.opProfit >= 0 ? '+' : ''}₩{Math.round(p.opProfit).toLocaleString()}
+                          {p.opProfit >= 0 ? '+' : ''}₩{Math.round(p.opProfit).toLocaleString('ko-KR')}
                         </div>
                         <div className={`text-2xs tabular ${p.opProfit >= 0 ? 'text-gain' : 'text-loss'}`}>
                           {p.profitRate >= 0 ? '+' : ''}{p.profitRate.toFixed(2)}%
@@ -184,8 +184,8 @@ export function StockDetailModal({ code, initialName, onClose }: Props) {
                       }`}>{tx.type}</span>
                       <span className="text-ink tabular">{tx.date}</span>
                       <div className="text-right">
-                        <div className="tabular text-ink">{tx.quantity.toLocaleString()}주 @ ₩{Math.round(tx.price).toLocaleString()}</div>
-                        <div className="text-2xs text-ink-faint tabular">₩{Math.round(tx.amount).toLocaleString()}</div>
+                        <div className="tabular text-ink">{tx.quantity.toLocaleString('ko-KR')}주 @ ₩{Math.round(tx.price).toLocaleString('ko-KR')}</div>
+                        <div className="text-2xs text-ink-faint tabular">₩{Math.round(tx.amount).toLocaleString('ko-KR')}</div>
                       </div>
                     </div>
                   ))}

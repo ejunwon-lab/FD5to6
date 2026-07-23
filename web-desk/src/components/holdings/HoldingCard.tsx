@@ -31,11 +31,11 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
             <div className="min-w-0 flex-1">
               <div className="text-amber font-semibold text-sm truncate leading-tight">{h.name}</div>
               <div className={`text-xs tabular mt-0.5 ${isUp ? 'text-gain' : 'text-loss'}`}>
-                {h.changePct} · {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString()}원
+                {h.changePct} · {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString('ko-KR')}원
               </div>
             </div>
             <div className="text-ink font-medium tabular text-sm shrink-0">
-              {Math.round(h.currentPrice).toLocaleString()}원
+              {Math.round(h.currentPrice).toLocaleString('ko-KR')}원
             </div>
             <span className="text-ink-faint text-xs shrink-0">▼</span>
           </div>
@@ -66,15 +66,15 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
           <div className="text-right shrink-0 ml-auto">
             {/* 1. 현재가 */}
             <div className="text-ink font-medium tabular text-sm">
-              {Math.round(h.currentPrice).toLocaleString()}원
+              {Math.round(h.currentPrice).toLocaleString('ko-KR')}원
             </div>
             {/* 2. 현재 상승액 / 상승률 */}
             <div className={`text-xs tabular ${isUp ? 'text-gain' : 'text-loss'}`}>
-              {isUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 / {h.changePct}
+              {isUp ? '+' : ''}{Math.round(h.change).toLocaleString('ko-KR')}원 / {h.changePct}
             </div>
             {/* 3. 금일 상승액 — 둘째 줄과 동일 크기 */}
             <div className={`text-xs tabular mt-0.5 ${isUp ? 'text-gain' : 'text-loss'}`}>
-              {isUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 × {h.shares.toLocaleString()}주 = {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString()}원
+              {isUp ? '+' : ''}{Math.round(h.change).toLocaleString('ko-KR')}원 × {h.shares.toLocaleString('ko-KR')}주 = {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString('ko-KR')}원
             </div>
           </div>
           <span className="text-ink-faint text-xs shrink-0 mt-0.5">▲</span>
@@ -86,9 +86,9 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
           <>
             {/* Mid: 매입 / 평가 / 수익 */}
             <div className="grid grid-cols-3 gap-px bg-line border border-line mb-3">
-              <Cell label="매입" value={`₩${Math.round(h.opBuy).toLocaleString()}`} />
-              <Cell label="평가" value={`₩${Math.round(h.value).toLocaleString()}`} />
-              <Cell label="수익" value={`${h.opProfit >= 0 ? '+' : ''}₩${Math.round(h.opProfit).toLocaleString()}`} tone={isProfit ? 'gain' : 'loss'} />
+              <Cell label="매입" value={`₩${Math.round(h.opBuy).toLocaleString('ko-KR')}`} />
+              <Cell label="평가" value={`₩${Math.round(h.value).toLocaleString('ko-KR')}`} />
+              <Cell label="수익" value={`${h.opProfit >= 0 ? '+' : ''}₩${Math.round(h.opProfit).toLocaleString('ko-KR')}`} tone={isProfit ? 'gain' : 'loss'} />
             </div>
 
             {/* Bottom: 오늘 등락 / 수익률 */}
@@ -100,14 +100,14 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
             {/* 상세 — 요약과 중복인 평가/매입/수익금 3필드는 제외 */}
             <div className="mt-3 pt-3 border-t border-line">
               <div className="grid grid-cols-3 gap-x-3 gap-y-2.5 text-xs">
-                <DField label="현재 단가" value={`₩${Math.round(h.currentPrice).toLocaleString()}`} />
-                <DField label="평균 단가" value={h.market === 'KR' ? `₩${Math.round(h.avgPrice).toLocaleString()}` : `$${h.avgPrice.toFixed(2)}`} />
-                <DField label="수량"      value={`${h.shares.toLocaleString()}주`} />
+                <DField label="현재 단가" value={`₩${Math.round(h.currentPrice).toLocaleString('ko-KR')}`} />
+                <DField label="평균 단가" value={h.market === 'KR' ? `₩${Math.round(h.avgPrice).toLocaleString('ko-KR')}` : `$${h.avgPrice.toFixed(2)}`} />
+                <DField label="수량"      value={`${h.shares.toLocaleString('ko-KR')}주`} />
                 <DField label="1개월"     value={pctStr(h.m1)} tone={h.m1 >= 0 ? 'gain' : 'loss'} />
                 <DField label="3개월"     value={pctStr(h.m3)} tone={h.m3 >= 0 ? 'gain' : 'loss'} />
                 <DField label="12개월"    value={pctStr(h.y1)} tone={h.y1 >= 0 ? 'gain' : 'loss'} />
-                <DField label="52주 고"   value={`₩${Math.round(h.high52).toLocaleString()}`} />
-                <DField label="52주 저"   value={`₩${Math.round(h.low52).toLocaleString()}`} />
+                <DField label="52주 고"   value={`₩${Math.round(h.high52).toLocaleString('ko-KR')}`} />
+                <DField label="52주 저"   value={`₩${Math.round(h.low52).toLocaleString('ko-KR')}`} />
                 <DField label="계좌"      value={accountDisplay(h.broker, h.accountType)} />
               </div>
             </div>

@@ -59,7 +59,7 @@ export function YearlyComparisonPanel({ entries }: { entries: ReadonlyArray<Mont
             </div>
             <div className="flex items-center gap-3 text-sm tabular">
               <span className={yoyDiff >= 0 ? 'text-gain' : 'text-loss'}>
-                {yoyDiff >= 0 ? '+' : ''}₩{Math.round(yoyDiff).toLocaleString()}
+                {yoyDiff >= 0 ? '+' : ''}₩{Math.round(yoyDiff).toLocaleString('ko-KR')}
               </span>
               {yoyPct !== null && (
                 <span className={yoyPct >= 0 ? 'text-gain' : 'text-loss'}>
@@ -82,7 +82,7 @@ export function YearlyComparisonPanel({ entries }: { entries: ReadonlyArray<Mont
                       {d.trades ? Math.round((d.winCount / d.trades) * 100) : 0}% win
                     </td>
                     <td className={`px-2 py-1.5 text-right tabular ${d.profit >= 0 ? 'text-gain' : 'text-loss'}`}>
-                      {d.profit >= 0 ? '+' : ''}₩{Math.round(d.profit).toLocaleString()}
+                      {d.profit >= 0 ? '+' : ''}₩{Math.round(d.profit).toLocaleString('ko-KR')}
                     </td>
                   </tr>
                 ))}
@@ -101,10 +101,10 @@ function YearCard({ stat, highlight }: { stat: YearStat; highlight?: boolean }) 
     <div className={`px-3 py-3 ${highlight ? 'bg-bg-elev border border-amber/40' : 'bg-bg-deep border border-line'}`}>
       <div className="text-xxs text-ink-faint uppercase tracking-widest mb-1">{stat.year}</div>
       <div className={`text-xl tabular font-medium ${stat.profit >= 0 ? 'text-gain' : 'text-loss'}`}>
-        {stat.profit >= 0 ? '+' : ''}₩{Math.round(stat.profit).toLocaleString()}
+        {stat.profit >= 0 ? '+' : ''}₩{Math.round(stat.profit).toLocaleString('ko-KR')}
       </div>
       <div className="text-xxs text-ink-dim mt-1 tabular">
-        {stat.trades} closes · {winRate}% win · ₩{Math.round(stat.fee).toLocaleString()} fees
+        {stat.trades} closes · {winRate}% win · ₩{Math.round(stat.fee).toLocaleString('ko-KR')} fees
       </div>
     </div>
   )

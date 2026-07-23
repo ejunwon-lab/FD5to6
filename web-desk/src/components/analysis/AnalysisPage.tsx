@@ -47,7 +47,7 @@ export function AnalysisPage() {
     <div className="overflow-y-auto p-2 sm:p-3 grid gap-2.5 grid-cols-1 lg:grid-cols-2">
       {/* Risk metrics strip */}
       <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-line border border-line">
-        <Stat label="Total Return" value={`${totalReturnAmt >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`} tone={totalReturnAmt >= 0 ? 'up' : 'down'} sub={`${totalReturnAmt >= 0 ? '+' : '-'}₩${Math.abs(Math.round(totalReturnAmt)).toLocaleString()}`} />
+        <Stat label="Total Return" value={`${totalReturnAmt >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`} tone={totalReturnAmt >= 0 ? 'up' : 'down'} sub={`${totalReturnAmt >= 0 ? '+' : '-'}₩${Math.abs(Math.round(totalReturnAmt)).toLocaleString('ko-KR')}`} />
         <Stat label="Sharpe (90d)" value={stats.sharpe.toFixed(2)} sub="annualized" tone="cyan" />
         <Stat label="Max Drawdown" value={`-${stats.maxDD.toFixed(1)}%`} sub={`${stats.maxDDDays}d ago`} tone="down" />
         <Stat label="Volatility" value={`${stats.vol.toFixed(2)}%`} sub="daily σ" />
@@ -100,7 +100,7 @@ export function AnalysisPage() {
                 <Tooltip
                   contentStyle={{ background: '#11151c', border: '1px solid #1f2630', fontSize: 11, fontFamily: 'JetBrains Mono' }}
                   labelStyle={{ color: '#6b7280' }} itemStyle={{ color: '#d4d8e0' }}
-                  formatter={(v, name) => [`₩${Math.round(Number(v)).toLocaleString()}`, name]}
+                  formatter={(v, name) => [`₩${Math.round(Number(v)).toLocaleString('ko-KR')}`, name]}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -115,7 +115,7 @@ export function AnalysisPage() {
                     <span className="text-ink-faint text-2xs shrink-0">({b.count}개 종목)</span>
                   </div>
                   <span className="tabular text-ink shrink-0 ml-2">
-                    ₩{Math.round(b.total).toLocaleString()} · {b.pct.toFixed(2)}%
+                    ₩{Math.round(b.total).toLocaleString('ko-KR')} · {b.pct.toFixed(2)}%
                   </span>
                 </div>
                 {b.accounts.map((a) => (
@@ -126,7 +126,7 @@ export function AnalysisPage() {
                       <span className="text-ink-faint text-2xs shrink-0">({a.count})</span>
                     </div>
                     <span className="tabular text-ink-dim text-2xs shrink-0 ml-2">
-                      ₩{Math.round(a.value).toLocaleString()} · {a.pct.toFixed(2)}%
+                      ₩{Math.round(a.value).toLocaleString('ko-KR')} · {a.pct.toFixed(2)}%
                     </span>
                   </div>
                 ))}
@@ -134,7 +134,7 @@ export function AnalysisPage() {
             ))}
             <div className="border-t border-line mt-1 pt-2 flex justify-between text-2xs uppercase tracking-widest">
               <span className="text-ink-faint">Total</span>
-              <span className="text-amber tabular normal-case">₩{Math.round(stats.totalValue).toLocaleString()}</span>
+              <span className="text-amber tabular normal-case">₩{Math.round(stats.totalValue).toLocaleString('ko-KR')}</span>
             </div>
           </div>
         </div>

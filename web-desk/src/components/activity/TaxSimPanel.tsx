@@ -33,7 +33,7 @@ export function TaxSimPanel({ holdings }: { holdings: Holding[] }) {
             <div className="grid grid-cols-3 gap-2 mb-3">
               <StatBox label="Total Loss"      value={-totalLoss} tone="loss" sub="미국 주식 미실현 손실 합" />
               <StatBox label="Tax Save (gross)" value={grossSave}  tone="gain" sub={`손실 × ${(TAX_RATE * 100).toFixed(0)}%`} />
-              <StatBox label="Net Save"         value={netSave}    tone="gain" sub={`연 ${ANNUAL_DEDUCTION.toLocaleString()} 공제 후`} />
+              <StatBox label="Net Save"         value={netSave}    tone="gain" sub={`연 ${ANNUAL_DEDUCTION.toLocaleString('ko-KR')} 공제 후`} />
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs min-w-[560px]">
@@ -53,13 +53,13 @@ export function TaxSimPanel({ holdings }: { holdings: Holding[] }) {
                         <div className="text-xxs text-ink-faint tabular leading-tight">{p.symbol}</div>
                       </td>
                       <td className="px-3 py-1.5 text-right tabular text-loss">
-                        -₩{Math.round(p.lossKrw).toLocaleString()}
+                        -₩{Math.round(p.lossKrw).toLocaleString('ko-KR')}
                       </td>
                       <td className="px-3 py-1.5 text-right tabular text-loss">
                         {p.returnPct.toFixed(2)}%
                       </td>
                       <td className="px-3 py-1.5 text-right tabular text-gain">
-                        +₩{Math.round(p.lossKrw * TAX_RATE).toLocaleString()}
+                        +₩{Math.round(p.lossKrw * TAX_RATE).toLocaleString('ko-KR')}
                       </td>
                     </tr>
                   ))}
@@ -82,7 +82,7 @@ function StatBox({ label, value, tone, sub }: { label: string; value: number; to
     <div className="bg-bg-elev border border-line px-3 py-2">
       <div className="text-2xs uppercase tracking-widest text-ink-faint mb-0.5">{label}</div>
       <div className={`text-base tabular font-medium ${tone === 'gain' ? 'text-gain' : 'text-loss'}`}>
-        {value >= 0 ? '+' : ''}₩{Math.round(value).toLocaleString()}
+        {value >= 0 ? '+' : ''}₩{Math.round(value).toLocaleString('ko-KR')}
       </div>
       <div className="text-xxs text-ink-faint mt-0.5">{sub}</div>
     </div>
