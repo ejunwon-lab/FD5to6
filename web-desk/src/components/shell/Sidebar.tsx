@@ -24,7 +24,7 @@ const sections: { title: string; items: { key: NavKey; label: string; hint?: str
     title: 'Data',
     items: [
       { key: 'pricehist', label: 'Price History', hint: 'P' },
-      { key: 'dividends', label: 'Dividends', hint: 'V', badge: '3' },
+      { key: 'dividends', label: 'Dividends', hint: 'V' },
     ],
   },
   {

@@ -36,7 +36,7 @@ export function DashboardPage() {
           <KpiStrip summary={showSummary} />
         </div>
         {/* Row 2: Market Indices (KOSPI/KOSDAQ) | Equity Chart */}
-        <MarketIndices indicators={showIndicators} />
+        <MarketIndices indicators={showIndicators} live={!!(liveReady && indicators.length)} />
         <EquityChart equityCurve={showEquity} meta={liveReady ? `LIVE · ${equityCurve.length} pts` : 'SAMPLE DATA'} />
         {/* Row 3: Holdings (full, with account chips + sort) */}
         <div className="lg:col-span-2">

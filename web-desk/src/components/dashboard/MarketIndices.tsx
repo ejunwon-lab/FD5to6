@@ -1,7 +1,7 @@
 import { Panel } from '../ui/Panel'
 import type { Indicator } from '../../lib/types'
 
-interface Props { indicators: Indicator[] }
+interface Props { indicators: Indicator[]; live?: boolean }
 
 // Dashboard에 표시할 우선 지표 — 각 슬롯의 매칭 키워드 (OR)
 const PRIORITY: { label: string; keywords: string[] }[] = [
@@ -22,12 +22,12 @@ function findIndicator(items: Indicator[], keywords: string[]): Indicator | unde
   return undefined
 }
 
-export function MarketIndices({ indicators }: Props) {
+export function MarketIndices({ indicators, live = false }: Props) {
   // 우선순위 매칭 (없는 항목은 빈 슬롯)
   const slots = PRIORITY.map((p) => ({ label: p.label, ind: findIndicator(indicators, p.keywords) }))
 
   return (
-    <Panel title="Markets" meta="LIVE" className="col-span-1">
+    <Panel title="Markets" meta={live ? 'LIVE' : 'SAMPLE DATA'} className="col-span-1">
       <div className="grid grid-cols-2 gap-px bg-line">
         {slots.map((s, idx) => (
           <IndexCard key={idx} label={s.label} ind={s.ind} />

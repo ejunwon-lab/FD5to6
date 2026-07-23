@@ -80,3 +80,5 @@
 - **데스크 홀딩스 카드 폴드(A안 2단)** — Web/Terminal 카드 접힘(헤더만)↔펼침(요약+상세, 중복 3필드 제거), 기본 데스크톱 펼침/모바일 접힘, "모두 접기/펼치기" 전역 토글(개별 클릭 오버라이드). Holdings 탭에도 자동 적용. tsc·build·vitest 8/8.
 - 카드 접힘 헤더 2줄 컴팩트화 — 접힘 시 종목명|현재가 / 등락%·내 등락총액 2줄만(코드·기간·상세버튼·×수량 수식은 펼침 전용), 패딩 축소. 사용자 피드백 반영.
 - **KPI 카드 표시 버그 5건 수정** — Today P&L "+₩-" 모순 표기·하락일 초록▲ 고정(tone 'up' 하드코딩) → 부호 기반 signTone, Total Return 동일 적용, 총자산 delta 무의미 ▲ 제거, Positions "N/N"→"N종목 + GAIN·LOSS·FLAT", 라벨 "주식"→"투자중", fmtKRW 음수 "-₩1,234" 표기.
+- **데스크 신뢰성 정리 묶음** — TopBar 고정 pill("CONNECTED·KIS"/"KRX OPEN"/"NYSE PRE") → 실배선(DATA LIVE/SAMPLE·KRX/NYSE 개장 요일·시각 판정), ActivityFeed 무조건 더미 → 실현손익 최근 8건, Dividends 배지 '3' 삭제, Indicators "live"·Markets "LIVE" 라벨 실상태 연동, 죽은 코드 HoldingsTable.tsx 삭제, Placeholder 문구 현행화.
+- 데스크 전수 분석 보고 — 가짜 데이터 노출 5곳·미구현 nav 4개·Phase A/B 완료 확인(잔여: 시장/섹터 도넛·Phase C 전체)·포맷 헬퍼 미사용 107곳. 로드맵 5단계 수립.

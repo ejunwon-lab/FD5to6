@@ -17,6 +17,7 @@ const CATEGORY_ORDER = [
 export function IndicatorsPage() {
   const { indicators: live } = usePortfolio()
   const indicators = live.length ? live : sampleIndicators
+  const isLive = live.length > 0
   const [selected, setSelected] = useState<Indicator | null>(null)
 
   const grouped = useMemo(() => {
@@ -40,7 +41,7 @@ export function IndicatorsPage() {
         <Panel key={cat} title={cat} meta={`${items.length} symbols`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-line">
             {items.map((i) => (
-              <BigIndicator key={i.symbol} ind={i} onClick={() => setSelected(i)} />
+              <BigIndicator key={i.symbol} ind={i} live={isLive} onClick={() => setSelected(i)} />
             ))}
           </div>
         </Panel>
@@ -55,7 +56,7 @@ export function IndicatorsPage() {
   )
 }
 
-function BigIndicator({ ind, onClick }: { ind: Indicator; onClick: () => void }) {
+function BigIndicator({ ind, live, onClick }: { ind: Indicator; live: boolean; onClick: () => void }) {
   const up = ind.changePct >= 0
   const stroke = up ? '#00ff7f' : '#ff3366'
   let points = ''
@@ -79,7 +80,7 @@ function BigIndicator({ ind, onClick }: { ind: Indicator; onClick: () => void })
     >
       <div className="flex justify-between items-baseline mb-2">
         <span className="text-amber font-medium text-sm tracking-wide">{ind.name || ind.symbol}</span>
-        <span className="text-2xs text-ink-faint uppercase tracking-widest">live</span>
+        <span className="text-2xs text-ink-faint uppercase tracking-widest">{live ? 'live' : 'sample'}</span>
       </div>
       <div className="text-[28px] font-medium text-ink tabular leading-tight">
         {ind.value.toLocaleString('ko-KR', { minimumFractionDigits: ind.value > 10000 ? 0 : 2, maximumFractionDigits: 2 })}

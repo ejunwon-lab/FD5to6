@@ -17,7 +17,7 @@ function PlaceholderPage({ title }: { title: string }) {
     <main className="flex items-center justify-center overflow-hidden p-6">
       <div className="text-center">
         <div className="font-display text-amber text-xl sm:text-2xl tracking-widest mb-3 uppercase">{title}</div>
-        <div className="text-ink-faint text-xs uppercase tracking-widest">Phase 3 — Coming next</div>
+        <div className="text-ink-faint text-xs uppercase tracking-widest">준비 중 — 로드맵 등재 (2026-07-23)</div>
       </div>
     </main>
   )
