@@ -24,9 +24,26 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
       onClick={onExpand}
       className={`bg-bg-elev border border-line border-l-4 ${borderClass} cursor-pointer hover:bg-bg-hover transition-colors`}
     >
-      <div className="p-3.5">
-        {/* Top: name (main) · code · market | currentPrice·dayChange — 모바일: 수식 블록 wrap (종목명 잘림 방지) */}
-        <div className={`flex flex-wrap items-start justify-between gap-x-2 gap-y-1.5 ${isExpanded ? 'mb-3' : ''}`}>
+      <div className={isExpanded ? 'p-3.5' : 'px-3 py-2.5'}>
+        {/* 접힘 헤더: 정확히 2줄 — 종목명|현재가 / 등락%·내 등락총액 (2026-07-23) */}
+        {!isExpanded && (
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-amber font-semibold text-sm truncate leading-tight">{h.name}</div>
+              <div className={`text-xs tabular mt-0.5 ${isUp ? 'text-gain' : 'text-loss'}`}>
+                {h.changePct} · {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString()}원
+              </div>
+            </div>
+            <div className="text-ink font-medium tabular text-sm shrink-0">
+              {Math.round(h.currentPrice).toLocaleString()}원
+            </div>
+            <span className="text-ink-faint text-xs shrink-0">▼</span>
+          </div>
+        )}
+
+        {/* 펼침 헤더 (기존 풀 헤더) */}
+        {isExpanded && (
+        <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1.5 mb-3">
           <div className="min-w-[9rem] flex-1">
             <div className="flex items-baseline gap-2">
               <span className="text-amber font-semibold text-sm truncate">{h.name}</span>
@@ -60,8 +77,9 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
               {isUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 × {h.shares.toLocaleString()}주 = {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString()}원
             </div>
           </div>
-          <span className="text-ink-faint text-xs shrink-0 mt-0.5">{isExpanded ? '▲' : '▼'}</span>
+          <span className="text-ink-faint text-xs shrink-0 mt-0.5">▲</span>
         </div>
+        )}
 
         {/* 펼침(2단 통합): 요약 + 상세 전부. 접힘이면 헤더만 (2026-07-23 A안) */}
         {isExpanded && (

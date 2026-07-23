@@ -31,9 +31,26 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
       className={`bg-[#161b24] border-2 ${borderColor} rounded-2xl overflow-hidden cursor-pointer hover:bg-[#1c222c] transition-colors`}
       style={{ fontFamily: 'system-ui, -apple-system, "Apple SD Gothic Neo", "Pretendard", sans-serif' }}
     >
-      <div className="p-5">
-        {/* Top — 모바일: 이름에 최소폭 보장, 수식 블록은 다음 줄로 wrap (종목명 잘림 방지) */}
-        <div className={`flex flex-wrap items-start justify-between gap-x-3 gap-y-2 ${isExpanded ? 'mb-4' : ''}`}>
+      <div className={isExpanded ? 'p-5' : 'px-4 py-3'}>
+        {/* 접힘 헤더: 정확히 2줄 — 종목명|현재가 / 등락%·내 등락총액 (2026-07-23) */}
+        {!isExpanded && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-sm text-ink truncate leading-tight">{h.name}</p>
+              <p className={`text-xs font-medium tabular mt-0.5 ${isUp ? 'text-gain' : 'text-loss'}`}>
+                {h.changePct} · {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString()}원
+              </p>
+            </div>
+            <p className="font-bold text-base text-ink tabular shrink-0">
+              {Math.round(h.currentPrice).toLocaleString()}원
+            </p>
+            <span className="text-ink-faint text-sm shrink-0">▼</span>
+          </div>
+        )}
+
+        {/* 펼침 헤더 (기존 풀 헤더) */}
+        {isExpanded && (
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
           <div className="min-w-[9rem] flex-1">
             <p className="font-semibold text-base text-ink truncate">{h.name}</p>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -61,8 +78,9 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
               {isUp ? '+' : ''}{Math.round(h.change).toLocaleString()}원 × {h.shares.toLocaleString()}주 = {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString()}원
             </p>
           </div>
-          <span className="text-ink-faint text-sm mt-1">{isExpanded ? '▲' : '▼'}</span>
+          <span className="text-ink-faint text-sm mt-1">▲</span>
         </div>
+        )}
 
         {/* 펼침(2단 통합): 요약 + 상세 전부. 접힘이면 헤더만 (2026-07-23 A안) */}
         {isExpanded && (

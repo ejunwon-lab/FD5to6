@@ -78,3 +78,4 @@
 - **데스크 모바일 반응형 1단계(Dashboard)** — MobileTabBar(하단 탭 6개, safe-area)·h-[100dvh] 셸·viewport-fit=cover + 홀딩스 기본 상위 9종목 접기(전체 보기 토글) + 필터바 모바일 2행화 + Holdings meta ₩M 축약 → 풀 숫자 교정. desk tsc·build·vitest 8/8.
 - **웹 배포 7일 침묵 실패 복구** — 7/16 vitest 4 추가 시 lock 미재생성 + npm ci 전환 겹침 → CI만 "Missing @esbuild/*@0.28.1" 거부(로컬 npm 11은 통과라 재현 불가였음). lock 완전 재생성으로 복구, errors.md 기록.
 - **데스크 홀딩스 카드 폴드(A안 2단)** — Web/Terminal 카드 접힘(헤더만)↔펼침(요약+상세, 중복 3필드 제거), 기본 데스크톱 펼침/모바일 접힘, "모두 접기/펼치기" 전역 토글(개별 클릭 오버라이드). Holdings 탭에도 자동 적용. tsc·build·vitest 8/8.
+- 카드 접힘 헤더 2줄 컴팩트화 — 접힘 시 종목명|현재가 / 등락%·내 등락총액 2줄만(코드·기간·상세버튼·×수량 수식은 펼침 전용), 패딩 축소. 사용자 피드백 반영.
