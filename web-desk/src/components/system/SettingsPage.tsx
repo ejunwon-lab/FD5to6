@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Panel } from '../ui/Panel'
 import {
-  DEFAULT_SETTINGS, loadSettings, saveSettings,
-  type CardFoldDefault, type DeskSettings, type HoldingsViewMode,
+  applyTheme, DEFAULT_SETTINGS, loadSettings, saveSettings,
+  type CardFoldDefault, type DeskSettings, type DeskTheme, type HoldingsViewMode,
 } from '../../lib/settings'
 
 // Settings (단축키 S) — 데스크 로컬 설정. 저장 즉시 localStorage 반영, 각 화면은 재진입 시 적용.
@@ -14,6 +14,7 @@ export function SettingsPage() {
     const next = { ...settings, ...patch }
     setSettings(next)
     saveSettings(next)
+    if (patch.theme) applyTheme(patch.theme)
     setSavedAt(new Date().toLocaleTimeString('ko-KR'))
   }
 
@@ -22,6 +23,21 @@ export function SettingsPage() {
       <div className="lg:col-span-2 text-2xs text-ink-faint uppercase tracking-widest">
         {savedAt ? `저장됨 · ${savedAt} — 화면 재진입 시 적용` : '변경 즉시 저장 · 화면 재진입 시 적용'}
       </div>
+
+      <Panel title="테마" meta="즉시 반영">
+        <div className="p-4 space-y-4">
+          <SettingRow label="화면 테마" desc="Modern: 가독성 개선(Pretendard·소프트 팔레트) / Terminal: 네온 원형">
+            <OptionGroup<DeskTheme>
+              value={settings.theme}
+              options={[
+                { value: 'modern', label: 'Modern' },
+                { value: 'terminal', label: 'Terminal' },
+              ]}
+              onChange={(v) => update({ theme: v })}
+            />
+          </SettingRow>
+        </div>
+      </Panel>
 
       <Panel title="Holdings 기본 뷰" meta="Dashboard·Holdings 탭">
         <div className="p-4 space-y-4">

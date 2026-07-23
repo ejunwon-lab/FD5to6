@@ -45,7 +45,7 @@ export function TopBar({ onMenuClick }: Props) {
 function Pill({ children, live, className = '' }: { children: React.ReactNode; live?: boolean; className?: string }) {
   return (
     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 bg-bg-elev border border-line text-ink-dim ${className}`}>
-      {live && <span className="w-1.5 h-1.5 rounded-full bg-gain animate-pulse" style={{ boxShadow: '0 0 8px #00ff7f' }} />}
+      {live && <span className="w-1.5 h-1.5 rounded-full bg-gain animate-pulse" style={{ boxShadow: '0 0 8px rgb(var(--c-gain))' }} />}
       {children}
     </span>
   )

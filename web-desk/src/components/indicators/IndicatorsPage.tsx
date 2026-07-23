@@ -58,7 +58,7 @@ export function IndicatorsPage() {
 
 function BigIndicator({ ind, live, onClick }: { ind: Indicator; live: boolean; onClick: () => void }) {
   const up = ind.changePct >= 0
-  const stroke = up ? '#00ff7f' : '#ff3366'
+  const stroke = up ? 'rgb(var(--c-gain))' : 'rgb(var(--c-loss))'
   let points = ''
   if (ind.spark.length >= 2) {
     const max = Math.max(...ind.spark)

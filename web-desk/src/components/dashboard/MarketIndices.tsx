@@ -49,7 +49,7 @@ function IndexCard({ label, ind }: { label: string; ind?: Indicator }) {
   // 변동 데이터 없는 경우 (FX 등) → 중립 표시
   const noChangeData = ind.changeAbs === 0 && ind.changePct === 0 && ind.spark.length === 0
   const up = ind.changePct >= 0
-  const stroke = noChangeData ? '#4a5568' : (up ? '#00ff7f' : '#ff3366')
+  const stroke = noChangeData ? 'rgb(var(--c-ink-faint))' : (up ? 'rgb(var(--c-gain))' : 'rgb(var(--c-loss))')
   let points = ''
   if (ind.spark.length >= 2) {
     const max = Math.max(...ind.spark)

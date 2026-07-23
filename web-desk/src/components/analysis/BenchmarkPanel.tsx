@@ -96,19 +96,19 @@ export function BenchmarkPanel({ equityCurve, portfolioValue }: Props) {
                 <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"
-                  tick={{ fontSize: 10, fill: '#6b7280' }}
+                  tick={{ fontSize: 10, fill: 'rgb(var(--c-ink-dim))' }}
                   interval="preserveStartEnd"
                   tickFormatter={(d: string) => d.slice(5)}
                 />
                 <YAxis
-                  tick={{ fontSize: 10, fill: '#6b7280' }}
+                  tick={{ fontSize: 10, fill: 'rgb(var(--c-ink-dim))' }}
                   tickFormatter={(v: number) => `${v.toFixed(0)}%`}
                 />
                 <Tooltip
-                  contentStyle={{ background: '#0c0f15', border: '1px solid #374151', fontSize: 11 }}
+                  contentStyle={{ background: 'rgb(var(--c-bg-deep))', border: '1px solid rgb(var(--c-line-bright))', fontSize: 11 }}
                   formatter={(v) => `${Number(v).toFixed(2)}%`}
                 />
-                <ReferenceLine y={0} stroke="#374151" />
+                <ReferenceLine y={0} stroke="rgb(var(--c-line-bright))" />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
                 <Line type="monotone" dataKey="portfolio" stroke="#fbbf24" dot={false} strokeWidth={2.2} name="Portfolio" />
                 <Line type="monotone" dataKey="KOSPI"     stroke="#60a5fa" dot={false} strokeWidth={1.5} name="KOSPI" />

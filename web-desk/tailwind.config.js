@@ -1,41 +1,44 @@
 /** @type {import('tailwindcss').Config} */
+// 색·크기는 CSS 변수(src/index.css 테마 블록)에서 공급 — 테마 전환은 <html data-theme>.
+const c = (name) => `rgb(var(--c-${name}) / <alpha-value>)`
+
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
         bg: {
-          DEFAULT: '#0a0d12',
-          elev: '#11151c',
-          hover: '#161b24',
-          deep: '#06090e',
-          line: '#0d1218',
+          DEFAULT: c('bg'),
+          elev: c('bg-elev'),
+          hover: c('bg-hover'),
+          deep: c('bg-deep'),
+          line: c('bg-line'),
         },
         line: {
-          DEFAULT: '#1f2630',
-          bright: '#2d3748',
-          dim: '#161b24',
+          DEFAULT: c('line'),
+          bright: c('line-bright'),
+          dim: c('line-dim'),
         },
         ink: {
-          DEFAULT: '#d4d8e0',
-          dim: '#6b7280',
-          faint: '#4a5568',
-          bright: '#ffffff',
+          DEFAULT: c('ink'),
+          dim: c('ink-dim'),
+          faint: c('ink-faint'),
+          bright: c('ink-bright'),
         },
-        amber: '#ffa500',
-        cyan: '#00d4ff',
-        gain: '#00ff7f',
-        loss: '#ff3366',
-        warn: '#ffcc00',
+        amber: c('amber'),
+        cyan: c('cyan'),
+        gain: c('gain'),
+        loss: c('loss'),
+        warn: c('warn'),
       },
       fontFamily: {
-        mono: ['"JetBrains Mono"', 'monospace'],
+        mono: ['var(--font-num)'],
         display: ['"Monoton"', 'monospace'],
       },
       fontSize: {
-        '2xs': '10px',
-        xxs: '11px',
-        xs: '12px',
+        '2xs': 'var(--fs-2xs)',
+        xxs: 'var(--fs-xxs)',
+        xs: 'var(--fs-xs)',
       },
       letterSpacing: {
         widest2: '0.18em',

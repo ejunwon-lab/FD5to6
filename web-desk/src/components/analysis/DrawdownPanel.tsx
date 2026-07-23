@@ -36,22 +36,22 @@ export function DrawdownPanel({ equityCurve }: { equityCurve: EquityPoint[] }) {
           <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="dd-grad" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#ff3366" stopOpacity={0.05} />
-                <stop offset="100%" stopColor="#ff3366" stopOpacity={0.4} />
+                <stop offset="0%" stopColor="rgb(var(--c-loss))" stopOpacity={0.05} />
+                <stop offset="100%" stopColor="rgb(var(--c-loss))" stopOpacity={0.4} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke="#1f2630" strokeDasharray="0" vertical={false} />
-            <XAxis dataKey="date" stroke="#4a5568" tick={{ fill: '#4a5568', fontSize: 10 }}
+            <CartesianGrid stroke="rgb(var(--c-line))" strokeDasharray="0" vertical={false} />
+            <XAxis dataKey="date" stroke="rgb(var(--c-ink-faint))" tick={{ fill: 'rgb(var(--c-ink-faint))', fontSize: 10 }}
               interval={Math.max(1, Math.floor(data.length / 6))} />
-            <YAxis stroke="#4a5568" tick={{ fill: '#4a5568', fontSize: 10 }} width={48}
+            <YAxis stroke="rgb(var(--c-ink-faint))" tick={{ fill: 'rgb(var(--c-ink-faint))', fontSize: 10 }} width={48}
               domain={[Math.floor(maxDD * 1.1), 0]}
               tickFormatter={(v) => `${v}%`} />
             <Tooltip
-              contentStyle={{ background: '#11151c', border: '1px solid #1f2630', fontSize: 11, fontFamily: 'JetBrains Mono' }}
-              labelStyle={{ color: '#6b7280' }} itemStyle={{ color: '#d4d8e0' }}
+              contentStyle={{ background: 'rgb(var(--c-bg-elev))', border: '1px solid rgb(var(--c-line))', fontSize: 11, fontFamily: 'var(--font-body)' }}
+              labelStyle={{ color: 'rgb(var(--c-ink-dim))' }} itemStyle={{ color: 'rgb(var(--c-ink))' }}
               formatter={(v) => [`${Number(v).toFixed(2)}%`, 'drawdown']}
             />
-            <Area type="monotone" dataKey="dd" stroke="#ff3366" strokeWidth={1.2} fill="url(#dd-grad)" />
+            <Area type="monotone" dataKey="dd" stroke="rgb(var(--c-loss))" strokeWidth={1.2} fill="url(#dd-grad)" />
           </AreaChart>
         </ResponsiveContainer>
       </div>

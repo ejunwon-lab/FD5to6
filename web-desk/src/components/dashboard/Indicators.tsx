@@ -9,7 +9,7 @@ export function Indicators({ indicators }: Props) {
       <div className="grid grid-cols-4 gap-px bg-line">
         {indicators.map((i) => {
           const up = i.changePct >= 0
-          const stroke = up ? '#00ff7f' : '#ff3366'
+          const stroke = up ? 'rgb(var(--c-gain))' : 'rgb(var(--c-loss))'
           // Build sparkline path (graceful if no history)
           let points = ''
           if (i.spark.length >= 2) {

@@ -23,7 +23,7 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
   const isUp = h.change >= 0
   const duration = formatDuration(h.buyDate)
   // 보더 색: 당일 등락 기준
-  const borderColor = isUp ? 'border-[#00ff7f]/60' : 'border-[#ff3366]/60'
+  const borderColor = isUp ? 'border-[rgb(var(--c-gain))]/60' : 'border-[rgb(var(--c-loss))]/60'
 
   return (
     <div

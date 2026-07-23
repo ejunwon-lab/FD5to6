@@ -21,17 +21,18 @@ function brokerKey(b: string): string {
 }
 function brokerColor(b: string): string {
   const key = brokerKey(b)
-  return key ? BROKER_SHADES[key][1] : '#6b7280'   // base = 400
+  return key ? BROKER_SHADES[key][1] : 'rgb(var(--c-ink-dim))'   // base = 400
 }
 function accountShade(b: string, localIdx: number): string {
   const key = brokerKey(b)
-  const shades = key ? BROKER_SHADES[key] : ['#6b7280']
+  const shades = key ? BROKER_SHADES[key] : ['rgb(var(--c-ink-dim))']
   return shades[localIdx % shades.length]
 }
 
 import { accountDisplay } from '../../lib/accountDisplay'
 
-const CATEGORY_COLORS = ['#ffa500', '#00d4ff', '#00ff7f', '#c084fc', '#f472b6', '#facc15', '#6b7280']
+// 분류 도넛 시리즈 — 테마별 값은 index.css --c-s1~s7 (modern은 CVD·대비 검증 통과 팔레트)
+const CATEGORY_COLORS = [1, 2, 3, 4, 5, 6, 7].map((i) => `rgb(var(--c-s${i}))`)
 
 export function AnalysisPage() {
   const { holdings: live, equityCurve: liveEquity, summary } = usePortfolio()
@@ -106,8 +107,8 @@ export function AnalysisPage() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: '#11151c', border: '1px solid #1f2630', fontSize: 11, fontFamily: 'JetBrains Mono' }}
-                  labelStyle={{ color: '#6b7280' }} itemStyle={{ color: '#d4d8e0' }}
+                  contentStyle={{ background: 'rgb(var(--c-bg-elev))', border: '1px solid rgb(var(--c-line))', fontSize: 11, fontFamily: 'var(--font-body)' }}
+                  labelStyle={{ color: 'rgb(var(--c-ink-dim))' }} itemStyle={{ color: 'rgb(var(--c-ink))' }}
                   formatter={(v, name) => [`₩${Math.round(Number(v)).toLocaleString('ko-KR')}`, name]}
                 />
               </PieChart>
@@ -160,8 +161,8 @@ export function AnalysisPage() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: '#11151c', border: '1px solid #1f2630', fontSize: 11, fontFamily: 'JetBrains Mono' }}
-                  labelStyle={{ color: '#6b7280' }} itemStyle={{ color: '#d4d8e0' }}
+                  contentStyle={{ background: 'rgb(var(--c-bg-elev))', border: '1px solid rgb(var(--c-line))', fontSize: 11, fontFamily: 'var(--font-body)' }}
+                  labelStyle={{ color: 'rgb(var(--c-ink-dim))' }} itemStyle={{ color: 'rgb(var(--c-ink))' }}
                   formatter={(v, name) => [`₩${Math.round(Number(v)).toLocaleString('ko-KR')}`, name]}
                 />
               </PieChart>
@@ -189,21 +190,21 @@ export function AnalysisPage() {
         <div className="p-3 h-[260px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={stats.topWeights} layout="vertical" margin={{ top: 5, right: 50, left: 0, bottom: 20 }}>
-              <CartesianGrid stroke="#1f2630" strokeDasharray="0" horizontal={false} />
+              <CartesianGrid stroke="rgb(var(--c-line))" strokeDasharray="0" horizontal={false} />
               <XAxis
                 type="number"
-                tick={{ fill: '#6b7280', fontSize: 10 }}
-                stroke="#4a5568"
+                tick={{ fill: 'rgb(var(--c-ink-dim))', fontSize: 10 }}
+                stroke="rgb(var(--c-ink-faint))"
                 tickFormatter={(v) => `${v}%`}
-                label={{ value: '비중 (%)', position: 'insideBottom', offset: -8, fill: '#6b7280', fontSize: 10 }}
+                label={{ value: '비중 (%)', position: 'insideBottom', offset: -8, fill: 'rgb(var(--c-ink-dim))', fontSize: 10 }}
               />
-              <YAxis dataKey="name" type="category" tick={{ fill: '#ffa500', fontSize: 10 }} stroke="#4a5568" width={110} interval={0} />
+              <YAxis dataKey="name" type="category" tick={{ fill: 'rgb(var(--c-amber))', fontSize: 10 }} stroke="rgb(var(--c-ink-faint))" width={110} interval={0} />
               <Tooltip
-                contentStyle={{ background: '#11151c', border: '1px solid #1f2630', fontSize: 11, fontFamily: 'JetBrains Mono' }}
-                labelStyle={{ color: '#6b7280' }} itemStyle={{ color: '#d4d8e0' }}
+                contentStyle={{ background: 'rgb(var(--c-bg-elev))', border: '1px solid rgb(var(--c-line))', fontSize: 11, fontFamily: 'var(--font-body)' }}
+                labelStyle={{ color: 'rgb(var(--c-ink-dim))' }} itemStyle={{ color: 'rgb(var(--c-ink))' }}
                 formatter={(v) => [`${Number(v).toFixed(2)}%`, '비중']}
               />
-              <Bar dataKey="weight" fill="#ffa500">
+              <Bar dataKey="weight" fill="rgb(var(--c-amber))">
                 <LabelList
                   dataKey="weight"
                   position="right"
@@ -211,7 +212,7 @@ export function AnalysisPage() {
                     const n = Number(v)
                     return Number.isFinite(n) ? `${n.toFixed(1)}%` : ''
                   }}
-                  fill="#d4d8e0"
+                  fill="rgb(var(--c-ink))"
                   fontSize={10}
                 />
               </Bar>

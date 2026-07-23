@@ -53,7 +53,7 @@ export function Sidebar({ active, onSelect, drawerOpen, onClose }: Props) {
         />
       )}
       <aside
-        className={`bg-[#0c0f15] border-r border-line py-3.5 overflow-y-auto
+        className={`bg-[rgb(var(--c-bg-deep))] border-r border-line py-3.5 overflow-y-auto
           lg:static lg:translate-x-0
           fixed inset-y-0 left-0 z-50 w-[200px] transition-transform duration-200
           ${drawerOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}

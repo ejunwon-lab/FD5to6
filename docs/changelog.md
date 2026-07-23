@@ -88,3 +88,4 @@
 - **Analysis 리스크 지표 자산 기반 교정 (로드맵 ⑥)** — newMobileGetProfitHistory entries에 totalAsset(추이 기록 Q열) additive 추가 → 데스크 Sharpe·Volatility·Win Days·Best Day·MDD를 자산 시리즈 기반으로 교체(누적수익 분모 과대 제거, MDD 정의를 GAS getPortfolioMetrics와 통일). TWR 한계 명시(raw 자산 diff — 입출금일 왜곡 잔존). /design-check 통과, push_safe 배포.
 - **포맷 로케일 통일 (로드맵 ④)** — 데스크 전 소스 107곳 `toLocaleString()` → `toLocaleString('ko-KR')` 일괄 지정 (브라우저 로케일 드리프트 제거). fmtKRW 전면 치환은 표기 회귀 위험 대비 이득 없어 제외.
 - **로드맵 ⑤ 1차분** — ⓐPrice History 페이지(종목 리스트→가격 차트·매수/매도 마커·내 평균단가선·기간 KPI, 단축키 P) ⓑSettings 페이지(localStorage: 뷰모드·상위 N 접기·카드 폴드 기본값, 단축키 S) ⓒPhase C 3종: Drawdown underwater 차트(자산 시리즈)·분류 도넛·홀딩스 CSV 내보내기(BOM). 전부 클라이언트만 — GAS 무변경.
+- **web-desk 테마 시스템 (Modern/Terminal)** — 모바일 가독성 개선(본문 Pretendard·보조 텍스트 대비 ≥4.5:1·소프트 팔레트·모바일 폰트 한 단계 상향·스캔라인 제거)을 Modern 테마로 신설, 기존 네온 룩은 Terminal 테마로 보존. 전 색상 CSS 변수화(`--c-*`) + 차트 하드코딩 hex 10파일 청소 + 도넛 시리즈 전용 검증 팔레트(`--c-s1~s7`). Settings 테마 전환(즉시 반영, 기본 Modern). tsc·build·vitest 8/8·팔레트 검증기 통과.

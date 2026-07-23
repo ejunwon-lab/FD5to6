@@ -1,40 +1,120 @@
 @import url('https://fonts.googleapis.com/css2?family=Monoton&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * 테마 시스템 — 모든 색은 RGB 채널 변수(--c-*), Tailwind가 rgb(var()/alpha)로 소비.
+ * :root = terminal(기존 Bloomberg 네온), [data-theme='modern'] = 가독성 개선판.
+ * 전환은 lib/settings.ts applyTheme()가 <html data-theme>로 스탬프 — 리마운트 불필요.
+ * 차트 시리즈(--c-s1~s7)는 텍스트 토큰과 별도 — modern 값은 dataviz 검증 통과 팔레트.
+ */
 @layer base {
+  :root {
+    --c-bg: 10 13 18;
+    --c-bg-elev: 17 21 28;
+    --c-bg-hover: 22 27 36;
+    --c-bg-deep: 6 9 14;
+    --c-bg-line: 13 18 24;
+    --c-line: 31 38 48;
+    --c-line-bright: 45 55 72;
+    --c-line-dim: 22 27 36;
+    --c-ink: 212 216 224;
+    --c-ink-dim: 107 114 128;
+    --c-ink-faint: 74 85 104;
+    --c-ink-bright: 255 255 255;
+    --c-amber: 255 165 0;
+    --c-cyan: 0 212 255;
+    --c-gain: 0 255 127;
+    --c-loss: 255 51 102;
+    --c-warn: 255 204 0;
+    --c-s1: 255 165 0;
+    --c-s2: 0 212 255;
+    --c-s3: 0 255 127;
+    --c-s4: 192 132 252;
+    --c-s5: 244 114 182;
+    --c-s6: 250 204 21;
+    --c-s7: 107 114 128;
+    --font-body: 'JetBrains Mono', monospace;
+    --font-num: 'JetBrains Mono', monospace;
+    --fs-2xs: 10px;
+    --fs-xxs: 11px;
+    --fs-xs: 12px;
+    --fs-base: 14px;
+  }
+
+  :root[data-theme='modern'] {
+    --c-bg: 16 20 27;
+    --c-bg-elev: 23 28 38;
+    --c-bg-hover: 29 36 50;
+    --c-bg-deep: 11 14 20;
+    --c-bg-line: 19 24 34;
+    --c-line: 42 50 64;
+    --c-line-bright: 59 71 89;
+    --c-line-dim: 32 40 54;
+    --c-ink: 228 232 239;
+    --c-ink-dim: 154 165 181;
+    --c-ink-faint: 123 135 154;
+    --c-ink-bright: 255 255 255;
+    --c-amber: 232 161 60;
+    --c-cyan: 84 185 224;
+    --c-gain: 52 211 153;
+    --c-loss: 251 113 133;
+    --c-warn: 245 197 66;
+    --c-s1: 57 135 229;
+    --c-s2: 0 131 0;
+    --c-s3: 213 81 129;
+    --c-s4: 201 133 0;
+    --c-s5: 25 158 112;
+    --c-s6: 217 89 38;
+    --c-s7: 144 133 233;
+    --font-body: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  }
+
+  /* 모바일 최소 가독 크기 보장 — 10~12px 주력 스케일을 한 단계씩 상향 (양 테마 공통) */
+  @media (max-width: 639px) {
+    :root {
+      --fs-2xs: 11px;
+      --fs-xxs: 12px;
+      --fs-xs: 13px;
+    }
+  }
+
   html, body, #root {
     height: 100%;
     margin: 0;
   }
   body {
-    background: #0a0d12;
-    color: #d4d8e0;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
+    background: rgb(var(--c-bg));
+    color: rgb(var(--c-ink));
+    font-family: var(--font-body);
+    font-size: var(--fs-base);
     line-height: 1.45;
     -webkit-font-smoothing: antialiased;
     overflow: hidden;
   }
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      rgba(0, 212, 255, 0.015) 0px,
-      rgba(0, 212, 255, 0.015) 1px,
-      transparent 1px,
-      transparent 3px
-    );
-    pointer-events: none;
-    z-index: 100;
+  /* CRT 스캔라인 — terminal 테마 + 데스크톱에서만 (모바일·modern에선 노이즈) */
+  @media (min-width: 640px) {
+    :root:not([data-theme='modern']) body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 212, 255, 0.015) 0px,
+        rgba(0, 212, 255, 0.015) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
   }
   ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: #0a0d12; }
-  ::-webkit-scrollbar-thumb { background: #2d3748; }
+  ::-webkit-scrollbar-track { background: rgb(var(--c-bg)); }
+  ::-webkit-scrollbar-thumb { background: rgb(var(--c-line-bright)); }
 }
 
 @layer utilities {

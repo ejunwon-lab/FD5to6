@@ -3,6 +3,7 @@
 
 export type HoldingsViewMode = 'card-web' | 'card-terminal' | 'list'
 export type CardFoldDefault = 'auto' | 'folded' | 'unfolded'
+export type DeskTheme = 'modern' | 'terminal'
 
 export interface DeskSettings {
   holdingsViewMode: HoldingsViewMode
@@ -10,6 +11,8 @@ export interface DeskSettings {
   holdingsInitialVisible: number
   /** 카드 폴드 기본값 — auto: 모바일 접힘 / 데스크톱 펼침 */
   cardFoldDefault: CardFoldDefault
+  /** modern: Pretendard+소프트 팔레트 / terminal: Bloomberg 네온 원형 */
+  theme: DeskTheme
 }
 
 const KEY = 'desk_settings_v1'
@@ -18,6 +21,7 @@ export const DEFAULT_SETTINGS: DeskSettings = {
   holdingsViewMode: 'card-web',
   holdingsInitialVisible: 9,
   cardFoldDefault: 'auto',
+  theme: 'modern',
 }
 
 export function loadSettings(): DeskSettings {
@@ -37,6 +41,11 @@ export function saveSettings(s: DeskSettings): void {
   } catch {
     // localStorage 불가(사파리 프라이빗 등) — 세션 한정 무저장으로 동작
   }
+}
+
+/** <html data-theme> 스탬프 — CSS 변수 캐스케이드라 리마운트 없이 즉시 반영 */
+export function applyTheme(theme: DeskTheme): void {
+  document.documentElement.dataset.theme = theme
 }
 
 /** cardFoldDefault → 초기 펼침 여부 (auto는 뷰포트 기준) */

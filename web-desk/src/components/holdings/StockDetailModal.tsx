@@ -110,29 +110,29 @@ export function StockDetailModal({ code, initialName, onClose }: Props) {
                         <XAxis
                           dataKey="date"
                           tickFormatter={(d) => d.slice(5)}
-                          tick={{ fontSize: 10, fill: '#4a5568', fontFamily: 'JetBrains Mono' }}
-                          tickLine={false} axisLine={{ stroke: '#1f2630' }}
+                          tick={{ fontSize: 10, fill: 'rgb(var(--c-ink-faint))', fontFamily: 'var(--font-body)' }}
+                          tickLine={false} axisLine={{ stroke: 'rgb(var(--c-line))' }}
                           interval="preserveStartEnd"
                         />
                         <YAxis
                           tickFormatter={(v) => Math.round(Number(v)).toLocaleString('ko-KR')}
-                          tick={{ fontSize: 10, fill: '#4a5568', fontFamily: 'JetBrains Mono' }}
-                          tickLine={false} axisLine={{ stroke: '#1f2630' }} width={78}
+                          tick={{ fontSize: 10, fill: 'rgb(var(--c-ink-faint))', fontFamily: 'var(--font-body)' }}
+                          tickLine={false} axisLine={{ stroke: 'rgb(var(--c-line))' }} width={78}
                           domain={[minP - padding, maxP + padding]}
                         />
                         <Tooltip
-                          contentStyle={{ background: '#11151c', border: '1px solid #1f2630', fontSize: 11, fontFamily: 'JetBrains Mono' }}
-                          labelStyle={{ color: '#6b7280' }}
-                          itemStyle={{ color: '#d4d8e0' }}
+                          contentStyle={{ background: 'rgb(var(--c-bg-elev))', border: '1px solid rgb(var(--c-line))', fontSize: 11, fontFamily: 'var(--font-body)' }}
+                          labelStyle={{ color: 'rgb(var(--c-ink-dim))' }}
+                          itemStyle={{ color: 'rgb(var(--c-ink))' }}
                           formatter={(v) => `₩${Math.round(Number(v)).toLocaleString('ko-KR')}`}
                         />
-                        <Line type="monotone" dataKey="price" stroke="#00d4ff" strokeWidth={1.5} dot={false} />
+                        <Line type="monotone" dataKey="price" stroke="rgb(var(--c-cyan))" strokeWidth={1.5} dot={false} />
                         {txMarkers.map((m, i) => (
                           <ReferenceDot
                             key={`${m.date}-${i}`}
                             x={m.date} y={m.price}
                             r={4}
-                            fill={m.type === '매수' ? '#ff3366' : '#00ff7f'}
+                            fill={m.type === '매수' ? 'rgb(var(--c-loss))' : 'rgb(var(--c-gain))'}
                             stroke="#0a0d12" strokeWidth={1.5}
                           />
                         ))}
