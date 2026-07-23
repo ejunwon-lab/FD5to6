@@ -75,3 +75,4 @@
 ## 2026-07-23
 - **수익 계산 전수 감사 → 4건 수정** — ①히스토리 윈도 "최소 180거래일+전년 12/1 보장"(YTD 잠복 결함 제거) ②합계 수익률 분모 누적 투입원가로(매도 회수 원금 누락 과대 교정 — 4클라 % 하락 정상) ③데스크 Heatmap 윈도 첫 달 누적 부풀림 제거 ④EquityChart 기간 버튼 날짜 산술화. /design-check 통과, push_safe+gas_redeploy v33, web 54테스트·desk build 클린. errors.md 기록.
 - 웹 "기간별 번 돈" → "기간별 수익" 라벨 변경 + 계산 로직 확인(확정+운용 diff — 실현 이미 포함).
+- **데스크 모바일 반응형 1단계(Dashboard)** — MobileTabBar(하단 탭 6개, safe-area)·h-[100dvh] 셸·viewport-fit=cover + 홀딩스 기본 상위 9종목 접기(전체 보기 토글) + 필터바 모바일 2행화 + Holdings meta ₩M 축약 → 풀 숫자 교정. desk tsc·build·vitest 8/8.

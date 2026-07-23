@@ -25,12 +25,16 @@ import { accountDisplay } from '../../lib/accountDisplay'
 // 계좌 우선 정렬 (계좌명 raw 기준 — 시트의 원본 값)
 const ACCOUNT_ORDER = ['종합_랩', '종합', 'ISA', '퇴직연금_개인IRP', '퇴직연금_개인형IRP(범용)']
 
+// 기본 표시 종목 수 — 전체 펼침은 스크롤이 길어져 접기 기본 (2026-07-23 사용자 요청)
+const INITIAL_VISIBLE = 9
+
 export function DashboardHoldings({ holdings }: Props) {
   const [selectedAccount, setSelectedAccount] = useState<string>('전체')
   const [sortKey, setSortKey] = useState<SortKey>('allInfo')
   const [sortAsc, setSortAsc] = useState(false)
   const [query, setQuery] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('card-web')
+  const [showAll, setShowAll] = useState(false)
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null)
   const [detailStock, setDetailStock] = useState<{ code: string; name: string } | null>(null)
 
@@ -75,10 +79,14 @@ export function DashboardHoldings({ holdings }: Props) {
 
   const totalWeight = holdings.reduce((s, h) => s + h.value, 0) || 1
 
+  // 접힌 상태에선 상위 N개만 (정렬·필터·합계는 전체 filtered 기준 유지)
+  const visible = showAll ? filtered : filtered.slice(0, INITIAL_VISIBLE)
+  const hiddenCount = filtered.length - visible.length
+
   return (
     <Panel
       title={`Holdings · ${filtered.length}${selectedAccount === '전체' ? '' : ' / ' + accountDisplay(accountBrokerMap[selectedAccount] ?? '', selectedAccount)}`}
-      meta={`₩${(stats.value / 1e6).toFixed(2)}M`}
+      meta={`₩${Math.round(stats.value).toLocaleString()}`}
       className="col-span-full"
     >
       {/* 필터 + 정렬 + 검색 바 */}
@@ -103,8 +111,9 @@ export function DashboardHoldings({ holdings }: Props) {
             )
           })}
         </div>
-        {/* Sort + View toggle + Search */}
-        <div className="flex gap-1.5 items-center flex-wrap">
+        {/* Sort + View toggle + Search — 모바일은 2행(정렬 가로 스크롤 / 토글+검색) */}
+        <div className="flex flex-col gap-2 lg:flex-row lg:gap-1.5 lg:items-center">
+          <div className="flex gap-1.5 items-center overflow-x-auto">
           <span className="text-2xs text-ink-faint uppercase tracking-widest shrink-0 mr-1">정렬</span>
           {SORT_OPTIONS.map((opt) => (
             <button
@@ -120,8 +129,9 @@ export function DashboardHoldings({ holdings }: Props) {
               {sortKey === opt.key && <span>{sortAsc ? '↑' : '↓'}</span>}
             </button>
           ))}
+          </div>
           {/* View mode toggle — 3-state (순서: Web → Terminal → List) */}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="lg:ml-auto flex items-center gap-2">
             <div className="inline-flex border border-line">
               <button
                 onClick={() => setViewMode('card-web')}
@@ -149,7 +159,7 @@ export function DashboardHoldings({ holdings }: Props) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="search..."
-              className="bg-bg-deep border border-line text-ink px-2.5 py-0.5 text-xs w-44 focus:outline-none focus:border-amber"
+              className="bg-bg-deep border border-line text-ink px-2.5 py-0.5 text-xs flex-1 min-w-0 lg:flex-none lg:w-44 focus:outline-none focus:border-amber"
             />
           </div>
         </div>
@@ -161,7 +171,7 @@ export function DashboardHoldings({ holdings }: Props) {
       {/* Terminal Card view */}
       {viewMode === 'card-terminal' && (
         <div className="p-3 grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {filtered.map((h) => {
+          {visible.map((h) => {
             const id = `${h.symbol}-${h.accountType}`
             return (
               <HoldingCard
@@ -183,7 +193,7 @@ export function DashboardHoldings({ holdings }: Props) {
       {/* Web-style Card view (web/ 와 동일 디자인, 큰 사이즈, 풀 숫자) */}
       {viewMode === 'card-web' && (
         <div className="p-4 grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((h) => {
+          {visible.map((h) => {
             const id = `${h.symbol}-${h.accountType}`
             return (
               <HoldingCardWeb
@@ -221,7 +231,7 @@ export function DashboardHoldings({ holdings }: Props) {
 
       {/* Rows */}
       <div className="divide-y divide-line-dim min-w-[1240px]">
-        {filtered.map((h) => {
+        {visible.map((h) => {
           const heldDays = h.buyDate ? Math.max(0, Math.floor((Date.now() - new Date(h.buyDate).getTime()) / 86_400_000)) : null
           const dayUp = h.dayChange >= 0
           const totalUp = h.opProfit >= 0
@@ -301,6 +311,18 @@ export function DashboardHoldings({ holdings }: Props) {
         </div>
       )}
       </div>
+      )}
+
+      {/* 접기/펼치기 — 상위 N개 초과분 토글 */}
+      {filtered.length > INITIAL_VISIBLE && (
+        <button
+          onClick={() => setShowAll((v) => !v)}
+          className="w-full py-2.5 text-2xs uppercase tracking-widest text-ink-dim hover:text-amber border-t border-line-dim"
+        >
+          {showAll
+            ? `▴ 접기 — 상위 ${INITIAL_VISIBLE}종목만 표시`
+            : `▾ 전체 ${filtered.length}종목 보기 (+${hiddenCount})`}
+        </button>
       )}
 
       {/* Stock detail modal */}

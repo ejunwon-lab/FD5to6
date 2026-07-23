@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { TopBar } from './components/shell/TopBar'
 import { Ticker } from './components/shell/Ticker'
 import { Sidebar, type NavKey } from './components/shell/Sidebar'
+import { MobileTabBar } from './components/shell/MobileTabBar'
 import { Footer } from './components/shell/Footer'
 import { DashboardPage } from './components/dashboard/DashboardPage'
 import { TodayPage } from './components/today/TodayPage'
@@ -71,14 +72,18 @@ function App() {
   })()
   return (
     <DataProvider>
-      <div className="h-screen flex flex-col">
+      {/* 100dvh: iOS Safari 주소창 수축/확장에도 하단 탭바가 잘리지 않게 */}
+      <div className="h-[100dvh] flex flex-col">
         <TopBar onMenuClick={() => setDrawerOpen(true)} />
         <Ticker />
         <div className="flex-1 grid overflow-hidden grid-cols-1 lg:grid-cols-[200px_1fr]">
           <Sidebar active={active} onSelect={setActive} drawerOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
           {page}
         </div>
-        <Footer />
+        <MobileTabBar active={active} onSelect={setActive} />
+        <div className="hidden lg:block">
+          <Footer />
+        </div>
       </div>
     </DataProvider>
   )
