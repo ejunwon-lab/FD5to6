@@ -38,6 +38,9 @@ function shiftMonths(ymd: string, months: number): string {
 
 // 기준값: date <= target 인 것 중 가장 최근. 없으면 가장 오래된 entry(데이터 시작).
 // entries는 날짜 오름차순 가정.
+// ⚠️ "올해" 타일 정확성은 서버 계약에 기댄다: newMobileGetProfitHistory(MobileAPI.js)가
+// 윈도를 "최소 180거래일 + 전년 12/1까지"로 보장해야 YTD baseline(전년 마지막 거래일)이
+// 항상 존재한다. 서버가 다시 고정 slice로 줄이면 fallback이 조용히 "윈도 시작 이후"를 만든다.
 function pickBaseline(entries: TrendEntry[], targetYmd: string): TrendEntry | null {
   if (entries.length === 0) return null
   let baseline: TrendEntry | null = null

@@ -93,7 +93,10 @@ function newMobileGetPortfolio() {
       prevDayChangAmount = prev.amount;
       prevDayChangePct   = prev.pct;
     }
-    const totRate   = totalBuy > 0 ? totProfit / totalBuy * 100 : 0;
+    // 합계 수익률 분모 = 누적 투입원가(현재 보유 매입 + 매도분 매수원가).
+    // totalBuy만 쓰면 매도로 회수한 원금이 빠져 과대 표시 (2026-07-23 설계 노트).
+    const investedTotal = totalBuy + cfBuy;
+    const totRate   = investedTotal > 0 ? totProfit / investedTotal * 100 : 0;
 
     // ── 오늘 수익 (*종목지표*의 행별 당일손익 합산) ──
     let dayChange = 0;
@@ -793,7 +796,18 @@ function newMobileGetProfitHistory() {
       if (!_isTradingDateStr(d)) continue;   // 주말·공휴일 drop (errors.md 2026-05-17 패턴)
       entries.push({ date: d, totalProfit: toN(row[9]) });   // AD = idx 9
     }
-    return JSON.stringify({ success: true, entries: entries.slice(-180) });
+    // 윈도: 최소 180거래일 + 전년 12/1까지 보장.
+    // 180 고정이면 10월경부터 YTD baseline(전년 마지막 거래일)이 윈도 밖으로 밀려
+    // 웹 "올해" 타일이 조용히 "윈도 시작 이후"로 변질된다 (2026-07-23 설계 노트).
+    let startIdx = Math.max(0, entries.length - 180);
+    if (entries.length > 0) {
+      const anchorYear = Number(entries[entries.length - 1].date.slice(0, 4));
+      const cutoff = (anchorYear - 1) + '-12-01';
+      let decIdx = entries.findIndex(e => e.date >= cutoff);
+      if (decIdx === -1) decIdx = startIdx;
+      startIdx = Math.min(startIdx, decIdx);
+    }
+    return JSON.stringify({ success: true, entries: entries.slice(startIdx) });
   } catch (e) {
     Logger.log('newMobileGetProfitHistory 오류: ' + e);
     return JSON.stringify({ success: true, entries: [] });

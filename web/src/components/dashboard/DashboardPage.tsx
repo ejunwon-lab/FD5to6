@@ -163,9 +163,9 @@ export function DashboardPage({
               </div>
             </Card>
 
-            {/* 기간별 번 돈 (실현+평가 포함, 합계수익 추이 diff) */}
+            {/* 기간별 수익 (실현+평가 포함, 합계수익 추이 diff) */}
             <Card className="p-4">
-              <p className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3">기간별 번 돈</p>
+              <p className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3">기간별 수익</p>
               <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-gray-700">
                 {periodProfits.map(tile => (
                   <div key={tile.key} className="text-center px-1">

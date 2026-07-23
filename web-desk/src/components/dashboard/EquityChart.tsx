@@ -95,6 +95,22 @@ function filterByRange(curve: EquityPoint[], range: Range): EquityPoint[] {
     return curve.slice(-150)
   }
 
-  // 숫자: 최근 N일 (데이터가 daily이므로 마지막 N개 슬라이스)
+  // 숫자: 최근 N '달력일' — entries는 거래일만 있으므로 slice(-N)이 아니라 날짜로 자른다.
+  // (slice(-30)은 30거래일 ≈ 6주가 되어 "1M" 라벨과 어긋난다 — 2026-07-23 설계 노트)
+  const last = curve[curve.length - 1]
+  if (last.fullDate) {
+    const cutoff = shiftYmd(last.fullDate, -spec)
+    const filtered = curve.filter((p) => (p.fullDate ?? '') >= cutoff)
+    if (filtered.length >= 2) return filtered
+  }
   return curve.slice(-spec)
+}
+
+// 'YYYY-MM-DD' ± days → 'YYYY-MM-DD' (로컬)
+function shiftYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  const dt = new Date(y, m - 1, d + days)
+  const mo = String(dt.getMonth() + 1).padStart(2, '0')
+  const da = String(dt.getDate()).padStart(2, '0')
+  return `${dt.getFullYear()}-${mo}-${da}`
 }

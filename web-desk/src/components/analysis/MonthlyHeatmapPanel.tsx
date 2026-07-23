@@ -37,6 +37,9 @@ export function MonthlyHeatmapPanel({ equityCurve }: { equityCurve: EquityPoint[
     const sortedYM = Array.from(monthEnd.keys()).sort()
     const ymToPrev = new Map<string, string>()
     sortedYM.forEach((ym, i) => { if (i > 0) ymToPrev.set(ym, sortedYM[i - 1]) })
+    // 윈도 내 첫 달은 전월 baseline이 없어 delta를 만들 수 없다 — baseline 전용.
+    // prev=0으로 계산하면 누적수익 전체가 그 달 수익으로 부풀어 색 스케일·YTD를 오염시킨다.
+    const firstYM = sortedYM[0]
 
     const cells: CellData[] = []
     let maxAbs = 0
@@ -46,7 +49,7 @@ export function MonthlyHeatmapPanel({ equityCurve }: { equityCurve: EquityPoint[
       for (let m = 0; m < 12; m++) {
         const ym = `${y}-${String(m + 1).padStart(2, '0')}`
         const end = monthEnd.get(ym)
-        if (end === undefined) {
+        if (end === undefined || ym === firstYM) {
           cells.push({ year: y, month: m, delta: 0, hasData: false })
           continue
         }

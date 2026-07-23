@@ -2,6 +2,14 @@
 
 ---
 
+## 2026-07-23
+
+### 데스크 Monthly Heatmap 첫 달 부풀림 + 웹 "올해" 타일 잠복 결함 — 히스토리 180거래일 고정 윈도의 두 얼굴
+- **증상**: ① 데스크 Analysis Monthly Heatmap의 윈도 내 가장 오래된 달(당시 2025-11) 셀에 그 달 수익이 아닌 **시스템 누적수익 전체**가 표시 — 색 스케일 maxAbs를 지배해 나머지 달이 전부 옅어지고, 해당 연도 YTD 합도 오염. 롤링 윈도라 매달 부풀려진 달이 한 칸씩 이동. ② 웹 "기간별 수익"의 "올해"는 당시엔 정상이지만, 10월경 180거래일 윈도 시작이 1/1을 지나면 라벨 변화 없이 "윈도 시작 이후 수익"으로 변질될 잠복 결함.
+- **원인**: 공통 뿌리 = `newMobileGetProfitHistory`의 `entries.slice(-180)` 고정 윈도. ① MonthlyHeatmapPanel이 윈도 첫 달의 전월 baseline 부재 시 `prev=0`으로 계산 → delta = 누적수익 전체. ② periodProfit `pickBaseline`이 1/1 이전 entry 부재 시 `entries[0]` fallback → silent 변질. 부수: EquityChart `slice(-30)`은 30**거래일**(≈6주)인데 "1M" 라벨 (errors.md 2026-06-21 "slice(-N)≠최근 N거래일" 부류).
+- **해결 (2026-07-23)**: ① 서버 윈도 계약 변경 — 시작 = min(전년 12/1 이후 첫 entry, len−180), "최소 180거래일 + 전년 12/1까지" 둘 다 보장 → YTD baseline(전년 마지막 거래일) 항상 존재. ② MonthlyHeatmapPanel 윈도 첫 달은 baseline 전용(`hasData:false`) — delta·maxAbs·YTD에서 제외. ③ EquityChart 범위 버튼을 날짜 산술 필터로 교체. ④ 동시 발견: `totalProfitRate` 분모가 현재 보유 매입만이라 매도 회수 원금 누락 → 과대. 분모를 누적 투입원가(totalBuy+cfBuy)로 변경 (web·desk·iOS·Telegram 4곳 표시 자동 반영, %는 낮아지는 게 정상). push_safe + gas_redeploy v33. 설계: `docs/plans/2026-07-23-수익로직-수정.md`.
+- **교훈**: 고정 `slice(-N)` 윈도는 소비처마다 다른 방식으로 틀린다 — 누적 시리즈의 diff 소비자(히트맵)는 윈도 경계에서 baseline이 사라져 부풀고, 달력 기준 소비자(YTD)는 계절에 따라 조용히 잘린다. **윈도는 소비처의 계약(무엇이 반드시 포함돼야 하나)으로 정의**하고, 누적 시리즈로 구간 delta를 만들 땐 경계 원소를 delta 생산에서 제외해야 한다.
+
 ## 2026-07-20
 
 ### 지방선거일(6/3)도 화이트리스트 미매칭 — 휴장일 채택 기준을 구글 '공휴일' 분류로 전환하며 발견한 잠복 결함

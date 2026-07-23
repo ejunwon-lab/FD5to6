@@ -1,6 +1,6 @@
 # API Reference — GAS 모바일 엔드포인트 데이터 계약
 
-last updated: 2026-07-16
+last updated: 2026-07-23
 
 `apps-script-v2/MobileAPI.js`의 `newMobile*` 함수가 iOS(`ios2`)·웹(`web`)에 돌려주는 JSON 계약.
 **"어떤 필드가 이상하다"** 류 버그는 코드를 뒤지기 전에 이 표에서 필드 → 계산 위치를 먼저 찾는다.
@@ -34,7 +34,7 @@ last updated: 2026-07-16
 | `totalCurrent` | 총 평가금액 | *보유현황* 평가금액 합 |
 | `totalProfit` / `profitRate` | 운용 손익 = 평가−매입 | `newMobileGetPortfolio` |
 | `trendTotalProfit` | 합계 수익 (확정+운용) | *추이 기록* AD2 우선, 없으면 운용+확정 |
-| `totalProfitRate` | 합계 수익률 | trendTotalProfit / totalBuy |
+| `totalProfitRate` | 합계 수익률 | trendTotalProfit / (totalBuy + 매도분 매수원가 cfBuy) — 분모 = 누적 투입원가 (2026-07-23 변경, 이전엔 totalBuy만이라 과대) |
 | `confirmedProfit` / `confirmedProfitRate` | 확정(실현) 수익 | *실현손익* 시트 합 |
 | `trendOperatingProfit` / `operatingProfitRate` | 운용 수익 | 평가−매입 |
 | `dayChangAmount` | 당일(=최근 거래일) 수익액 | Σ(*종목지표*.당일손익) ← `computeStockMetrics` |
@@ -67,7 +67,7 @@ last updated: 2026-07-16
 |---|---|---|
 | `newMobileGetStockDetail(code)` | StockDetailResponse | 종목별 positions·summary·transactions·priceHistory·stats |
 | `newMobileGetMonthlyRealized()` | MonthlyRealizedResponse | 실현손익. **응답 두 형태 같이** 보냄 — `entries[]`: 행 단위 14필드 (date·month·code·name·category·broker·account·quantity·sellPrice·sellAmount·avgBuyPrice·buyCost·fee·profit·returnPct, 매도일 desc — 데스크 ActivityPage용) + `monthly[]`: 월별 집계 (month·count·winCount·profit·profitRate·winRate — web·iOS Analysis 후방 호환) |
-| `newMobileGetProfitHistory()` | TrendHistoryResponse | 수익 추이 (entries: date·totalProfit) ← *추이 기록* |
+| `newMobileGetProfitHistory()` | TrendHistoryResponse | 수익 추이 (entries: date·totalProfit) ← *추이 기록*. 윈도 = **최소 180거래일 + 전년 12/1까지 보장** (웹 "올해" 타일 baseline 계약 — 2026-07-23) |
 | `newMobileGetSoldTracker()` | SoldTrackerResponse | 매도 복기 What-if. `asOfDate` + `items[]` 16필드 (sellDate·code·name·category·broker·account·sellQty·sellPrice·sellAmount·avgBuyPrice·buyCost·realizedProfit·**currentPrice**·**ifHeldProfit**(안팔았다면)·**diff**(판것대비차이)·elapsedDays) ← *매도추적*. 국내만 what-if(해외 currentPrice/ifHeldProfit/diff=null·환율 미반영), 매도일 desc |
 | `newMobileGetIndicators()` | IndicatorsResponse | 참고지표 (key·name·category·value·change·changePct) |
 | `newMobileGetIndicatorHistory()` | IndicatorHistoryResponse | **참고지표 시계열** (*참고지표_히스토리* 시트 wide JSON: keys + entries[{date, KOSPI, SPX, ...}]). 벤치마크 outperformance 차트용 — 날짜 asc 정렬, name→key 매핑 |
