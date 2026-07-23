@@ -100,6 +100,7 @@ export interface IndicatorsResponse {
 export interface TrendEntry {
   date: string
   totalProfit: number
+  totalAsset?: number | null   // 일별 총자산(운용+대기, 추이 기록 Q열) — 리스크 지표 분모용 (2026-07-23)
 }
 
 export interface TrendHistoryResponse {

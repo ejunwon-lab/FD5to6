@@ -214,7 +214,7 @@ export function AnalysisPage() {
   )
 }
 
-function computeStats(holdings: { symbol: string; name: string; market: string; broker: string; accountType: string; value: number; returnPct: number; weightPct: number }[], equity: { date: string; value: number }[]) {
+function computeStats(holdings: { symbol: string; name: string; market: string; broker: string; accountType: string; value: number; returnPct: number; weightPct: number }[], equity: { date: string; value: number; asset?: number | null }[]) {
   const totalValue = holdings.reduce((s, h) => s + h.value, 0) || 1
   // Re-compute weight from value (in case prop weightPct missing)
   const withW = holdings.map((h) => ({ ...h, w: (h.value / totalValue) * 100 }))
@@ -263,7 +263,18 @@ function computeStats(holdings: { symbol: string; name: string; market: string; 
   const losers = sorted.filter((h) => h.returnPct < 0).slice(-5).reverse()
 
   // Equity-derived metrics
+  // ⚠️ 리스크 지표(Sharpe·Vol·MDD·Win·Best)의 분모는 반드시 **총자산**이어야 한다.
+  // 누적수익 곡선(value)으로 계산하면 수십 배 과대 (2026-07-23 설계 노트 — 자산 기반 교정).
+  // 자산 데이터 없는 폴백(샘플 등)만 기존 수익곡선 방식 유지.
+  // 한계: raw 자산 diff라 입출금일 왜곡 잔존 (TWR 보정은 doPost getPortfolioMetrics 전용).
   const values = equity.map((e) => e.value)
+  const assetSeries = equity
+    .filter((e) => e.asset != null && e.asset > 0)
+    .map((e) => ({ date: e.date, v: e.asset as number }))
+  const riskSeries = assetSeries.length >= 2
+    ? assetSeries
+    : equity.map((e) => ({ date: e.date, v: e.value }))
+
   let totalReturn = 0
   let totalReturnPct = 0
   let sharpe = 0
@@ -276,11 +287,16 @@ function computeStats(holdings: { symbol: string; name: string; market: string; 
   let bestDayDate = '—'
 
   if (values.length > 1) {
+    // (summary 부재 시 폴백 표시용 — AnalysisPage 본문은 summary 우선 사용)
     totalReturn = values[values.length - 1] - values[0]
     totalReturnPct = (totalReturn / Math.abs(values[0] || 1)) * 100
+  }
+
+  const sv = riskSeries.map((p) => p.v)
+  if (sv.length > 1) {
     const returns: number[] = []
-    for (let i = 1; i < values.length; i++) {
-      const r = (values[i] - values[i - 1]) / Math.abs(values[i - 1] || 1)
+    for (let i = 1; i < sv.length; i++) {
+      const r = (sv[i] - sv[i - 1]) / Math.abs(sv[i - 1] || 1)
       if (Number.isFinite(r)) returns.push(r)
     }
     totalDays = returns.length
@@ -291,18 +307,18 @@ function computeStats(holdings: { symbol: string; name: string; market: string; 
     vol = stdev * 100
     sharpe = stdev > 0 ? (mean / stdev) * Math.sqrt(252) : 0
 
-    // Max drawdown
-    let peak = values[0]
+    // Max drawdown — 자산 peak-to-trough (GAS getPortfolioMetrics의 Q열 MDD와 동일 정의)
+    let peak = sv[0]
     let peakIdx = 0
-    for (let i = 0; i < values.length; i++) {
-      if (values[i] > peak) {
-        peak = values[i]
+    for (let i = 0; i < sv.length; i++) {
+      if (sv[i] > peak) {
+        peak = sv[i]
         peakIdx = i
       }
-      const dd = (peak - values[i]) / Math.abs(peak || 1)
+      const dd = (peak - sv[i]) / Math.abs(peak || 1)
       if (dd > maxDD / 100) {
         maxDD = dd * 100
-        maxDDDays = values.length - peakIdx
+        maxDDDays = sv.length - peakIdx
       }
     }
 
@@ -316,7 +332,7 @@ function computeStats(holdings: { symbol: string; name: string; market: string; 
       }
     })
     bestDay = bestVal * 100
-    bestDayDate = equity[bestIdx + 1]?.date ?? '—'
+    bestDayDate = riskSeries[bestIdx + 1]?.date ?? '—'
   }
 
   return {

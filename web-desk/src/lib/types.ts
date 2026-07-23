@@ -76,5 +76,6 @@ export interface PortfolioSummary {
 export interface EquityPoint {
   date: string         // MM-DD (표시용)
   fullDate?: string    // YYYY-MM-DD (필터링용)
-  value: number
+  value: number        // 누적 합계수익 (확정+운용)
+  asset?: number | null  // 일별 총자산 — 리스크 지표(Sharpe·Vol·MDD) 분모 (2026-07-23)
 }

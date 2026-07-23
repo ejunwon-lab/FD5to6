@@ -789,12 +789,27 @@ function newMobileGetProfitHistory() {
       return m ? m[0] : '';
     };
 
+    // 일별 추이 (B) N~Q — Q(합계 총자산=운용+대기)를 날짜 키로 매칭해 totalAsset 부착.
+    // 데스크 리스크 지표(Sharpe·Vol·MDD)의 분모를 누적수익이 아닌 자산으로 (2026-07-23 설계 노트).
+    const assetByDate = {};
+    const dailyData = trend.getRange(pFirstRow, 14, height, 4).getValues();  // N~Q
+    for (const row of dailyData) {
+      const d = toDateStr(row[0]);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      const q = toN(row[3]);
+      if (q > 0) assetByDate[d] = q;
+    }
+
     const entries = [];
     for (const row of data) {
       const d = toDateStr(row[0]);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
       if (!_isTradingDateStr(d)) continue;   // 주말·공휴일 drop (errors.md 2026-05-17 패턴)
-      entries.push({ date: d, totalProfit: toN(row[9]) });   // AD = idx 9
+      entries.push({
+        date: d,
+        totalProfit: toN(row[9]),                                     // AD = idx 9
+        totalAsset: assetByDate[d] !== undefined ? assetByDate[d] : null,
+      });
     }
     // 윈도: 최소 180거래일 + 전년 12/1까지 보장.
     // 180 고정이면 10월경부터 YTD baseline(전년 마지막 거래일)이 윈도 밖으로 밀려

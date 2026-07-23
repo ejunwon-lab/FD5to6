@@ -416,6 +416,7 @@ function mapEquity(hist: TrendHistoryResponse): EquityPoint[] {
   return (hist.entries ?? []).map((e) => ({
     date: e.date.slice(5), fullDate: e.date,
     value: Number(e.totalProfit) || 0,
+    asset: e.totalAsset != null && Number(e.totalAsset) > 0 ? Number(e.totalAsset) : null,
   }))
 }
 

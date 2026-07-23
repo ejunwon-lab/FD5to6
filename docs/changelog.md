@@ -85,3 +85,4 @@
 - **KIS Status 페이지 신설 (로드맵 ②)** — GAS `newMobileGetSystemStatus`(_buildDiag 재사용 + kis_carried_status, 금액·종목명 없는 진단 페이로드, scripts.run OAuth 전용) + 데스크 KisStatusPage(단축키 K: KIS 시세 carried/total·시스템 상태·지표 충족도 바·최근 이력/휴장일·Refresh). /design-check 통과, push_safe 배포.
 - **모바일 2단계(로드맵 ③)** — Today 정렬/필터 컨트롤 가로 스크롤 한 줄(줄바꿈 제거)·updated 라벨 lg+만. Analysis·히트맵·벤치마크는 기대응 확인(구조 수정 불요).
 - **Analysis Total Return 교정** — 곡선 diff(서버 윈도 내 수익으로 축소됨) → summary 전체 누적(대시보드 KPI와 동일 정의). 부수 발견: Sharpe·Vol·MDD 등 리스크 지표가 누적수익 곡선 %변화 기반이라 왜곡 — 일별 총자산 API 노출 필요, pending ⑥ 등재.
+- **Analysis 리스크 지표 자산 기반 교정 (로드맵 ⑥)** — newMobileGetProfitHistory entries에 totalAsset(추이 기록 Q열) additive 추가 → 데스크 Sharpe·Volatility·Win Days·Best Day·MDD를 자산 시리즈 기반으로 교체(누적수익 분모 과대 제거, MDD 정의를 GAS getPortfolioMetrics와 통일). TWR 한계 명시(raw 자산 diff — 입출금일 왜곡 잔존). /design-check 통과, push_safe 배포.
