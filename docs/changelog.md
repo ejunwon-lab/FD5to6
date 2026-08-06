@@ -93,3 +93,4 @@
 ## 2026-08-06
 - **데스크 iPad 개선 1차 — 사이드바 재편** — Workspace/Data/System(6·2·2) → Portfolio/Activity/Market/System 4섹션("무엇에 대한 정보인가" 기준), `Trade Log`→`Activity` 개명(NavKey `tradelog`→`activity`), Dividends placeholder 메뉴·`v` 단축키 제거(기능은 로드맵 ⑤ 백로그 유지), 터치 타깃 `py-2.5` 통일, 단축키 힌트 `pointer-fine` 환경 한정(tailwind 커스텀 variant). tsc·build 통과, code-map 갱신.
 - **홀딩스 카드 폴드 정리 — 무조건 접힘 시작 + 그리드 독립 높이** — 초기 상태를 기기 불문 접힘으로 고정(Settings '카드 접기 기본값' 옵션·resolveFoldDefault 삭제), 그리드 2곳 `items-start`로 한 카드를 펼쳐도 같은 행의 접힌 카드 박스가 늘어나지 않게. 개별 클릭 = 그 카드만 펼침(기존 foldOverrides 유지), '모두 펼치기' 전역 토글 유지. tsc·vitest 8/8·build 통과.
+- **Today 페이지 개편 (인사이트 7종)** — KPI 5칸(포트변동·Breadth 통합·KOSPI·S&P500·USD/KRW 당일%) + 오늘의 기여도(₩ Top5 ±) + 주의 신호(수익↔손실 전환·±3% 급등락·52주 고/저점 근접) + 시장/계좌 분해 + 최근 90거래일 분포 내 오늘 위치 + 오늘 실현손익 조건부 스트립 + iPad 가로 2단 레이아웃(좌 리스트/우 인사이트). 순수 로직 lib/todayInsights.ts 분리 + vitest 10케이스 신설(총 18). 전부 클라이언트 — GAS 무변경.
