@@ -12,10 +12,9 @@ interface Props {
 }
 
 export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props) {
-  // 상세 표는 한 번에 하나만 — 카드를 누르면 그 자리에 해당 표로 교체 (라디오 방식, 2026-08-06)
+  // 상세 표는 한 번에 하나만, 항상 하나는 열림 — 카드 = 탭, 아래 표 = 탭 내용 (2026-08-06)
   type Section = 'stock' | 'nonstock' | 'cash'
-  const [openSection, setOpenSection] = useState<Section | null>('stock')
-  const toggleSection = (s: Section) => setOpenSection((cur) => (cur === s ? null : s))
+  const [openSection, setOpenSection] = useState<Section>('stock')
   // 계좌 드릴다운 모달 — 주식 계좌 행 탭 (2026-08-06)
   const [detailAccount, setDetailAccount] = useState<{ broker: string; account: string } | null>(null)
 
@@ -71,14 +70,14 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
           returnPct={stockReturnPct}
           opProfit={stockTotals.opProfit}
           open={openSection === 'stock'}
-          onClick={() => toggleSection('stock')}
+          onClick={() => setOpenSection('stock')}
         />
         <GroupCard
           label="비주식 자산"
           value={nonStockTotal}
           subtitle={nonStockCount > 0 ? `${nonStockCount}건` : '없음'}
           open={openSection === 'nonstock'}
-          onClick={() => nonStockCount > 0 && toggleSection('nonstock')}
+          onClick={() => nonStockCount > 0 && setOpenSection('nonstock')}
           disabled={nonStockCount === 0}
         />
         <GroupCard
@@ -86,7 +85,7 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
           value={cashTotal}
           subtitle={cashCount > 0 ? `${cashCount}계좌` : '없음'}
           open={openSection === 'cash'}
-          onClick={() => cashCount > 0 && toggleSection('cash')}
+          onClick={() => cashCount > 0 && setOpenSection('cash')}
           disabled={cashCount === 0}
           tone="cyan"
         />
@@ -96,6 +95,7 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
       {/* 2. 주식 상세 — openSection 'stock'일 때만 (같은 자리 교체) */}
       {openSection === 'stock' && stockRows.length > 0 && (
         <div className="overflow-x-auto border-b border-line-dim">
+          <SectionTitle tone="amber" title="주식 계좌 상세" meta={`${stockTotals.accountCount}계좌 · ${stockTotals.count}종목`} />
           <table className="w-full text-xs min-w-[640px]">
             <thead>
               <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line-dim bg-bg-deep/40">
@@ -138,6 +138,7 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
       {/* 3. 비주식 자산 상세 — openSection 'nonstock'일 때만 */}
       {openSection === 'nonstock' && nonStockAssets && nonStockAssets.items.length > 0 && (
         <div className="overflow-x-auto border-b border-line-dim">
+          <SectionTitle tone="amber" title="비주식 자산 상세" meta={`${nonStockCount}건`} />
           <table className="w-full text-xs min-w-[640px]">
             <thead>
               <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line-dim bg-bg-deep/40">
@@ -186,6 +187,7 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
       {/* 4. 대기자금 상세 — openSection 'cash'일 때만 */}
       {openSection === 'cash' && cashReserve && cashReserve.items.length > 0 && (
         <div className="overflow-x-auto">
+          <SectionTitle tone="cyan" title="대기자금 상세" meta={`${cashCount}계좌`} />
           <table className="w-full text-xs min-w-[640px]">
             <thead>
               <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line-dim bg-bg-deep/40">
@@ -231,6 +233,17 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
   )
 }
 
+/** 표 상단 타이틀 바 — 위 카드(탭)와 같은 accent로 "이 표가 그 카드의 상세"임을 표시 */
+function SectionTitle({ tone, title, meta }: { tone: 'amber' | 'cyan'; title: string; meta?: string }) {
+  const accent = tone === 'cyan' ? 'border-cyan text-cyan' : 'border-amber text-amber'
+  return (
+    <div className={`flex items-baseline gap-2 px-3 py-1.5 border-l-2 bg-bg-deep/40 ${accent}`}>
+      <span className="text-2xs font-semibold uppercase tracking-widest">▾ {title}</span>
+      {meta && <span className="text-2xs text-ink-faint tabular">{meta}</span>}
+    </div>
+  )
+}
+
 interface GroupCardProps {
   label: string
   value: number
@@ -246,12 +259,16 @@ interface GroupCardProps {
 function GroupCard({ label, value, subtitle, returnPct, opProfit, open, onClick, disabled, tone = 'amber' }: GroupCardProps) {
   const profitTone = opProfit !== undefined ? (opProfit >= 0 ? 'text-gain' : 'text-loss') : ''
   const valueTone  = tone === 'cyan' ? 'text-cyan' : 'text-ink'
+  // 선택된 카드 = 눌린 탭: 배경 밝게 + 하단 accent 보더 (미선택은 투명 보더로 높이 유지)
+  const activeClass = open
+    ? `bg-bg-hover border-b-2 ${tone === 'cyan' ? 'border-cyan' : 'border-amber'}`
+    : 'bg-bg-elev border-b-2 border-transparent'
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`bg-bg-elev px-3.5 py-3 text-left ${disabled ? 'opacity-50 cursor-default' : 'hover:bg-bg-hover'} focus:outline-none focus:ring-1 focus:ring-amber`}
+      className={`${activeClass} px-3.5 py-3 text-left ${disabled ? 'opacity-50 cursor-default' : 'hover:bg-bg-hover'} focus:outline-none focus:ring-1 focus:ring-amber`}
     >
       <div className="flex items-baseline justify-between mb-1">
         <span className="text-2xs text-ink-faint uppercase tracking-widest">{label}</span>
