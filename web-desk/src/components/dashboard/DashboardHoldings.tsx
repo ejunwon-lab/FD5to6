@@ -43,6 +43,9 @@ export function DashboardHoldings({ holdings }: Props) {
   const isUnfolded = (id: string) => (foldOverrides.has(id) ? !globalUnfold : globalUnfold)
   const toggleCard = (id: string) =>
     setFoldOverrides((prev) => {
+      // 기본(전체 접힘) 모드는 아코디언 — 새 카드를 펼치면 기존 펼침을 대체 (2026-08-06)
+      if (!globalUnfold) return prev.has(id) ? new Set() : new Set([id])
+      // '모두 펼치기' 모드에선 개별 접기/펼치기 토글 유지
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
