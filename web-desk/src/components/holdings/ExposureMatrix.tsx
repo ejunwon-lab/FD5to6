@@ -3,6 +3,7 @@ import type { Holding } from '../../lib/types'
 import type { CashReserve, NonStockAssets } from '../../api/gasApi'
 import { Panel } from '../ui/Panel'
 import { accountDisplay } from '../../lib/accountDisplay'
+import { AccountDetailModal } from './AccountDetailModal'
 
 interface Props {
   holdings: Holding[]
@@ -14,6 +15,8 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
   const [stockOpen, setStockOpen] = useState(true)
   const [nonStockOpen, setNonStockOpen] = useState(false)
   const [cashOpen, setCashOpen] = useState(false)
+  // 계좌 드릴다운 모달 — 주식 계좌 행 탭 (2026-08-06)
+  const [detailAccount, setDetailAccount] = useState<{ broker: string; account: string } | null>(null)
 
   const { stockRows, stockTotals } = useMemo(() => {
     const agg: Record<string, { broker: string; opBuy: number; opProfit: number; value: number; count: number }> = {}
@@ -103,9 +106,13 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
             </thead>
             <tbody>
               {stockRows.map((r) => (
-                <tr key={`${r.broker}-${r.account}`} className="border-b border-line-dim">
+                <tr
+                  key={`${r.broker}-${r.account}`}
+                  className="border-b border-line-dim cursor-pointer hover:bg-bg-hover"
+                  onClick={() => setDetailAccount({ broker: r.broker, account: r.account })}
+                >
                   <td className="px-3 py-2">
-                    <div className="text-ink">{r.display}</div>
+                    <div className="text-ink">{r.display} <span className="text-ink-faint text-2xs">▸</span></div>
                     <div className="text-2xs text-ink-faint tabular">{r.count}개 종목</div>
                   </td>
                   <td className="px-3 py-2 text-right tabular text-ink">
@@ -207,6 +214,17 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* 계좌 드릴다운 모달 */}
+      {detailAccount && (
+        <AccountDetailModal
+          broker={detailAccount.broker}
+          account={detailAccount.account}
+          holdings={holdings}
+          cashReserve={cashReserve}
+          onClose={() => setDetailAccount(null)}
+        />
       )}
     </Panel>
   )
