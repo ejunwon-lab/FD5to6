@@ -92,10 +92,32 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
         <NetWorthCard value={netWorth} />
       </div>
 
+      {/* 탭 바 — 아래 표가 어느 그룹의 상세인지 명시 (선택 = 채움, 2026-08-06) */}
+      <div className="flex items-stretch border-b border-line bg-bg-deep/40">
+        <span className="px-3 self-center text-2xs text-ink-faint uppercase tracking-widest hidden sm:inline">상세</span>
+        <TabBtn
+          active={openSection === 'stock'}
+          onClick={() => setOpenSection('stock')}
+          label={`주식 계좌 ${stockTotals.accountCount}`}
+        />
+        <TabBtn
+          active={openSection === 'nonstock'}
+          onClick={() => setOpenSection('nonstock')}
+          disabled={nonStockCount === 0}
+          label={`비주식 자산 ${nonStockCount}`}
+        />
+        <TabBtn
+          active={openSection === 'cash'}
+          onClick={() => setOpenSection('cash')}
+          disabled={cashCount === 0}
+          tone="cyan"
+          label={`대기자금 ${cashCount}`}
+        />
+      </div>
+
       {/* 2. 주식 상세 — openSection 'stock'일 때만 (같은 자리 교체) */}
       {openSection === 'stock' && stockRows.length > 0 && (
         <div className="overflow-x-auto border-b border-line-dim">
-          <SectionTitle tone="amber" title="주식 계좌 상세" meta={`${stockTotals.accountCount}계좌 · ${stockTotals.count}종목`} />
           <table className="w-full text-xs min-w-[640px]">
             <thead>
               <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line-dim bg-bg-deep/40">
@@ -138,7 +160,6 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
       {/* 3. 비주식 자산 상세 — openSection 'nonstock'일 때만 */}
       {openSection === 'nonstock' && nonStockAssets && nonStockAssets.items.length > 0 && (
         <div className="overflow-x-auto border-b border-line-dim">
-          <SectionTitle tone="amber" title="비주식 자산 상세" meta={`${nonStockCount}건`} />
           <table className="w-full text-xs min-w-[640px]">
             <thead>
               <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line-dim bg-bg-deep/40">
@@ -187,7 +208,6 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
       {/* 4. 대기자금 상세 — openSection 'cash'일 때만 */}
       {openSection === 'cash' && cashReserve && cashReserve.items.length > 0 && (
         <div className="overflow-x-auto">
-          <SectionTitle tone="cyan" title="대기자금 상세" meta={`${cashCount}계좌`} />
           <table className="w-full text-xs min-w-[640px]">
             <thead>
               <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line-dim bg-bg-deep/40">
@@ -233,14 +253,24 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
   )
 }
 
-/** 표 상단 타이틀 바 — 위 카드(탭)와 같은 accent로 "이 표가 그 카드의 상세"임을 표시 */
-function SectionTitle({ tone, title, meta }: { tone: 'amber' | 'cyan'; title: string; meta?: string }) {
-  const accent = tone === 'cyan' ? 'border-cyan text-cyan' : 'border-amber text-amber'
+/** 상세 전환 탭 — 선택 = 채움(amber/cyan), 앱 필터 칩과 동일 시각 언어 */
+function TabBtn({ active, onClick, label, disabled, tone = 'amber' }: {
+  active: boolean; onClick: () => void; label: string; disabled?: boolean; tone?: 'amber' | 'cyan'
+}) {
+  const activeClass = tone === 'cyan' ? 'bg-cyan text-bg font-semibold' : 'bg-amber text-bg font-semibold'
   return (
-    <div className={`flex items-baseline gap-2 px-3 py-1.5 border-l-2 bg-bg-deep/40 ${accent}`}>
-      <span className="text-2xs font-semibold uppercase tracking-widest">▾ {title}</span>
-      {meta && <span className="text-2xs text-ink-faint tabular">{meta}</span>}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`px-3.5 py-2 text-2xs uppercase tracking-widest tabular whitespace-nowrap ${
+        disabled ? 'text-ink-faint opacity-40 cursor-default'
+        : active ? activeClass
+        : 'text-ink-dim hover:text-ink hover:bg-bg-hover'
+      }`}
+    >
+      {label}
+    </button>
   )
 }
 
