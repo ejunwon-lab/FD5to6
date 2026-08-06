@@ -1,45 +1,15 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Panel } from '../ui/Panel'
-import { useAuth } from '../../auth/AuthContext'
-import { gasApi, type NewsItem } from '../../api/gasApi'
+import { useNews } from '../../lib/useNews'
 
 // 오늘의 뉴스 — GAS newMobileGetNews (네이버 국내/해외 종목뉴스, GAS측 30분 캐시).
-// 모듈 캐시로 탭 재진입 시 재호출 방지. 실패("로드 실패")와 빈 결과("뉴스 없음")를 구분 표시 —
-// GAS→네이버 실환경 허용 여부의 스모크 신호 역할 (설계 노트 2026-08-06).
-const CLIENT_CACHE_MS = 30 * 60 * 1000
-let newsCache: { at: number; items: NewsItem[] } | null = null
-
+// 데이터는 useNews 공유 훅(EventsPanel과 응답 공유). 실패("로드 실패")와 빈 결과("뉴스 없음")를
+// 구분 표시 — GAS→네이버 실환경 허용 여부의 스모크 신호 역할 (설계 노트 2026-08-06).
 const INITIAL_N = 10
 
 export function NewsPanel() {
-  const { token, isSignedIn } = useAuth()
-  const [items, setItems] = useState<NewsItem[] | null>(newsCache ? newsCache.items : null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { isSignedIn, loading, error, items } = useNews()
   const [showAll, setShowAll] = useState(false)
-
-  const load = useCallback(async () => {
-    if (!token) return
-    if (newsCache && Date.now() - newsCache.at < CLIENT_CACHE_MS) {
-      setItems(newsCache.items)
-      return
-    }
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await gasApi.getNews(token)
-      if (!res.success) throw new Error(res.error || 'unknown')
-      const list = res.items ?? []
-      newsCache = { at: Date.now(), items: list }
-      setItems(list)
-    } catch (e) {
-      setError(String(e))
-    } finally {
-      setLoading(false)
-    }
-  }, [token])
-
-  useEffect(() => { void load() }, [load])
 
   const visible = items ? (showAll ? items : items.slice(0, INITIAL_N)) : []
 

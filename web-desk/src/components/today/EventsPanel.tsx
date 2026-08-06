@@ -1,13 +1,28 @@
 import { useMemo } from 'react'
 import { Panel } from '../ui/Panel'
-import { dDay, upcomingEvents, type MacroKind } from '../../lib/macroCalendar'
+import { dDay, upcomingEvents, type MacroEvent, type MacroKind } from '../../lib/macroCalendar'
+import { useNews } from '../../lib/useNews'
 
-// 다가오는 매크로 이벤트 — 정적 공표 일정(FOMC·CPI·금통위) + 규칙 계산(만기일). 외부 호출 없음.
-const KIND_TAG: Record<MacroKind, string> = { fomc: 'US', cpi: 'US', bok: 'KR', expiry: '만기' }
+// 다가오는 이벤트 — 정적 공표 일정(FOMC·CPI·금통위) + 규칙 계산(만기일) + US 보유 종목
+// 실적 발표일(Yahoo, useNews 공유 응답 — 실패 시 실적 행만 조용히 빠짐).
+const KIND_TAG: Record<MacroKind, string> = { fomc: 'US', cpi: 'US', bok: 'KR', expiry: '만기', earnings: '실적' }
 
 export function EventsPanel() {
+  const { earnings } = useNews()
   const today = new Date().toLocaleDateString('en-CA')
-  const events = useMemo(() => upcomingEvents(today, 6), [today])
+
+  const events = useMemo(() => {
+    const earningEvents: MacroEvent[] = earnings
+      .filter((e) => e.date >= today)
+      .map((e) => ({
+        date: e.date,
+        name: `${e.name} 실적 발표${e.estimate ? ' (추정)' : ''}`,
+        kind: 'earnings' as const,
+      }))
+    return [...upcomingEvents(today, 6), ...earningEvents]
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+      .slice(0, 8)
+  }, [earnings, today])
 
   return (
     <Panel title="다가오는 이벤트" meta="현지 발표일 기준">

@@ -72,7 +72,7 @@ last updated: 2026-08-06
 | `newMobileGetIndicators()` | IndicatorsResponse | 참고지표 (key·name·category·value·change·changePct) |
 | `newMobileGetIndicatorHistory()` | IndicatorHistoryResponse | **참고지표 시계열** (*참고지표_히스토리* 시트 wide JSON: keys + entries[{date, KOSPI, SPX, ...}]). 벤치마크 outperformance 차트용 — 날짜 asc 정렬, name→key 매핑 |
 | `newMobileGetSystemStatus()` | SystemStatusResponse | 시스템 상태 (데스크 KIS Status) — `_buildDiag`(날짜·참거짓·개수·충족도만) + `kis_carried_status`{date·carried·total}. 금액·종목명 없음 (2026-07-23) |
-| `newMobileGetNews()` | NewsResponse | 보유 종목 뉴스 (데스크 Today) — `{success, fetchedAt, stockCount, items[]}`. item: code·name·title·source·dt(YYYYMMDDHHmm)·url(KR 기사 직링크 / US 종목 뉴스탭). 최신순 최대 40건, GAS CacheService 30분. 소스: 네이버 국내(m.stock)·해외(api.stock, 한국어) — News.js (2026-08-06) |
+| `newMobileGetNews()` | NewsResponse | 보유 종목 뉴스 (데스크 Today) — `{success, fetchedAt, stockCount, items[], earnings[]}`. item: code·name·title·source·dt(YYYYMMDDHHmm)·url(KR 기사 직링크 / US 종목 뉴스탭). earnings: US 종목 다음 실적일 {code·name·date(YYYY-MM-DD 현지)·estimate}(Yahoo crumb 2단 인증, 실패 시 []). 최신순 최대 40건, GAS CacheService 30분. 소스: 네이버 국내(m.stock)·해외(api.stock, 한국어)·Yahoo(실적일만) — News.js (2026-08-06) |
 | `newMobileUpdateCurrentPrice()` | — | 현재가 갱신 트리거 |
 | `newMobileUpdateHistory()` | — | *현재가_이력* 갱신 트리거 |
 | `newMobileUpdateAll()` | — | 통합 갱신 트리거 |

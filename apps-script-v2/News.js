@@ -31,6 +31,7 @@ function newMobileGetNews() {
       fetchedAt: Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm'),
       stockCount: stocks.length,
       items: items.slice(0, NEWS_MAX_ITEMS),
+      earnings: _newsUsEarnings_(stocks.filter(function (s) { return !s.isKR; })),
     });
     if (out.length < 95 * 1024) cache.put(NEWS_CACHE_KEY, out, NEWS_CACHE_SEC);  // 캐시 100KB 한도
     return out;
@@ -137,6 +138,56 @@ function _newsParse_(s, res) {
     });
   } catch (e) {
     return null;
+  }
+}
+
+/**
+ * US 보유 종목 다음 실적 발표일 — Yahoo quoteSummary (쿠키→crumb 2단 인증, 2026-08-06 로컬 실측).
+ * 실패 시 빈 배열 (이벤트 패널에 실적 행만 빠짐 — 무해 degrade).
+ */
+function _newsUsEarnings_(usStocks) {
+  if (!usStocks.length) return [];
+  try {
+    // 1. 세션 쿠키 (fc.yahoo.com은 404를 주지만 Set-Cookie는 내려줌)
+    const r1 = UrlFetchApp.fetch('https://fc.yahoo.com', {
+      muteHttpExceptions: true, followRedirects: false, headers: { 'User-Agent': NEWS_UA },
+    });
+    const setCookie = r1.getAllHeaders()['Set-Cookie'];
+    const arr = setCookie ? (Array.isArray(setCookie) ? setCookie : [setCookie]) : [];
+    const cookie = arr.map(function (c) { return String(c).split(';')[0]; }).join('; ');
+    if (!cookie) return [];
+    const opts = { muteHttpExceptions: true, headers: { 'User-Agent': NEWS_UA, 'Cookie': cookie } };
+
+    // 2. crumb
+    const crumb = UrlFetchApp.fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', opts)
+      .getContentText().trim();
+    if (!crumb || crumb.length > 30 || crumb.indexOf('<') !== -1) return [];
+
+    // 3. 종목별 calendarEvents
+    const out = [];
+    usStocks.forEach(function (s) {
+      try {
+        const res = UrlFetchApp.fetch(
+          'https://query1.finance.yahoo.com/v10/finance/quoteSummary/' + encodeURIComponent(s.code) +
+          '?modules=calendarEvents&crumb=' + encodeURIComponent(crumb), opts);
+        if (res.getResponseCode() !== 200) return;
+        const j = JSON.parse(res.getContentText());
+        const r = j.quoteSummary && j.quoteSummary.result && j.quoteSummary.result[0];
+        const earn = r && r.calendarEvents && r.calendarEvents.earnings;
+        const dates = earn && earn.earningsDate;
+        if (dates && dates.length && dates[0].fmt) {
+          out.push({
+            code: s.code, name: s.name,
+            date: String(dates[0].fmt),                       // YYYY-MM-DD (현지)
+            estimate: earn.isEarningsDateEstimate === true,   // true면 추정일
+          });
+        }
+      } catch (e) { /* 종목 단위 skip */ }
+    });
+    return out;
+  } catch (e) {
+    Logger.log('_newsUsEarnings_ 실패: ' + e);
+    return [];
   }
 }
 

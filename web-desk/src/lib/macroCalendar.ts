@@ -6,7 +6,7 @@
 // 만기일은 거래소 규칙으로 계산: KR 선물옵션 동시만기 3·6·9·12월 둘째 목요일, US 트리플위칭 셋째 금요일.
 // ⚠️ 연도가 바뀌면 FIXED_EVENTS에 새해 공표 일정을 웹 검증 후 추가할 것.
 
-export type MacroKind = 'fomc' | 'cpi' | 'bok' | 'expiry'
+export type MacroKind = 'fomc' | 'cpi' | 'bok' | 'expiry' | 'earnings'
 
 export interface MacroEvent {
   date: string   // YYYY-MM-DD (발표/만기 당일, 현지 기준)

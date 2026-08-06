@@ -274,12 +274,20 @@ export interface NewsItem {
   url: string   // KR: 기사 직링크 / US: 종목 뉴스탭
 }
 
+export interface EarningsItem {
+  code: string
+  name: string
+  date: string       // YYYY-MM-DD (현지)
+  estimate: boolean  // true면 추정일
+}
+
 export interface NewsResponse {
   success: boolean
   error?: string
   fetchedAt?: string
   stockCount?: number
   items?: NewsItem[]
+  earnings?: EarningsItem[]  // US 보유 종목 다음 실적일 (Yahoo, 실패 시 빈 배열)
 }
 
 export const gasApi = {
