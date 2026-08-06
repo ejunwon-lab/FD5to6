@@ -1,6 +1,6 @@
 # API Reference — GAS 모바일 엔드포인트 데이터 계약
 
-last updated: 2026-07-23
+last updated: 2026-08-06
 
 `apps-script-v2/MobileAPI.js`의 `newMobile*` 함수가 iOS(`ios2`)·웹(`web`)에 돌려주는 JSON 계약.
 **"어떤 필드가 이상하다"** 류 버그는 코드를 뒤지기 전에 이 표에서 필드 → 계산 위치를 먼저 찾는다.
@@ -72,6 +72,7 @@ last updated: 2026-07-23
 | `newMobileGetIndicators()` | IndicatorsResponse | 참고지표 (key·name·category·value·change·changePct) |
 | `newMobileGetIndicatorHistory()` | IndicatorHistoryResponse | **참고지표 시계열** (*참고지표_히스토리* 시트 wide JSON: keys + entries[{date, KOSPI, SPX, ...}]). 벤치마크 outperformance 차트용 — 날짜 asc 정렬, name→key 매핑 |
 | `newMobileGetSystemStatus()` | SystemStatusResponse | 시스템 상태 (데스크 KIS Status) — `_buildDiag`(날짜·참거짓·개수·충족도만) + `kis_carried_status`{date·carried·total}. 금액·종목명 없음 (2026-07-23) |
+| `newMobileGetNews()` | NewsResponse | 보유 종목 뉴스 (데스크 Today) — `{success, fetchedAt, stockCount, items[]}`. item: code·name·title·source·dt(YYYYMMDDHHmm)·url(KR 기사 직링크 / US 종목 뉴스탭). 최신순 최대 40건, GAS CacheService 30분. 소스: 네이버 국내(m.stock)·해외(api.stock, 한국어) — News.js (2026-08-06) |
 | `newMobileUpdateCurrentPrice()` | — | 현재가 갱신 트리거 |
 | `newMobileUpdateHistory()` | — | *현재가_이력* 갱신 트리거 |
 | `newMobileUpdateAll()` | — | 통합 갱신 트리거 |
