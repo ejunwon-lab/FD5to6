@@ -439,3 +439,10 @@
 - **진단**: `gh api repos/OWNER/REPO/pages/builds/latest`(status가 building인데 updated_at 정지) · `gh run list --workflow "pages build and deployment"`(failure/cancelled) · githubstatus `incidents/unresolved.json`(Actions·Pages 영향) · 라이브 번들 해시 vs `git show origin/gh-pages:index.html` 비교로 브랜치≠라이브 확정.
 - **해결**: 장애 복구(unresolved 0건) 확인 후 gh-pages에 **빈 커밋 재트리거** — `NEW=$(git commit-tree 'origin/gh-pages^{tree}' -p origin/gh-pages -m '...'); git push origin $NEW:gh-pages`. 실패한 pages 빌드는 자동 재시도 안 하므로 새 커밋으로 새 발행 빌드를 유발해야 함.
 - **교훈**: 배포 잡 success ≠ 라이브 반영. GitHub Pages는 브랜치 push 후 **별도 발행 빌드**가 있고 장애 시 여기서 막힌다. 반영 검증은 항상 **라이브 URL 실측**(번들 해시 + 기능 문자열)까지. 상시 대비는 Cloudflare Pages 등 GitHub 무관 호스팅(pending 검토).
+
+### 배포 워크플로 success인데 사이트 미반영 — GitHub Pages 서빙 빌드 별도 실패 (2026-08-06)
+- **증상**: Deploy Web Desk 워크플로 success + gh-pages 브랜치에 새 번들 존재하는데, 라이브 HTML은 구 에셋 참조·새 에셋 URL 404 지속.
+- **진단**: 배포는 2단계 — ①워크플로가 gh-pages push(성공) ②GitHub Pages가 브랜치→CDN 서빙 빌드(**여기서 "Page build failed"**). `gh api repos/<r>/pages/builds/latest --jq .status`로 ②를 별도 확인해야 함. `.nojekyll` 정상·githubstatus Pages operational이었음 — 리포 빌드만 일시적으로 낌.
+- **해결 시도(전부 무효, 8/6 밤)**: 재빌드 POST ×2·gh-pages 넛지 커밋·워크플로 재실행(산출물 동일로 push 스킵됨) → 11:21~11:56 4연속 errored. 콘텐츠 무관 리포 단위 GitHub 장애로 결론, 사용자 대기 결정. 구버전은 계속 서빙됨(사이트 다운 아님).
+- **추가 함정 2개**: ①deploy 워크플로는 `paths: web-desk/**` 필터라 **빈 커밋으로는 트리거 안 됨** — `gh workflow run deploy-web-desk.yml` 사용 ②산출물이 동일하면 배포 액션이 gh-pages push를 스킵 → 새 Pages 빌드도 안 생김.
+- **대응 원칙**: 상태 확인은 시점당 1회, 폴링으로 턴 붙잡지 않기 (memory `feedback_no_blocking_waits`).
