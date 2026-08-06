@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Panel } from '../ui/Panel'
 import {
   applyTheme, DEFAULT_SETTINGS, loadSettings, saveSettings,
-  type CardFoldDefault, type DeskSettings, type DeskTheme, type HoldingsViewMode,
+  type DeskSettings, type DeskTheme, type HoldingsViewMode,
 } from '../../lib/settings'
 
 // Settings (단축키 S) — 데스크 로컬 설정. 저장 즉시 localStorage 반영, 각 화면은 재진입 시 적용.
@@ -62,17 +62,6 @@ export function SettingsPage() {
                 { value: 0, label: '전체' },
               ]}
               onChange={(v) => update({ holdingsInitialVisible: v })}
-            />
-          </SettingRow>
-          <SettingRow label="카드 접기 기본값" desc="auto = 모바일 접힘 / 데스크톱 펼침">
-            <OptionGroup<CardFoldDefault>
-              value={settings.cardFoldDefault}
-              options={[
-                { value: 'auto', label: 'Auto' },
-                { value: 'folded', label: '항상 접힘' },
-                { value: 'unfolded', label: '항상 펼침' },
-              ]}
-              onChange={(v) => update({ cardFoldDefault: v })}
             />
           </SettingRow>
         </div>

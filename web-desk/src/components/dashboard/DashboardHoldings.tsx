@@ -21,7 +21,7 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 ]
 
 import { accountDisplay } from '../../lib/accountDisplay'
-import { loadSettings, resolveFoldDefault } from '../../lib/settings'
+import { loadSettings } from '../../lib/settings'
 import { downloadCsv } from '../../lib/csv'
 
 // 계좌 우선 정렬 (계좌명 raw 기준 — 시트의 원본 값)
@@ -37,8 +37,8 @@ export function DashboardHoldings({ holdings }: Props) {
   const [prefs] = useState(() => loadSettings())
   const [viewMode, setViewMode] = useState<ViewMode>(prefs.holdingsViewMode)
   const [showAll, setShowAll] = useState(false)
-  // 카드 접기(A안 2단): 기본값은 Settings의 cardFoldDefault (auto = 데스크톱 펼침 / 모바일 접힘)
-  const [globalUnfold, setGlobalUnfold] = useState<boolean>(() => resolveFoldDefault(prefs.cardFoldDefault))
+  // 카드 접기(A안 2단): 기기 불문 항상 접힘 시작 — 개별 클릭 또는 전역 토글로만 펼침 (2026-08-06)
+  const [globalUnfold, setGlobalUnfold] = useState<boolean>(false)
   const [foldOverrides, setFoldOverrides] = useState<Set<string>>(new Set())
   const isUnfolded = (id: string) => (foldOverrides.has(id) ? !globalUnfold : globalUnfold)
   const toggleCard = (id: string) =>
@@ -217,7 +217,7 @@ export function DashboardHoldings({ holdings }: Props) {
 
       {/* Terminal Card view */}
       {viewMode === 'card-terminal' && (
-        <div className="p-3 grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className="p-3 grid gap-2.5 items-start grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {visible.map((h) => {
             const id = `${h.symbol}-${h.accountType}`
             return (
@@ -239,7 +239,7 @@ export function DashboardHoldings({ holdings }: Props) {
 
       {/* Web-style Card view (web/ 와 동일 디자인, 큰 사이즈, 풀 숫자) */}
       {viewMode === 'card-web' && (
-        <div className="p-4 grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="p-4 grid gap-3 items-start grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((h) => {
             const id = `${h.symbol}-${h.accountType}`
             return (

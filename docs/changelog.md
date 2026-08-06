@@ -92,3 +92,4 @@
 
 ## 2026-08-06
 - **데스크 iPad 개선 1차 — 사이드바 재편** — Workspace/Data/System(6·2·2) → Portfolio/Activity/Market/System 4섹션("무엇에 대한 정보인가" 기준), `Trade Log`→`Activity` 개명(NavKey `tradelog`→`activity`), Dividends placeholder 메뉴·`v` 단축키 제거(기능은 로드맵 ⑤ 백로그 유지), 터치 타깃 `py-2.5` 통일, 단축키 힌트 `pointer-fine` 환경 한정(tailwind 커스텀 variant). tsc·build 통과, code-map 갱신.
+- **홀딩스 카드 폴드 정리 — 무조건 접힘 시작 + 그리드 독립 높이** — 초기 상태를 기기 불문 접힘으로 고정(Settings '카드 접기 기본값' 옵션·resolveFoldDefault 삭제), 그리드 2곳 `items-start`로 한 카드를 펼쳐도 같은 행의 접힌 카드 박스가 늘어나지 않게. 개별 클릭 = 그 카드만 펼침(기존 foldOverrides 유지), '모두 펼치기' 전역 토글 유지. tsc·vitest 8/8·build 통과.
