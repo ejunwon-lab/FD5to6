@@ -94,7 +94,7 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
 
       {/* 2. 주식 상세 — 선택 카드와 같은 accent 외곽선 박스 */}
       {openSection === 'stock' && stockRows.length > 0 && (
-        <div className="mx-2 mb-2 border-2 border-amber/70 overflow-x-auto">
+        <div className="mx-2 mb-2 border-2 border-amber overflow-x-auto">
           <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-widest text-amber bg-amber/10">
             주식 계좌 상세 <span className="text-ink-faint font-normal ml-1 tabular">{stockTotals.accountCount}계좌 · {stockTotals.count}종목</span>
           </div>
@@ -139,7 +139,7 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
 
       {/* 3. 비주식 자산 상세 — 선택 카드와 같은 accent 외곽선 박스 */}
       {openSection === 'nonstock' && nonStockAssets && nonStockAssets.items.length > 0 && (
-        <div className="mx-2 mb-2 border-2 border-amber/70 overflow-x-auto">
+        <div className="mx-2 mb-2 border-2 border-amber overflow-x-auto">
           <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-widest text-amber bg-amber/10">
             비주식 자산 상세 <span className="text-ink-faint font-normal ml-1 tabular">{nonStockCount}건</span>
           </div>
@@ -190,7 +190,7 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
 
       {/* 4. 대기자금 상세 — 선택 카드와 같은 accent(cyan) 외곽선 박스 */}
       {openSection === 'cash' && cashReserve && cashReserve.items.length > 0 && (
-        <div className="mx-2 mb-2 border-2 border-cyan/70 overflow-x-auto">
+        <div className="mx-2 mb-2 border-2 border-cyan overflow-x-auto">
           <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-widest text-cyan bg-cyan/10">
             대기자금 상세 <span className="text-ink-faint font-normal ml-1 tabular">{cashCount}계좌</span>
           </div>
@@ -280,10 +280,14 @@ function GroupCard({ label, value, subtitle, returnPct, opProfit, open, onClick,
           {opProfit >= 0 ? '+' : ''}₩{Math.round(opProfit).toLocaleString('ko-KR')} · {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%
         </div>
       )}
-      {/* 선택 카드 → 아래 상세 박스로 향하는 연결 꼭지 (한 줄 배치인 lg+에서만) */}
+      {/* 선택 카드 → 상세 박스 브리지: 카드 전체 폭으로 이어짐 — 카드 하단 보더(2px)+간격(8px)+박스 상단 보더(2px)를
+          같은 배경·좌우 보더로 덮어 한 덩어리처럼 보이게. 2×2 배치인 모바일에선 아래 카드를 가려서 lg+만 */}
       {open && (
-        <span className={`hidden lg:block absolute -bottom-[13px] left-1/2 -translate-x-1/2 text-xs leading-none ${tone === 'cyan' ? 'text-cyan' : 'text-amber'}`}>
-          ▼
+        <span
+          aria-hidden
+          className={`hidden lg:block absolute -left-[2px] -right-[2px] -bottom-[10px] h-[12px] z-10 border-l-2 border-r-2 bg-bg-elev ${tone === 'cyan' ? 'border-cyan' : 'border-amber'}`}
+        >
+          <span className={`absolute inset-0 ${tone === 'cyan' ? 'bg-cyan/10' : 'bg-amber/10'}`} />
         </span>
       )}
     </button>
