@@ -31,10 +31,12 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
             <div className="min-w-0 flex-1">
               <div className="text-amber font-semibold text-sm truncate leading-tight">{h.name}</div>
               <div className={`text-xs tabular mt-0.5 ${isUp ? 'text-gain' : 'text-loss'}`}>
+                <span className="text-ink-faint">{changeLabel} </span>
                 {h.changePct} · {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString('ko-KR')}원
               </div>
             </div>
             <div className="text-ink font-medium tabular text-sm shrink-0">
+              <span className="text-2xs text-ink-faint mr-1">현재가</span>
               {Math.round(h.currentPrice).toLocaleString('ko-KR')}원
             </div>
             <span className="text-ink-faint text-xs shrink-0">▼</span>
@@ -64,17 +66,26 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
             </div>
           </div>
           <div className="text-right shrink-0 ml-auto">
-            {/* 1. 현재가 */}
-            <div className="text-ink font-medium tabular text-sm">
-              {Math.round(h.currentPrice).toLocaleString('ko-KR')}원
+            {/* 1. 현재가 — 각 줄 왼쪽에 흐린 소형 라벨 (2026-08-06) */}
+            <div className="flex items-baseline justify-end gap-1.5">
+              <span className="text-2xs text-ink-faint">현재가</span>
+              <div className="text-ink font-medium tabular text-sm">
+                {Math.round(h.currentPrice).toLocaleString('ko-KR')}원
+              </div>
             </div>
-            {/* 2. 현재 상승액 / 상승률 */}
-            <div className={`text-xs tabular ${isUp ? 'text-gain' : 'text-loss'}`}>
-              {isUp ? '+' : ''}{Math.round(h.change).toLocaleString('ko-KR')}원 / {h.changePct}
+            {/* 2. 당일 등락 단가 / 등락률 */}
+            <div className="flex items-baseline justify-end gap-1.5">
+              <span className="text-2xs text-ink-faint">{changeLabel} 등락</span>
+              <div className={`text-xs tabular ${isUp ? 'text-gain' : 'text-loss'}`}>
+                {isUp ? '+' : ''}{Math.round(h.change).toLocaleString('ko-KR')}원 / {h.changePct}
+              </div>
             </div>
-            {/* 3. 금일 상승액 — 둘째 줄과 동일 크기 */}
-            <div className={`text-xs tabular mt-0.5 ${isUp ? 'text-gain' : 'text-loss'}`}>
-              {isUp ? '+' : ''}{Math.round(h.change).toLocaleString('ko-KR')}원 × {h.shares.toLocaleString('ko-KR')}주 = {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString('ko-KR')}원
+            {/* 3. 당일 손익 (단가 × 수량) */}
+            <div className="flex items-baseline justify-end gap-1.5 mt-0.5">
+              <span className="text-2xs text-ink-faint">{changeLabel} 손익</span>
+              <div className={`text-xs tabular ${isUp ? 'text-gain' : 'text-loss'}`}>
+                {isUp ? '+' : ''}{Math.round(h.change).toLocaleString('ko-KR')}원 × {h.shares.toLocaleString('ko-KR')}주 = {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString('ko-KR')}원
+              </div>
             </div>
           </div>
           <span className="text-ink-faint text-xs shrink-0 mt-0.5">▲</span>
@@ -84,11 +95,18 @@ export function HoldingCard({ holding: h, isExpanded, onExpand, onDetail, change
         {/* 펼침(2단 통합): 요약 + 상세 전부. 접힘이면 헤더만 (2026-07-23 A안) */}
         {isExpanded && (
           <>
-            {/* Mid: 매입 / 평가 / 수익 */}
-            <div className="grid grid-cols-3 gap-px bg-line border border-line mb-3">
-              <Cell label="매입" value={`₩${Math.round(h.opBuy).toLocaleString('ko-KR')}`} />
-              <Cell label="평가" value={`₩${Math.round(h.value).toLocaleString('ko-KR')}`} />
-              <Cell label="수익" value={`${h.opProfit >= 0 ? '+' : ''}₩${Math.round(h.opProfit).toLocaleString('ko-KR')}`} tone={isProfit ? 'gain' : 'loss'} />
+            {/* Mid: 매입·평가 윗줄 2칸 + 수익 아랫줄 중앙 — 3열은 풀 숫자 겹침 (2026-08-06) */}
+            <div className="border border-line mb-3">
+              <div className="grid grid-cols-2 gap-px bg-line">
+                <Cell label="매입" value={`₩${Math.round(h.opBuy).toLocaleString('ko-KR')}`} />
+                <Cell label="평가" value={`₩${Math.round(h.value).toLocaleString('ko-KR')}`} />
+              </div>
+              <div className="border-t border-line bg-bg-elev px-2 py-2 text-center">
+                <div className="text-2xs text-ink-faint mb-0.5 uppercase tracking-widest">수익</div>
+                <div className={`text-sm font-medium tabular ${isProfit ? 'text-gain' : 'text-loss'}`}>
+                  {h.opProfit >= 0 ? '+' : ''}₩{Math.round(h.opProfit).toLocaleString('ko-KR')}
+                </div>
+              </div>
             </div>
 
             {/* Bottom: 오늘 등락 / 수익률 */}

@@ -38,10 +38,12 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
             <div className="min-w-0 flex-1">
               <p className="font-semibold text-sm text-ink truncate leading-tight">{h.name}</p>
               <p className={`text-xs font-medium tabular mt-0.5 ${isUp ? 'text-gain' : 'text-loss'}`}>
+                <span className="text-ink-faint font-normal">{changeLabel} </span>
                 {h.changePct} · {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString('ko-KR')}원
               </p>
             </div>
             <p className="font-bold text-base text-ink tabular shrink-0">
+              <span className="text-[10px] text-ink-faint font-normal mr-1">현재가</span>
               {Math.round(h.currentPrice).toLocaleString('ko-KR')}원
             </p>
             <span className="text-ink-faint text-sm shrink-0">▼</span>
@@ -65,18 +67,27 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
             </div>
           </div>
           <div className="text-right shrink-0 ml-auto">
-            {/* 1. 현재가 */}
-            <p className="font-bold text-xl text-ink tabular leading-none">
-              {Math.round(h.currentPrice).toLocaleString('ko-KR')}원
-            </p>
-            {/* 2. 현재 상승액 / 상승률 */}
-            <p className={`text-sm font-medium tabular mt-1.5 ${isUp ? 'text-gain' : 'text-loss'}`}>
-              {isUp ? '+' : ''}{Math.round(h.change).toLocaleString('ko-KR')}원 / {h.changePct}
-            </p>
-            {/* 3. 금일 상승액 — 둘째 줄과 동일 크기 */}
-            <p className={`text-sm font-medium tabular mt-1 leading-tight ${isUp ? 'text-gain' : 'text-loss'}`}>
-              {isUp ? '+' : ''}{Math.round(h.change).toLocaleString('ko-KR')}원 × {h.shares.toLocaleString('ko-KR')}주 = {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString('ko-KR')}원
-            </p>
+            {/* 1. 현재가 — 각 줄 왼쪽에 흐린 소형 라벨 (2026-08-06) */}
+            <div className="flex items-baseline justify-end gap-2">
+              <span className="text-[11px] text-ink-faint">현재가</span>
+              <p className="font-bold text-xl text-ink tabular leading-none">
+                {Math.round(h.currentPrice).toLocaleString('ko-KR')}원
+              </p>
+            </div>
+            {/* 2. 당일 등락 단가 / 등락률 */}
+            <div className="flex items-baseline justify-end gap-2 mt-1.5">
+              <span className="text-[11px] text-ink-faint">{changeLabel} 등락</span>
+              <p className={`text-sm font-medium tabular ${isUp ? 'text-gain' : 'text-loss'}`}>
+                {isUp ? '+' : ''}{Math.round(h.change).toLocaleString('ko-KR')}원 / {h.changePct}
+              </p>
+            </div>
+            {/* 3. 당일 손익 (단가 × 수량) */}
+            <div className="flex items-baseline justify-end gap-2 mt-1">
+              <span className="text-[11px] text-ink-faint">{changeLabel} 손익</span>
+              <p className={`text-sm font-medium tabular leading-tight ${isUp ? 'text-gain' : 'text-loss'}`}>
+                {isUp ? '+' : ''}{Math.round(h.change).toLocaleString('ko-KR')}원 × {h.shares.toLocaleString('ko-KR')}주 = {h.dayChange >= 0 ? '+' : ''}{Math.round(h.dayChange).toLocaleString('ko-KR')}원
+              </p>
+            </div>
           </div>
           <span className="text-ink-faint text-sm mt-1">▲</span>
         </div>
@@ -85,11 +96,18 @@ export function HoldingCardWeb({ holding: h, isExpanded, onExpand, onDetail, cha
         {/* 펼침(2단 통합): 요약 + 상세 전부. 접힘이면 헤더만 (2026-07-23 A안) */}
         {isExpanded && (
           <>
-            {/* Middle: 매입 / 평가 / 수익 */}
-            <div className="grid grid-cols-3 gap-2 bg-bg/40 rounded-xl p-3 mb-3">
-              <Stat label="매입" value={`₩${Math.round(h.opBuy).toLocaleString('ko-KR')}`} />
-              <Stat label="평가" value={`₩${Math.round(h.value).toLocaleString('ko-KR')}`} />
-              <Stat label="수익" value={`${h.opProfit >= 0 ? '+' : ''}₩${Math.round(h.opProfit).toLocaleString('ko-KR')}`} tone={isProfit ? 'gain' : 'loss'} />
+            {/* Middle: 매입·평가 윗줄 2칸 + 수익 아랫줄 중앙 — 3열은 풀 숫자 겹침 (2026-08-06) */}
+            <div className="bg-bg/40 rounded-xl p-3 mb-3">
+              <div className="grid grid-cols-2 gap-2">
+                <Stat label="매입" value={`₩${Math.round(h.opBuy).toLocaleString('ko-KR')}`} />
+                <Stat label="평가" value={`₩${Math.round(h.value).toLocaleString('ko-KR')}`} />
+              </div>
+              <div className="mt-2.5 pt-2.5 border-t border-line text-center">
+                <p className="text-[11px] text-ink-faint mb-1">수익</p>
+                <p className={`text-base font-bold tabular ${isProfit ? 'text-gain' : 'text-loss'}`}>
+                  {h.opProfit >= 0 ? '+' : ''}₩{Math.round(h.opProfit).toLocaleString('ko-KR')}
+                </p>
+              </div>
             </div>
 
             {/* Bottom: 오늘 등락 / 수익률 */}
