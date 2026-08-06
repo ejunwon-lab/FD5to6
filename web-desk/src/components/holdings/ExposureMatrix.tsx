@@ -12,9 +12,10 @@ interface Props {
 }
 
 export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props) {
-  const [stockOpen, setStockOpen] = useState(true)
-  const [nonStockOpen, setNonStockOpen] = useState(false)
-  const [cashOpen, setCashOpen] = useState(false)
+  // 상세 표는 한 번에 하나만 — 카드를 누르면 그 자리에 해당 표로 교체 (라디오 방식, 2026-08-06)
+  type Section = 'stock' | 'nonstock' | 'cash'
+  const [openSection, setOpenSection] = useState<Section | null>('stock')
+  const toggleSection = (s: Section) => setOpenSection((cur) => (cur === s ? null : s))
   // 계좌 드릴다운 모달 — 주식 계좌 행 탭 (2026-08-06)
   const [detailAccount, setDetailAccount] = useState<{ broker: string; account: string } | null>(null)
 
@@ -69,31 +70,31 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
           subtitle={`${stockTotals.accountCount}계좌 · ${stockTotals.count}종목`}
           returnPct={stockReturnPct}
           opProfit={stockTotals.opProfit}
-          open={stockOpen}
-          onClick={() => setStockOpen((v) => !v)}
+          open={openSection === 'stock'}
+          onClick={() => toggleSection('stock')}
         />
         <GroupCard
           label="비주식 자산"
           value={nonStockTotal}
           subtitle={nonStockCount > 0 ? `${nonStockCount}건` : '없음'}
-          open={nonStockOpen}
-          onClick={() => nonStockCount > 0 && setNonStockOpen((v) => !v)}
+          open={openSection === 'nonstock'}
+          onClick={() => nonStockCount > 0 && toggleSection('nonstock')}
           disabled={nonStockCount === 0}
         />
         <GroupCard
           label="대기자금"
           value={cashTotal}
           subtitle={cashCount > 0 ? `${cashCount}계좌` : '없음'}
-          open={cashOpen}
-          onClick={() => cashCount > 0 && setCashOpen((v) => !v)}
+          open={openSection === 'cash'}
+          onClick={() => cashCount > 0 && toggleSection('cash')}
           disabled={cashCount === 0}
           tone="cyan"
         />
         <NetWorthCard value={netWorth} />
       </div>
 
-      {/* 2. 주식 상세 — 토글 (default 펼침) */}
-      {stockOpen && stockRows.length > 0 && (
+      {/* 2. 주식 상세 — openSection 'stock'일 때만 (같은 자리 교체) */}
+      {openSection === 'stock' && stockRows.length > 0 && (
         <div className="overflow-x-auto border-b border-line-dim">
           <table className="w-full text-xs min-w-[640px]">
             <thead>
@@ -134,8 +135,8 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
         </div>
       )}
 
-      {/* 3. 비주식 자산 상세 — 토글 (default 접힘) */}
-      {nonStockOpen && nonStockAssets && nonStockAssets.items.length > 0 && (
+      {/* 3. 비주식 자산 상세 — openSection 'nonstock'일 때만 */}
+      {openSection === 'nonstock' && nonStockAssets && nonStockAssets.items.length > 0 && (
         <div className="overflow-x-auto border-b border-line-dim">
           <table className="w-full text-xs min-w-[640px]">
             <thead>
@@ -182,8 +183,8 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
         </div>
       )}
 
-      {/* 4. 대기자금 상세 — 토글 (default 접힘) */}
-      {cashOpen && cashReserve && cashReserve.items.length > 0 && (
+      {/* 4. 대기자금 상세 — openSection 'cash'일 때만 */}
+      {openSection === 'cash' && cashReserve && cashReserve.items.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-xs min-w-[640px]">
             <thead>
