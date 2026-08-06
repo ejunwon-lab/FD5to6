@@ -3,6 +3,7 @@ import { usePortfolio } from '../../lib/usePortfolio'
 import { useRealized } from '../../lib/useRealized'
 import { holdings as sampleHoldings, indicators as sampleIndicators } from '../../lib/sampleData'
 import { Panel } from '../ui/Panel'
+import { accountDisplay } from '../../lib/accountDisplay'
 import type { Holding, Indicator } from '../../lib/types'
 import { aggregateBySymbol, dayReturnPercentile, detectSignals } from '../../lib/todayInsights'
 import { ContributionPanel } from './ContributionPanel'
@@ -15,6 +16,8 @@ type SortKey = 'pct' | 'amount' | 'name'
 type FilterKey = 'all' | 'gain' | 'loss' | 'flat'
 
 const FLAT_THRESHOLD = 0.05  // |dayChangePct| < 0.05% 면 보합
+// 계좌 우선 정렬 (DashboardHoldings와 동일 — 시트 원본 값 기준)
+const ACCOUNT_ORDER = ['종합_랩', '종합', 'ISA', '퇴직연금_개인IRP', '퇴직연금_개인형IRP(범용)']
 
 /** 지표 찾기 — 심볼 정확 일치 우선, 없으면 이름 부분 일치 */
 function findIndicator(list: Indicator[], symbol: string, nameLike: string): Indicator | undefined {
@@ -29,9 +32,21 @@ export function TodayPage() {
 
   const [sortKey, setSortKey] = useState<SortKey>('pct')
   const [filter, setFilter] = useState<FilterKey>('all')
+  const [selectedAccount, setSelectedAccount] = useState('전체')
+
+  // 계좌 칩 목록 + 계좌 → 증권사 (라벨 표시용)
+  const { accounts, accountBrokerMap } = useMemo(() => {
+    const present = new Set(holdings.map((h) => h.accountType))
+    const ordered = ACCOUNT_ORDER.filter((a) => present.has(a))
+    const rest = [...present].filter((a) => !ACCOUNT_ORDER.includes(a)).sort()
+    const m: Record<string, string> = {}
+    holdings.forEach((h) => { if (!m[h.accountType]) m[h.accountType] = h.broker })
+    return { accounts: ['전체', ...ordered, ...rest], accountBrokerMap: m }
+  }, [holdings])
 
   const { rows, summary, maxAbsPct } = useMemo(() => {
     const filtered = holdings.filter((h) => {
+      if (selectedAccount !== '전체' && h.accountType !== selectedAccount) return false
       const pct = h.dayChangePct ?? 0
       if (filter === 'gain') return pct > FLAT_THRESHOLD
       if (filter === 'loss') return pct < -FLAT_THRESHOLD
@@ -61,7 +76,7 @@ export function TodayPage() {
       summary: { gainCount, lossCount, flatCount, totalDayChange, totalPct, totalValue },
       maxAbsPct,
     }
-  }, [holdings, sortKey, filter])
+  }, [holdings, sortKey, filter, selectedAccount])
 
   // 종목 집계·주의 신호·오늘 위치 (순수 로직 — lib/todayInsights)
   const aggs = useMemo(() => aggregateBySymbol(holdings), [holdings])
@@ -80,13 +95,14 @@ export function TodayPage() {
   }, [realized])
 
   const kospi = findIndicator(indicators, 'KOSPI', 'KOSPI')
+  const kosdaq = findIndicator(indicators, 'KOSDAQ', 'KOSDAQ')
   const spx = findIndicator(indicators, 'S&P500', 'S&P')
   const usdkrw = findIndicator(indicators, 'USDKRW', 'USD/KRW')
 
   return (
     <div className="overflow-y-auto p-2 sm:p-3 grid gap-2.5 content-start">
-      {/* 1. KPI 스트립 — 내 포트 · Breadth · 시장 기준선(KOSPI/S&P) · 환율 */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-line border border-line">
+      {/* 1. KPI 스트립 — 포트·Breadth 큰 타일 2 + 시장 기준선 컴팩트 타일 4 (2026-08-06) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[1.4fr_1.4fr_1fr_1fr_1fr_1fr] gap-px bg-line border border-line">
         <Stat
           label="포트 변동 (당일)"
           value={`${summary.totalDayChange >= 0 ? '+' : ''}₩${Math.round(summary.totalDayChange).toLocaleString('ko-KR')}`}
@@ -105,6 +121,7 @@ export function TodayPage() {
           <div className="text-xs text-ink-dim tabular mt-0.5">{holdings.length}종목</div>
         </div>
         <MarketStat label="KOSPI" ind={kospi} />
+        <MarketStat label="KOSDAQ" ind={kosdaq} />
         <MarketStat label="S&P 500" ind={spx} />
         <MarketStat label="USD/KRW" ind={usdkrw} />
       </div>
@@ -131,6 +148,19 @@ export function TodayPage() {
       {/* 3. 본문 — iPad 가로(lg+): 좌측 종목 리스트 + 우측 인사이트 스택. 모바일: 인사이트 → 리스트 */}
       <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1fr)_320px] items-start">
         <div className="grid gap-2.5 min-w-0 order-2 lg:order-1">
+          {/* 계좌 필터 칩 — 대시보드와 동일 개념 (2026-08-06) */}
+          <div className="flex items-center gap-2 text-xs overflow-x-auto">
+            <span className="text-ink-faint uppercase tracking-widest text-2xs mr-1 shrink-0">계좌</span>
+            {accounts.map((acc) => (
+              <Toggle
+                key={acc}
+                active={selectedAccount === acc}
+                onClick={() => setSelectedAccount(acc)}
+                label={acc === '전체' ? '전체' : accountDisplay(accountBrokerMap[acc] ?? '', acc)}
+              />
+            ))}
+          </div>
+
           {/* Sort + Filter 컨트롤 — 모바일은 줄바꿈 대신 가로 스크롤 한 줄 */}
           <div className="flex items-center gap-2 text-xs overflow-x-auto">
             <span className="text-ink-faint uppercase tracking-widest text-2xs mr-1 shrink-0">정렬</span>
@@ -246,16 +276,19 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub: 
   )
 }
 
-/** 시장 기준선 타일 — 당일 %를 메인으로, 레벨을 보조로 */
+/** 시장 기준선 타일 — 당일 %를 메인으로, 레벨을 보조로. 포트 타일보다 컴팩트 */
 function MarketStat({ label, ind }: { label: string; ind?: Indicator }) {
-  if (!ind) return <Stat label={label} value="—" sub="지표 없음" tone="neutral" />
+  const toneClass = !ind ? 'text-ink' : ind.changePct >= 0 ? 'text-gain' : 'text-loss'
   return (
-    <Stat
-      label={label}
-      value={`${ind.changePct >= 0 ? '+' : ''}${ind.changePct.toFixed(2)}%`}
-      sub={ind.value.toLocaleString('ko-KR')}
-      tone={ind.changePct >= 0 ? 'up' : 'down'}
-    />
+    <div className="bg-bg-elev px-3 py-2.5">
+      <div className="text-xxs text-ink-faint tracking-widest2 uppercase mb-1">{label}</div>
+      <div className={`text-base font-medium tabular ${toneClass}`}>
+        {ind ? `${ind.changePct >= 0 ? '+' : ''}${ind.changePct.toFixed(2)}%` : '—'}
+      </div>
+      <div className="text-2xs text-ink-dim tabular mt-0.5">
+        {ind ? ind.value.toLocaleString('ko-KR') : '지표 없음'}
+      </div>
+    </div>
   )
 }
 
