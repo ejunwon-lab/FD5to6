@@ -89,3 +89,6 @@
 - **포맷 로케일 통일 (로드맵 ④)** — 데스크 전 소스 107곳 `toLocaleString()` → `toLocaleString('ko-KR')` 일괄 지정 (브라우저 로케일 드리프트 제거). fmtKRW 전면 치환은 표기 회귀 위험 대비 이득 없어 제외.
 - **로드맵 ⑤ 1차분** — ⓐPrice History 페이지(종목 리스트→가격 차트·매수/매도 마커·내 평균단가선·기간 KPI, 단축키 P) ⓑSettings 페이지(localStorage: 뷰모드·상위 N 접기·카드 폴드 기본값, 단축키 S) ⓒPhase C 3종: Drawdown underwater 차트(자산 시리즈)·분류 도넛·홀딩스 CSV 내보내기(BOM). 전부 클라이언트만 — GAS 무변경.
 - **web-desk 테마 시스템 (Modern/Terminal)** — 모바일 가독성 개선(본문 Pretendard·보조 텍스트 대비 ≥4.5:1·소프트 팔레트·모바일 폰트 한 단계 상향·스캔라인 제거)을 Modern 테마로 신설, 기존 네온 룩은 Terminal 테마로 보존. 전 색상 CSS 변수화(`--c-*`) + 차트 하드코딩 hex 10파일 청소 + 도넛 시리즈 전용 검증 팔레트(`--c-s1~s7`). Settings 테마 전환(즉시 반영, 기본 Modern). tsc·build·vitest 8/8·팔레트 검증기 통과.
+
+## 2026-08-06
+- **데스크 iPad 개선 1차 — 사이드바 재편** — Workspace/Data/System(6·2·2) → Portfolio/Activity/Market/System 4섹션("무엇에 대한 정보인가" 기준), `Trade Log`→`Activity` 개명(NavKey `tradelog`→`activity`), Dividends placeholder 메뉴·`v` 단축키 제거(기능은 로드맵 ⑤ 백로그 유지), 터치 타깃 `py-2.5` 통일, 단축키 힌트 `pointer-fine` 환경 한정(tailwind 커스텀 variant). tsc·build 통과, code-map 갱신.

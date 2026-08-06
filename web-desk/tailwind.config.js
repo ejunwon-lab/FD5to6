@@ -59,5 +59,11 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // 터치(iPad 등)에서는 키보드 단축키 힌트 무의미 — 마우스 환경에서만 노출
+    function ({ addVariant }) {
+      addVariant('pointer-fine', '@media (pointer: fine)')
+      addVariant('pointer-coarse', '@media (pointer: coarse)')
+    },
+  ],
 }

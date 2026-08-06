@@ -1,4 +1,4 @@
-export type NavKey = 'dashboard' | 'today' | 'holdings' | 'analysis' | 'indicators' | 'tradelog' | 'pricehist' | 'dividends' | 'kis' | 'settings'
+export type NavKey = 'dashboard' | 'today' | 'holdings' | 'analysis' | 'indicators' | 'activity' | 'pricehist' | 'kis' | 'settings'
 
 interface Props {
   active: NavKey
@@ -8,23 +8,28 @@ interface Props {
   onClose?: () => void
 }
 
+// 섹션 기준: "무엇에 대한 정보인가" — 내 자산(Portfolio) / 실현 기록(Activity) / 시장(Market) / 시스템
 const sections: { title: string; items: { key: NavKey; label: string; hint?: string; badge?: string }[] }[] = [
   {
-    title: 'Workspace',
+    title: 'Portfolio',
     items: [
       { key: 'dashboard', label: 'Dashboard', hint: 'D' },
       { key: 'today', label: 'Today', hint: 'Y' },
       { key: 'holdings', label: 'Holdings', hint: 'H' },
       { key: 'analysis', label: 'Analysis', hint: 'A' },
-      { key: 'indicators', label: 'Indicators', hint: 'I' },
-      { key: 'tradelog', label: 'Trade Log', hint: 'T' },
     ],
   },
   {
-    title: 'Data',
+    title: 'Activity',
     items: [
+      { key: 'activity', label: 'Activity', hint: 'T' },
+    ],
+  },
+  {
+    title: 'Market',
+    items: [
+      { key: 'indicators', label: 'Indicators', hint: 'I' },
       { key: 'pricehist', label: 'Price History', hint: 'P' },
-      { key: 'dividends', label: 'Dividends', hint: 'V' },
     ],
   },
   {
@@ -67,14 +72,14 @@ export function Sidebar({ active, onSelect, drawerOpen, onClose }: Props) {
               <button
                 key={item.key}
                 onClick={() => handleSelect(item.key)}
-                className={`w-full flex items-center justify-between px-4 py-2.5 lg:py-1.5 text-left text-xs border-l-2 ${
+                className={`w-full flex items-center justify-between px-4 py-2.5 text-left text-xs border-l-2 ${
                   active === item.key
                     ? 'bg-bg-elev border-amber text-ink'
                     : 'border-transparent text-ink-dim hover:bg-bg-hover hover:text-ink'
                 }`}
               >
                 <span>{item.label}</span>
-                {item.hint && <span className="hidden lg:inline text-2xs text-ink-faint">{item.hint}</span>}
+                {item.hint && <span className="hidden lg:pointer-fine:inline text-2xs text-ink-faint">{item.hint}</span>}
                 {item.badge && (
                   <span className="bg-amber text-bg px-1.5 py-0 text-2xs font-bold rounded-sm">
                     {item.badge}
