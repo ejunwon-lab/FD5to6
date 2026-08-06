@@ -265,8 +265,26 @@ export interface SystemStatusResponse {
   kis?: { date?: string; carried?: number; total?: number } | null
 }
 
+export interface NewsItem {
+  code: string
+  name: string
+  title: string
+  source: string
+  dt: string    // YYYYMMDDHHmm (KST)
+  url: string   // KR: 기사 직링크 / US: 종목 뉴스탭
+}
+
+export interface NewsResponse {
+  success: boolean
+  error?: string
+  fetchedAt?: string
+  stockCount?: number
+  items?: NewsItem[]
+}
+
 export const gasApi = {
   getPortfolio:      (token: string) => callGAS<PortfolioResponse>('newMobileGetPortfolio', token),
+  getNews:           (token: string) => callGAS<NewsResponse>('newMobileGetNews', token),
   getSystemStatus:   (token: string) => callGAS<SystemStatusResponse>('newMobileGetSystemStatus', token),
   getIndicators:     (token: string) => callGAS<IndicatorsResponse>('newMobileGetIndicators', token),
   getProfitHistory:  (token: string) => callGAS<TrendHistoryResponse>('newMobileGetProfitHistory', token),

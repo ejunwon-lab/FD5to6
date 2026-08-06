@@ -125,6 +125,10 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `_isKoreanHoliday(date)` — *휴장일* 시트 읽어 휴일 판정 (시트 없으면 `_HOLIDAY_FALLBACK`)
 - `_getHolidaySet` — 시트 → Set 캐시 / `_setupHolidaysSheet` — 시트 생성
 
+### News.js — 보유 종목 뉴스 (데스크 Today, 2026-08-06)
+- `newMobileGetNews` — *보유현황* KIS 종목(KIS_SKIP 제외, 코드 dedup) → 네이버 뉴스 fetchAll → 표준 아이템(코드·종목명·제목·매체·시각·링크) 최신순 최대 40건. CacheService 30분 공유 캐시. scripts.run OAuth 전용 (doGet 아님). KR: `m.stock.naver.com/api/news/stock/{코드}` 기사 직링크 / US: `api.stock.naver.com/news/worldStock/{SYM}.O`(빈 응답 시 .N 재시도, 한국어 번역 뉴스) 링크는 종목 뉴스탭 폴백. 설계: `docs/plans/2026-08-06-Today-뉴스-이벤트캘린더.md`
+- `_newsTargetStocks_` / `_newsFetchAll_` / `_newsParse_` / `_newsCleanTitle_` — 대상 추출·병렬 fetch·스키마별 파싱·엔티티 제거 (종목 단위 무해 degrade)
+
 ### NewSystem.js — 셋업·원장·보유현황·가격수집
 - `NS` — 전 시트명/컬럼맵/상수 (위 스키마 참조)
 - `setupNewSystem` + `_setup*Sheet` — 최초 시트 7종 생성
@@ -297,7 +301,8 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `lib/sampleData.ts` — fallback 더미 (종목명 한글 포함)
 - `components/shell/` — `TopBar`(DATA LIVE/SAMPLE·KRX/NYSE 개장 실배선 — 요일·시각 근사, 공휴일 미반영), `Ticker`(live indicators + holdings movers), `Sidebar`(lg+ 고정, 미만 드로어 — 섹션 4개 Portfolio[Dashboard·Today·Holdings·Analysis]/Activity/Market[Indicators·Price History]/System[KIS·Settings], 단축키 힌트는 `pointer-fine`에서만 표시, NavKey `activity`=구 tradelog·`dividends` 제거 2026-08-06), `MobileTabBar`(모바일 하단 탭 6개, pricehist·kis·settings는 드로어), `Footer`(lg+만)
 - `components/dashboard/` — `DashboardPage`, `KpiStrip`, `MarketIndices`, `EquityChart`(범위 버튼은 달력일 날짜 산술로 필터 — slice 아님), `ActivityFeed`(실현손익 최근 8건 배선, 빈 데이터만 SAMPLE 폴백), `DashboardHoldings`, `HoldingsStatusStrip`, `Indicators` · `DashboardHoldings`는 Settings 기반 상위 N 접기·뷰모드 + ⬇CSV(필터 상태 그대로, `lib/csv.ts` BOM 포함) + 카드 폴드 2단(접힘=헤더만↔펼침=요약+상세, 기본: 기기 불문 항상 접힘[2026-08-06], '모두 접기' 전역 토글, foldOverrides로 개별 오버라이드, 그리드 `items-start`로 접힌 카드는 펼친 이웃 높이에 안 늘어남)
-- `components/today/` — `TodayPage`(단축키 Y, Portfolio > Today — 2026-08-06 개편: KPI 5칸 [포트 변동·Breadth ▲▼⏸·KOSPI·S&P500·USD/KRW 당일%] + 오늘 실현손익 조건부 스트립 [realized entries 오늘 날짜 필터] + lg 2단 [좌 종목 리스트(Sort·Filter 유지) / 우 인사이트 스택, 모바일은 인사이트 먼저]), `ContributionPanel`(오늘 ₩변동 플러스/마이너스 기여 Top5 가로 막대 — 계좌 합산), `SignalsPanel`(주의 신호 — 수익↔손실 전환·±3% 급등락·52주 고/저점 근접), `BreakdownPanel`(시장 KR/US·계좌별 오늘 ₩분해 + 오늘 등락의 최근 90거래일 분포 내 위치)
+- `components/today/` — `TodayPage`(단축키 Y, Portfolio > Today — 2026-08-06 개편: KPI 5칸 [포트 변동·Breadth ▲▼⏸·KOSPI·S&P500·USD/KRW 당일%] + 오늘 실현손익 조건부 스트립 [realized entries 오늘 날짜 필터] + lg 2단 [좌 종목 리스트(Sort·Filter 유지) / 우 인사이트 스택, 모바일은 인사이트 먼저]), `ContributionPanel`(오늘 ₩변동 플러스/마이너스 기여 Top5 가로 막대 — 계좌 합산), `SignalsPanel`(주의 신호 — 수익↔손실 전환·±3% 급등락·52주 고/저점 근접), `BreakdownPanel`(시장 KR/US·계좌별 오늘 ₩분해 + 오늘 등락의 최근 90거래일 분포 내 위치), `NewsPanel`(gasApi.getNews → 보유 종목 뉴스 10건+더보기, 모듈 30분 캐시, 실패/빈 상태 구분 표시 — GAS→네이버 실환경 스모크 신호), `EventsPanel`(lib/macroCalendar 다가오는 이벤트 6건 D-day)
+- `lib/macroCalendar.ts` — 매크로 이벤트 정적 일정(FOMC·CPI·금통위 — 2026-08-06 웹 검증 기입, 연도 갱신 필요) + 만기 규칙 계산(KR 동시만기 둘째 목·US 트리플위칭 셋째 금), `upcomingEvents`/`dDay`. vitest 7케이스
 - `lib/todayInsights.ts` — Today 순수 로직: `aggregateBySymbol`(계좌→종목 합산, prevProfit=opProfit-dayChange), `detectSignals`(전환·급등락·52주 근접 — ₩·비율만 사용해 통화 안전), `dayReturnPercentile`(자산 시리즈 일별 등락 분포에서 오늘 위치, 표본 20일 미만 null). vitest `todayInsights.test.ts` 10케이스
 - `components/holdings/` — `HoldingsPage`(ExposureMatrix + **Position52WeekPanel·ReturnHistogramPanel** 2단 + **AccountTypePanel** + DashboardHoldings 재사용), `ExposureMatrix`(Account P&L 패널), `AccountTypePanel`(계좌 유형별 일반투자/퇴직연금·증권사 계좌 분해 — `accountType.ts` `computeAccountTypeBreakdown` 클라 계산, 대기중 포함=총자산 기준), `Position52WeekPanel`(top 12 by weight·종목별 가로 막대 [저점─●현재가─고점]·25%/75% 색 임계), `ReturnHistogramPanel`(10구간 막대 분포·median/mean 메타·gain/loss 색상 구분), `HoldingCard`(Terminal)·`HoldingCardWeb`(Web 스타일) — 2단 폴드: isExpanded=false면 컴팩트 2줄(종목명|현재가 / 등락%·등락총액)만, true면 요약(매입/평가/수익·등락/수익률)+상세 9필드(중복 3필드 제거), `StockDetailModal`
 - `lib/accountDisplay.ts` — 공통 계좌명 헬퍼 (`brokerShort`/`accountShort`/`accountDisplay(broker, account)`). 형식: `{미래/삼성}_{계좌명}`, 퇴직연금은 `미래_퇴직연금`/`삼성_퇴직연금`로 축약

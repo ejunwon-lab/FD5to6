@@ -8,6 +8,8 @@ import { aggregateBySymbol, dayReturnPercentile, detectSignals } from '../../lib
 import { ContributionPanel } from './ContributionPanel'
 import { SignalsPanel } from './SignalsPanel'
 import { BreakdownPanel } from './BreakdownPanel'
+import { NewsPanel } from './NewsPanel'
+import { EventsPanel } from './EventsPanel'
 
 type SortKey = 'pct' | 'amount' | 'name'
 type FilterKey = 'all' | 'gain' | 'loss' | 'flat'
@@ -166,6 +168,8 @@ export function TodayPage() {
           <ContributionPanel aggs={aggs} />
           <SignalsPanel signals={signals} />
           <BreakdownPanel holdings={holdings} percentile={percentile} />
+          <NewsPanel />
+          <EventsPanel />
         </div>
       </div>
     </div>
