@@ -61,8 +61,8 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
       title="Account P&L"
       meta={`순자산 ₩${Math.round(netWorth).toLocaleString('ko-KR')}`}
     >
-      {/* 1. 상단 4 그룹 카드 — 한눈에 자산 구조 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-line border-b border-line">
+      {/* 1. 상단 4 그룹 카드 — 선택 카드는 accent 외곽선 + ▼ 꼭지로 아래 상세 박스와 연결 (2026-08-06) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 p-2">
         <GroupCard
           label="주식"
           value={stockTotals.value}
@@ -92,32 +92,12 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
         <NetWorthCard value={netWorth} />
       </div>
 
-      {/* 탭 바 — 아래 표가 어느 그룹의 상세인지 명시 (선택 = 채움, 2026-08-06) */}
-      <div className="flex items-stretch border-b border-line bg-bg-deep/40">
-        <span className="px-3 self-center text-2xs text-ink-faint uppercase tracking-widest hidden sm:inline">상세</span>
-        <TabBtn
-          active={openSection === 'stock'}
-          onClick={() => setOpenSection('stock')}
-          label={`주식 계좌 ${stockTotals.accountCount}`}
-        />
-        <TabBtn
-          active={openSection === 'nonstock'}
-          onClick={() => setOpenSection('nonstock')}
-          disabled={nonStockCount === 0}
-          label={`비주식 자산 ${nonStockCount}`}
-        />
-        <TabBtn
-          active={openSection === 'cash'}
-          onClick={() => setOpenSection('cash')}
-          disabled={cashCount === 0}
-          tone="cyan"
-          label={`대기자금 ${cashCount}`}
-        />
-      </div>
-
-      {/* 2. 주식 상세 — openSection 'stock'일 때만 (같은 자리 교체) */}
+      {/* 2. 주식 상세 — 선택 카드와 같은 accent 외곽선 박스 */}
       {openSection === 'stock' && stockRows.length > 0 && (
-        <div className="overflow-x-auto border-b border-line-dim">
+        <div className="mx-2 mb-2 border-2 border-amber/70 overflow-x-auto">
+          <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-widest text-amber bg-amber/10">
+            주식 계좌 상세 <span className="text-ink-faint font-normal ml-1 tabular">{stockTotals.accountCount}계좌 · {stockTotals.count}종목</span>
+          </div>
           <table className="w-full text-xs min-w-[640px]">
             <thead>
               <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line-dim bg-bg-deep/40">
@@ -157,9 +137,12 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
         </div>
       )}
 
-      {/* 3. 비주식 자산 상세 — openSection 'nonstock'일 때만 */}
+      {/* 3. 비주식 자산 상세 — 선택 카드와 같은 accent 외곽선 박스 */}
       {openSection === 'nonstock' && nonStockAssets && nonStockAssets.items.length > 0 && (
-        <div className="overflow-x-auto border-b border-line-dim">
+        <div className="mx-2 mb-2 border-2 border-amber/70 overflow-x-auto">
+          <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-widest text-amber bg-amber/10">
+            비주식 자산 상세 <span className="text-ink-faint font-normal ml-1 tabular">{nonStockCount}건</span>
+          </div>
           <table className="w-full text-xs min-w-[640px]">
             <thead>
               <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line-dim bg-bg-deep/40">
@@ -205,9 +188,12 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
         </div>
       )}
 
-      {/* 4. 대기자금 상세 — openSection 'cash'일 때만 */}
+      {/* 4. 대기자금 상세 — 선택 카드와 같은 accent(cyan) 외곽선 박스 */}
       {openSection === 'cash' && cashReserve && cashReserve.items.length > 0 && (
-        <div className="overflow-x-auto">
+        <div className="mx-2 mb-2 border-2 border-cyan/70 overflow-x-auto">
+          <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-widest text-cyan bg-cyan/10">
+            대기자금 상세 <span className="text-ink-faint font-normal ml-1 tabular">{cashCount}계좌</span>
+          </div>
           <table className="w-full text-xs min-w-[640px]">
             <thead>
               <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line-dim bg-bg-deep/40">
@@ -253,27 +239,6 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
   )
 }
 
-/** 상세 전환 탭 — 선택 = 채움(amber/cyan), 앱 필터 칩과 동일 시각 언어 */
-function TabBtn({ active, onClick, label, disabled, tone = 'amber' }: {
-  active: boolean; onClick: () => void; label: string; disabled?: boolean; tone?: 'amber' | 'cyan'
-}) {
-  const activeClass = tone === 'cyan' ? 'bg-cyan text-bg font-semibold' : 'bg-amber text-bg font-semibold'
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`px-3.5 py-2 text-2xs uppercase tracking-widest tabular whitespace-nowrap ${
-        disabled ? 'text-ink-faint opacity-40 cursor-default'
-        : active ? activeClass
-        : 'text-ink-dim hover:text-ink hover:bg-bg-hover'
-      }`}
-    >
-      {label}
-    </button>
-  )
-}
-
 interface GroupCardProps {
   label: string
   value: number
@@ -289,16 +254,16 @@ interface GroupCardProps {
 function GroupCard({ label, value, subtitle, returnPct, opProfit, open, onClick, disabled, tone = 'amber' }: GroupCardProps) {
   const profitTone = opProfit !== undefined ? (opProfit >= 0 ? 'text-gain' : 'text-loss') : ''
   const valueTone  = tone === 'cyan' ? 'text-cyan' : 'text-ink'
-  // 선택된 카드 = 눌린 탭: 배경 밝게 + 하단 accent 보더 (미선택은 투명 보더로 높이 유지)
+  // 선택 = accent 외곽선 + 옅은 accent 배경. 아래 상세 박스가 같은 외곽선 색 → 한 세트로 읽힘
   const activeClass = open
-    ? `bg-bg-hover border-b-2 ${tone === 'cyan' ? 'border-cyan' : 'border-amber'}`
-    : 'bg-bg-elev border-b-2 border-transparent'
+    ? `border-2 ${tone === 'cyan' ? 'border-cyan bg-cyan/10' : 'border-amber bg-amber/10'}`
+    : 'border-2 border-line-dim bg-bg-elev'
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`${activeClass} px-3.5 py-3 text-left ${disabled ? 'opacity-50 cursor-default' : 'hover:bg-bg-hover'} focus:outline-none focus:ring-1 focus:ring-amber`}
+      className={`relative ${activeClass} px-3.5 py-3 text-left ${disabled ? 'opacity-50 cursor-default' : 'hover:bg-bg-hover'} focus:outline-none focus:ring-1 focus:ring-amber`}
     >
       <div className="flex items-baseline justify-between mb-1">
         <span className="text-2xs text-ink-faint uppercase tracking-widest">{label}</span>
@@ -315,13 +280,19 @@ function GroupCard({ label, value, subtitle, returnPct, opProfit, open, onClick,
           {opProfit >= 0 ? '+' : ''}₩{Math.round(opProfit).toLocaleString('ko-KR')} · {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%
         </div>
       )}
+      {/* 선택 카드 → 아래 상세 박스로 향하는 연결 꼭지 (한 줄 배치인 lg+에서만) */}
+      {open && (
+        <span className={`hidden lg:block absolute -bottom-[13px] left-1/2 -translate-x-1/2 text-xs leading-none ${tone === 'cyan' ? 'text-cyan' : 'text-amber'}`}>
+          ▼
+        </span>
+      )}
     </button>
   )
 }
 
 function NetWorthCard({ value }: { value: number }) {
   return (
-    <div className="bg-amber/10 border-l border-amber/40 px-3.5 py-3 flex flex-col justify-center">
+    <div className="bg-amber/5 border-2 border-amber/30 px-3.5 py-3 flex flex-col justify-center">
       <div className="text-2xs uppercase tracking-widest text-amber mb-1 font-semibold">순자산</div>
       <div className="text-lg tabular font-bold text-amber leading-tight">
         ₩{Math.round(value).toLocaleString('ko-KR')}
