@@ -122,12 +122,10 @@
 }
 
 @layer utilities {
-  /* 가로 스크롤 영역 우측 페이드 힌트 — "옆으로 넘길 수 있음"을 시각화.
-     콘텐츠가 대개 다 들어가는 lg+에선 페이드가 오히려 잘린 것처럼 보여 미적용 (2026-08-06) */
-  @media (max-width: 1023.98px) {
-    .fade-x {
-      -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
-      mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
-    }
+  /* 가로 스크롤 우측 페이드 힌트 — App의 감시자가 "오른쪽에 실제로 더 있을 때만" .fade-x-on을 켠다.
+     상시 적용하면 끝까지 스크롤해도 마지막 컬럼이 흐려져 잘려 보임 (2026-08-16 수정) */
+  .fade-x.fade-x-on {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
   }
 }

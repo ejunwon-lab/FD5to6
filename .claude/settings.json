@@ -13,7 +13,8 @@
       "Skill(dataviz:*)",
       "Bash(curl -s -c yjar -o /dev/null \"https://fc.yahoo.com\" -H \"User-Agent: Mozilla/5.0\")",
       "Bash(curl -s -b yjar \"https://query1.finance.yahoo.com/v1/test/getcrumb\" -H \"User-Agent: Mozilla/5.0\")",
-      "Bash(curl -s -b yjar 'https://query1.finance.yahoo.com/v10/finance/quoteSummary/MU?modules=calendarEvents&crumb=__TRACKED_VAR__' -H 'User-Agent: Mozilla/5.0')"
+      "Bash(curl -s -b yjar 'https://query1.finance.yahoo.com/v10/finance/quoteSummary/MU?modules=calendarEvents&crumb=__TRACKED_VAR__' -H 'User-Agent: Mozilla/5.0')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 2 \"http://localhost:5173/FD5to6/desk/\")"
     ]
   }
 }

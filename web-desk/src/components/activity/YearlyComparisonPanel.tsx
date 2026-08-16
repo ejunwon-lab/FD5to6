@@ -72,6 +72,7 @@ export function YearlyComparisonPanel({ entries }: { entries: ReadonlyArray<Mont
         {data.length > 2 && (
           <div className="mt-3">
             <div className="text-xxs text-ink-faint uppercase tracking-widest mb-1.5">all years</div>
+            <div className="overflow-x-auto fade-x">
             <table className="w-full text-xs">
               <tbody>
                 {data.map((d) => (
@@ -88,6 +89,7 @@ export function YearlyComparisonPanel({ entries }: { entries: ReadonlyArray<Mont
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>

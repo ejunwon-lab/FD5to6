@@ -108,3 +108,6 @@
 - **계좌 드릴다운·Account P&L UX 확정** — 계좌 행 탭 모달(KPI 6칸·종목·실현손익) + 상세 표 항상 하나 열림 + 외곽선 연결(선택 카드 accent 테두리·전폭 브리지·동일색 상세 박스). Today엔 KOSDAQ 타일·계좌 필터 칩 추가.
 - **GitHub Pages 서빙 빌드 장애 대응** — 브리지 UI 배포가 gh-pages 도달 후 Pages 빌드 4연속 실패(리포 단위 GitHub 장애). 진단 경로·함정 2개 errors.md 기록, 대기 결정 + 재발로 Cloudflare 이전 조건 충족(pending). 작업 방식 교훈 memory 저장(배포 후 수동 대기 폴링 금지).
 - **모바일 가로 흔들림 정리** — ①페이지 전체 좌우 끌림 원천 차단(App 셸 overflow-x-clip + 9개 페이지 루트 overflow-x-hidden — 의도치 않은 폭 초과가 생겨도 페이지는 안 움직임) ②의도된 가로 스크롤 14곳(칩 줄·넓은 표)에 `.fade-x` 우측 페이드 힌트(<lg만 — lg+는 내용이 다 들어가 미적용). 표의 카드형 재구성은 모바일 반응형 잔여와 묶어 후속.
+
+## 2026-08-16
+- **가로 잘림 2건 수정 (사용자 보고: Holdings·Activity 오른쪽 잘림)** — ①YearlyComparisonPanel 연도표가 스크롤 래퍼 없이 페이지 클리핑에 잘리던 것 → overflow-x-auto 래퍼 추가 ②fade-x 상시 마스크가 스크롤 끝·콘텐츠 맞음 상태에서도 마지막 컬럼을 흐리게 하던 것 → App 중앙 감시자(스크롤 capture·resize·MutationObserver)가 "오른쪽에 실제로 더 있을 때만" .fade-x-on 토글하는 동적 방식으로 교체.

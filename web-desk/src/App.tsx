@@ -31,6 +31,28 @@ function App() {
   const [active, setActive] = useState<NavKey>('dashboard')
   const [drawerOpen, setDrawerOpen] = useState(false)
 
+  // 가로 스크롤 페이드 힌트 — .fade-x 요소에 오른쪽으로 더 볼 내용이 있을 때만 .fade-x-on을 켠다.
+  // 상시 마스크는 스크롤 끝에서도 마지막 컬럼을 흐리게 만들어 "잘림"으로 보임 (2026-08-16)
+  useEffect(() => {
+    const update = (el: HTMLElement) =>
+      el.classList.toggle('fade-x-on', el.scrollWidth - el.clientWidth - el.scrollLeft > 4)
+    const sweep = () => document.querySelectorAll<HTMLElement>('.fade-x').forEach(update)
+    sweep()
+    const onScroll = (e: Event) => {
+      const t = e.target
+      if (t instanceof HTMLElement && t.classList.contains('fade-x')) update(t)
+    }
+    document.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', sweep)
+    const mo = new MutationObserver(() => requestAnimationFrame(sweep))
+    mo.observe(document.body, { childList: true, subtree: true })
+    return () => {
+      document.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', sweep)
+      mo.disconnect()
+    }
+  }, [])
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return
