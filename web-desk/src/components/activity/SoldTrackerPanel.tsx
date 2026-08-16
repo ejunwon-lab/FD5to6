@@ -28,7 +28,7 @@ export function SoldTrackerPanel() {
         <Stat label="집계 종목" value={`${stats.scoredN}/${items.length}`} sub="국내만" />
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto fade-x">
         <table className="w-full text-xs min-w-[1040px]">
           <thead>
             <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line">

@@ -120,3 +120,14 @@
 @layer utilities {
   .tabular { font-variant-numeric: tabular-nums; }
 }
+
+@layer utilities {
+  /* 가로 스크롤 영역 우측 페이드 힌트 — "옆으로 넘길 수 있음"을 시각화.
+     콘텐츠가 대개 다 들어가는 lg+에선 페이드가 오히려 잘린 것처럼 보여 미적용 (2026-08-06) */
+  @media (max-width: 1023.98px) {
+    .fade-x {
+      -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+      mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+    }
+  }
+}

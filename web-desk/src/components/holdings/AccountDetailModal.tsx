@@ -88,7 +88,7 @@ export function AccountDetailModal({ broker, account, holdings, cashReserve, onC
 
         {/* 보유 종목 */}
         <div className="px-4 pt-3 pb-1 text-2xs text-ink-faint uppercase tracking-widest">보유 종목</div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto fade-x">
           <table className="w-full text-xs min-w-[520px]">
             <thead>
               <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line-dim">

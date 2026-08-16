@@ -35,7 +35,7 @@ export function TaxSimPanel({ holdings }: { holdings: Holding[] }) {
               <StatBox label="Tax Save (gross)" value={grossSave}  tone="gain" sub={`손실 × ${(TAX_RATE * 100).toFixed(0)}%`} />
               <StatBox label="Net Save"         value={netSave}    tone="gain" sub={`연 ${ANNUAL_DEDUCTION.toLocaleString('ko-KR')} 공제 후`} />
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto fade-x">
               <table className="w-full text-xs min-w-[560px]">
                 <thead>
                   <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line">

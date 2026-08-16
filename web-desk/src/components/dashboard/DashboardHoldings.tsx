@@ -126,7 +126,7 @@ export function DashboardHoldings({ holdings }: Props) {
       {/* 필터 + 정렬 + 검색 바 */}
       <div className="px-3 py-2.5 border-b border-line-dim space-y-2">
         {/* 계좌 chips */}
-        <div className="flex gap-1.5 overflow-x-auto items-center">
+        <div className="flex gap-1.5 overflow-x-auto fade-x items-center">
           <span className="text-2xs text-ink-faint uppercase tracking-widest shrink-0 mr-1">계좌</span>
           {accounts.map((acc) => {
             const isAll = acc === '전체'
@@ -147,7 +147,7 @@ export function DashboardHoldings({ holdings }: Props) {
         </div>
         {/* Sort + View toggle + Search — 모바일은 2행(정렬 가로 스크롤 / 토글+검색) */}
         <div className="flex flex-col gap-2 lg:flex-row lg:gap-1.5 lg:items-center">
-          <div className="flex gap-1.5 items-center overflow-x-auto">
+          <div className="flex gap-1.5 items-center overflow-x-auto fade-x">
           <span className="text-2xs text-ink-faint uppercase tracking-widest shrink-0 mr-1">정렬</span>
           {SORT_OPTIONS.map((opt) => (
             <button
@@ -264,7 +264,7 @@ export function DashboardHoldings({ holdings }: Props) {
 
       {/* List view */}
       {viewMode === 'list' && (
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto fade-x">
       {/* Header row */}
       <div className="grid items-center text-2xs uppercase tracking-widest text-ink-faint border-b border-line px-3 py-1.5 min-w-[1240px]"
            style={{ gridTemplateColumns: '1.8fr 1.4fr 60px 90px 1.1fr 2.2fr 1.4fr 60px 90px' }}>

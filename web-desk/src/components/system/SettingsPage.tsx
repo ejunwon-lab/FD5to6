@@ -19,7 +19,7 @@ export function SettingsPage() {
   }
 
   return (
-    <main className="overflow-y-auto p-2 sm:p-3 grid gap-2.5 grid-cols-1 lg:grid-cols-2" style={{ gridAutoRows: 'min-content' }}>
+    <main className="overflow-y-auto overflow-x-hidden p-2 sm:p-3 grid gap-2.5 grid-cols-1 lg:grid-cols-2" style={{ gridAutoRows: 'min-content' }}>
       <div className="lg:col-span-2 text-2xs text-ink-faint uppercase tracking-widest">
         {savedAt ? `저장됨 · ${savedAt} — 화면 재진입 시 적용` : '변경 즉시 저장 · 화면 재진입 시 적용'}
       </div>

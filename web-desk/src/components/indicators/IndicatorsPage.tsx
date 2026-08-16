@@ -34,7 +34,7 @@ export function IndicatorsPage() {
   }, [indicators])
 
   return (
-    <div className="overflow-y-auto p-2 sm:p-3 grid gap-2.5">
+    <div className="overflow-y-auto overflow-x-hidden p-2 sm:p-3 grid gap-2.5">
       <GainersLosersStrip indicators={indicators} />
       <MarketHeatmap indicators={indicators} onSelect={setSelected} />
       {grouped.map(([cat, items]) => (

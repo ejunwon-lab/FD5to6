@@ -52,7 +52,7 @@ export function ActivityPage() {
   const filtered = selectedMonth === 'ALL' ? data : data.filter((e) => e.month === selectedMonth)
 
   return (
-    <div className="overflow-y-auto p-2 sm:p-3 grid gap-2.5">
+    <div className="overflow-y-auto overflow-x-hidden p-2 sm:p-3 grid gap-2.5">
       {/* Summary strip — 6 KPI */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-line border border-line">
         <Stat label="Realized P&L"  value={fmtSignedKrw(stats.total)}                                   sub="all-time"                                                    tone={stats.total >= 0 ? 'up' : 'down'} />
@@ -127,7 +127,7 @@ export function ActivityPage() {
 
       {/* Detail table */}
       <Panel title={`Realized Trades · ${filtered.length} closes`} meta={selectedMonth === 'ALL' ? 'ALL TIME' : selectedMonth}>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto fade-x">
         <table className="w-full text-xs min-w-[960px]">
           <thead>
             <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line">

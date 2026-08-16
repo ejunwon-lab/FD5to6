@@ -11,7 +11,7 @@ export function HoldingsPage() {
   const all = liveHoldings.length ? liveHoldings : sampleHoldings
 
   return (
-    <div className="overflow-y-auto p-2 sm:p-3 grid gap-2.5">
+    <div className="overflow-y-auto overflow-x-hidden p-2 sm:p-3 grid gap-2.5">
       <ExposureMatrix holdings={all} cashReserve={cashReserve} nonStockAssets={nonStockAssets} />
       <AccountTypePanel holdings={all} cashReserve={cashReserve} nonStockAssets={nonStockAssets} />
       <div className="grid lg:grid-cols-2 gap-2.5">

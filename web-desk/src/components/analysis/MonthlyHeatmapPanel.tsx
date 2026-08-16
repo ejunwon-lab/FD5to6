@@ -81,7 +81,7 @@ export function MonthlyHeatmapPanel({ equityCurve }: { equityCurve: EquityPoint[
 
   return (
     <Panel title="Monthly Heatmap · 월별 수익변동" meta={hoverMeta}>
-      <div className="p-3 overflow-x-auto">
+      <div className="p-3 overflow-x-auto fade-x">
         <table className="text-2xs tabular border-collapse">
           <thead>
             <tr>

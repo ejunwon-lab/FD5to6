@@ -100,7 +100,7 @@ export function TodayPage() {
   const usdkrw = findIndicator(indicators, 'USDKRW', 'USD/KRW')
 
   return (
-    <div className="overflow-y-auto p-2 sm:p-3 grid gap-2.5 content-start">
+    <div className="overflow-y-auto overflow-x-hidden p-2 sm:p-3 grid gap-2.5 content-start">
       {/* 1. KPI 스트립 — 포트·Breadth 큰 타일 2 + 시장 기준선 컴팩트 타일 4 (2026-08-06) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[1.4fr_1.4fr_1fr_1fr_1fr_1fr] gap-px bg-line border border-line">
         <Stat
@@ -149,7 +149,7 @@ export function TodayPage() {
       <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1fr)_320px] items-start">
         <div className="grid gap-2.5 min-w-0 order-2 lg:order-1">
           {/* 계좌 필터 칩 — 대시보드와 동일 개념 (2026-08-06) */}
-          <div className="flex items-center gap-2 text-xs overflow-x-auto">
+          <div className="flex items-center gap-2 text-xs overflow-x-auto fade-x">
             <span className="text-ink-faint uppercase tracking-widest text-2xs mr-1 shrink-0">계좌</span>
             {accounts.map((acc) => (
               <Toggle
@@ -162,7 +162,7 @@ export function TodayPage() {
           </div>
 
           {/* Sort + Filter 컨트롤 — 모바일은 줄바꿈 대신 가로 스크롤 한 줄 */}
-          <div className="flex items-center gap-2 text-xs overflow-x-auto">
+          <div className="flex items-center gap-2 text-xs overflow-x-auto fade-x">
             <span className="text-ink-faint uppercase tracking-widest text-2xs mr-1 shrink-0">정렬</span>
             <Toggle active={sortKey === 'pct'}    onClick={() => setSortKey('pct')}    label="등락률" />
             <Toggle active={sortKey === 'amount'} onClick={() => setSortKey('amount')} label="₩등락액" />

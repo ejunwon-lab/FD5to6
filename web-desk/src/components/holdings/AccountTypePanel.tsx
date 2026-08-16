@@ -19,7 +19,7 @@ export function AccountTypePanel({ holdings, cashReserve, nonStockAssets }: Prop
 
   return (
     <Panel title="계좌 유형별" meta={`총자산 ₩${Math.round(total).toLocaleString('ko-KR')}`}>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto fade-x">
         <table className="w-full text-xs min-w-[420px]">
           <thead>
             <tr className="text-ink-faint text-2xs uppercase tracking-widest border-b border-line-dim bg-bg-deep/40">

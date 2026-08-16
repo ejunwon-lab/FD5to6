@@ -66,8 +66,8 @@ function App() {
   })()
   return (
     <DataProvider>
-      {/* 100dvh: iOS Safari 주소창 수축/확장에도 하단 탭바가 잘리지 않게 */}
-      <div className="h-[100dvh] flex flex-col">
+      {/* 100dvh: iOS Safari 주소창 수축/확장에도 하단 탭바가 잘리지 않게. overflow-x-clip: 페이지 전체 좌우 끌림 원천 차단 */}
+      <div className="h-[100dvh] flex flex-col overflow-x-clip">
         <TopBar onMenuClick={() => setDrawerOpen(true)} />
         <Ticker />
         <div className="flex-1 grid overflow-hidden grid-cols-1 lg:grid-cols-[200px_1fr]">

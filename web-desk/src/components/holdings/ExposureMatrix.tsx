@@ -94,7 +94,7 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
 
       {/* 2. 주식 상세 — 선택 카드와 같은 accent 외곽선 박스 */}
       {openSection === 'stock' && stockRows.length > 0 && (
-        <div className="mx-2 mb-2 border-2 border-amber overflow-x-auto">
+        <div className="mx-2 mb-2 border-2 border-amber overflow-x-auto fade-x">
           <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-widest text-amber bg-amber/10">
             주식 계좌 상세 <span className="text-ink-faint font-normal ml-1 tabular">{stockTotals.accountCount}계좌 · {stockTotals.count}종목</span>
           </div>
@@ -139,7 +139,7 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
 
       {/* 3. 비주식 자산 상세 — 선택 카드와 같은 accent 외곽선 박스 */}
       {openSection === 'nonstock' && nonStockAssets && nonStockAssets.items.length > 0 && (
-        <div className="mx-2 mb-2 border-2 border-amber overflow-x-auto">
+        <div className="mx-2 mb-2 border-2 border-amber overflow-x-auto fade-x">
           <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-widest text-amber bg-amber/10">
             비주식 자산 상세 <span className="text-ink-faint font-normal ml-1 tabular">{nonStockCount}건</span>
           </div>
@@ -190,7 +190,7 @@ export function ExposureMatrix({ holdings, cashReserve, nonStockAssets }: Props)
 
       {/* 4. 대기자금 상세 — 선택 카드와 같은 accent(cyan) 외곽선 박스 */}
       {openSection === 'cash' && cashReserve && cashReserve.items.length > 0 && (
-        <div className="mx-2 mb-2 border-2 border-cyan overflow-x-auto">
+        <div className="mx-2 mb-2 border-2 border-cyan overflow-x-auto fade-x">
           <div className="px-3 py-1.5 text-2xs font-semibold uppercase tracking-widest text-cyan bg-cyan/10">
             대기자금 상세 <span className="text-ink-faint font-normal ml-1 tabular">{cashCount}계좌</span>
           </div>
