@@ -52,9 +52,10 @@ export function ActivityPage() {
   const filtered = selectedMonth === 'ALL' ? data : data.filter((e) => e.month === selectedMonth)
 
   return (
-    <div className="overflow-y-auto overflow-x-hidden p-2 sm:p-3 grid gap-2.5">
+    <div className="overflow-y-auto overflow-x-hidden [&>*]:min-w-0 p-2 sm:p-3 grid gap-2.5">
       {/* Summary strip — 6 KPI */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-line border border-line">
+      {/* 6칸은 xl부터 — lg(iPad 가로 1180)에선 6칸 min-content 합이 뷰포트를 넘어 잘림 (2026-08-16) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-px bg-line border border-line [&>*]:min-w-0">
         <Stat label="Realized P&L"  value={fmtSignedKrw(stats.total)}                                   sub="all-time"                                                    tone={stats.total >= 0 ? 'up' : 'down'} />
         <Stat label="Win Trades"    value={`${stats.winCount}`}                                         sub={`+₩${Math.round(stats.winSum).toLocaleString('ko-KR')}`}              tone="up" />
         <Stat label="Loss Trades"   value={`${stats.lossCount}`}                                        sub={`₩${Math.round(stats.lossSum).toLocaleString('ko-KR')}`}              tone="down" />
@@ -64,7 +65,8 @@ export function ActivityPage() {
       </div>
 
       {/* Yearly + Tax-loss (신규 Phase B) */}
-      <div className="grid lg:grid-cols-2 gap-2.5">
+      {/* [&>*]:min-w-0 — 그리드 자식 min-width:auto가 내용 폭 이하로 못 줄어들어 페이지를 넘치게 하는 것 방지 */}
+      <div className="grid lg:grid-cols-2 gap-2.5 [&>*]:min-w-0">
         <YearlyComparisonPanel entries={data} />
         <TaxSimPanel holdings={holdings} />
       </div>

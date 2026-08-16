@@ -109,7 +109,7 @@ export function PriceHistoryPage() {
   const selectedStock = stocks.find((s) => s.code === selected)
 
   return (
-    <main className="overflow-y-auto overflow-x-hidden p-2 sm:p-3 grid gap-2.5 grid-cols-1 lg:grid-cols-[260px_1fr]" style={{ gridAutoRows: 'min-content' }}>
+    <main className="overflow-y-auto overflow-x-hidden [&>*]:min-w-0 p-2 sm:p-3 grid gap-2.5 grid-cols-1 lg:grid-cols-[260px_1fr]" style={{ gridAutoRows: 'min-content' }}>
       {/* 종목 선택 — 데스크톱 세로 리스트 / 모바일 가로 스크롤 칩 */}
       <Panel title="Stocks" meta={`${stocks.length}종목`} className="lg:h-[calc(100dvh-180px)] lg:overflow-y-auto">
         <div className="flex lg:flex-col overflow-x-auto fade-x lg:overflow-x-visible divide-y-0 lg:divide-y divide-line-dim">

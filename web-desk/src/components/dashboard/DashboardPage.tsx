@@ -18,7 +18,7 @@ export function DashboardPage() {
   const showEquity = liveReady && equityCurve.length ? equityCurve : sampleEquity
 
   return (
-    <div className="overflow-y-auto overflow-x-hidden">
+    <div className="overflow-y-auto overflow-x-hidden [&>*]:min-w-0">
       <DataStatusBar
         isSignedIn={isSignedIn}
         authLoading={authLoading}

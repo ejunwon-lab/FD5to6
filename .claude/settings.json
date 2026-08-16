@@ -14,7 +14,9 @@
       "Bash(curl -s -c yjar -o /dev/null \"https://fc.yahoo.com\" -H \"User-Agent: Mozilla/5.0\")",
       "Bash(curl -s -b yjar \"https://query1.finance.yahoo.com/v1/test/getcrumb\" -H \"User-Agent: Mozilla/5.0\")",
       "Bash(curl -s -b yjar 'https://query1.finance.yahoo.com/v10/finance/quoteSummary/MU?modules=calendarEvents&crumb=__TRACKED_VAR__' -H 'User-Agent: Mozilla/5.0')",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 2 \"http://localhost:5173/FD5to6/desk/\")"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 2 \"http://localhost:5173/FD5to6/desk/\")",
+      "Bash(python3 -)",
+      "Bash(bash scripts/save.sh \"가로 잘림 근본 수정 — 그리드 min-w-0 가드 전면 + Activity KPI xl 6칸 + 해시 딥링크 \\(스크린샷 실측 검증\\)\")"
     ]
   }
 }

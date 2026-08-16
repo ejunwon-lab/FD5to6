@@ -27,8 +27,14 @@ const SHORTCUTS: Record<string, NavKey> = {
   s: 'settings',
 }
 
+const NAV_KEYS: NavKey[] = ['dashboard', 'today', 'holdings', 'analysis', 'indicators', 'activity', 'pricehist', 'kis', 'settings']
+
 function App() {
-  const [active, setActive] = useState<NavKey>('dashboard')
+  // #holdings 같은 해시로 초기 탭 딥링크 (스크린샷 테스트·북마크용, 2026-08-16)
+  const [active, setActive] = useState<NavKey>(() => {
+    const h = window.location.hash.slice(1) as NavKey
+    return NAV_KEYS.includes(h) ? h : 'dashboard'
+  })
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   // 가로 스크롤 페이드 힌트 — .fade-x 요소에 오른쪽으로 더 볼 내용이 있을 때만 .fade-x-on을 켠다.

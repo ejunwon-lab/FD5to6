@@ -21,7 +21,7 @@ export function SoldTrackerPanel() {
   return (
     <Panel title="매도 복기 · 안 팔았다면?" meta={meta}>
       {/* 요약 strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border-b border-line">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border-b border-line [&>*]:min-w-0">
         <Stat label="안 팔았다면 총" value={fmtSignedKrw(stats.totalDiff)} tone={stats.totalDiff >= 0 ? 'amber' : 'up'} sub={stats.totalDiff >= 0 ? '더 벌 수 있었음' : '판 게 이득'} />
         <Stat label="더 벌 수 있던 건" value={`${stats.regret}`} tone="amber" sub="oppty lost" />
         <Stat label="잘 판 건" value={`${stats.good}`} tone="up" sub="sold well" />

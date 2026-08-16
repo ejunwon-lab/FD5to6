@@ -111,3 +111,4 @@
 
 ## 2026-08-16
 - **가로 잘림 2건 수정 (사용자 보고: Holdings·Activity 오른쪽 잘림)** — ①YearlyComparisonPanel 연도표가 스크롤 래퍼 없이 페이지 클리핑에 잘리던 것 → overflow-x-auto 래퍼 추가 ②fade-x 상시 마스크가 스크롤 끝·콘텐츠 맞음 상태에서도 마지막 컬럼을 흐리게 하던 것 → App 중앙 감시자(스크롤 capture·resize·MutationObserver)가 "오른쪽에 실제로 더 있을 때만" .fade-x-on 토글하는 동적 방식으로 교체.
+- **가로 잘림 근본 수정 (스크린샷 실측 검증)** — 헤드리스 크롬 iPad 뷰포트 실측으로 원인 확정: 그리드 자식 min-width:auto가 넓은 표/타일의 min-content를 페이지 트랙까지 전파해 뷰포트 초과 → 클리핑. 9개 페이지 루트+주요 그리드에 `[&>*]:min-w-0` 가드, Activity KPI 6칸은 xl부터(lg는 3칸), TaxSim 타일 min-w-0. 부수: `#activity` 해시 초기 탭 딥링크(테스트·북마크용). 수정 후 1180·820 스크린샷 재확인 — 잘림 0.

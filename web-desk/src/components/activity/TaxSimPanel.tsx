@@ -30,7 +30,7 @@ export function TaxSimPanel({ holdings }: { holdings: Holding[] }) {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="grid grid-cols-3 gap-2 mb-3 [&>*]:min-w-0">
               <StatBox label="Total Loss"      value={-totalLoss} tone="loss" sub="미국 주식 미실현 손실 합" />
               <StatBox label="Tax Save (gross)" value={grossSave}  tone="gain" sub={`손실 × ${(TAX_RATE * 100).toFixed(0)}%`} />
               <StatBox label="Net Save"         value={netSave}    tone="gain" sub={`연 ${ANNUAL_DEDUCTION.toLocaleString('ko-KR')} 공제 후`} />

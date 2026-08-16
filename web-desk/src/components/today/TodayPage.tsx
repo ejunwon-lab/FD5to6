@@ -100,9 +100,9 @@ export function TodayPage() {
   const usdkrw = findIndicator(indicators, 'USDKRW', 'USD/KRW')
 
   return (
-    <div className="overflow-y-auto overflow-x-hidden p-2 sm:p-3 grid gap-2.5 content-start">
+    <div className="overflow-y-auto overflow-x-hidden [&>*]:min-w-0 p-2 sm:p-3 grid gap-2.5 content-start">
       {/* 1. KPI 스트립 — 포트·Breadth 큰 타일 2 + 시장 기준선 컴팩트 타일 4 (2026-08-06) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[1.4fr_1.4fr_1fr_1fr_1fr_1fr] gap-px bg-line border border-line">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[1.4fr_1.4fr_1fr_1fr_1fr_1fr] gap-px bg-line border border-line [&>*]:min-w-0">
         <Stat
           label="포트 변동 (당일)"
           value={`${summary.totalDayChange >= 0 ? '+' : ''}₩${Math.round(summary.totalDayChange).toLocaleString('ko-KR')}`}

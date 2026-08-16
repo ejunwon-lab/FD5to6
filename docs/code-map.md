@@ -290,7 +290,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 
 표시 규칙: 모든 숫자 `toLocaleString()` 풀, 종목명 메인·종목코드 보조 (memory: `feedback_number_display`·`feedback_stock_name_primary`)
 
-- `App.tsx` — `<DataProvider>` wrap + 좌측 사이드바 메뉴 라우팅
+- `App.tsx` — `<DataProvider>` wrap + 좌측 사이드바 메뉴 라우팅 + `#holdings` 해시 초기 탭 딥링크 + fade-x 중앙 감시자(가로 스크롤 잔여 있을 때만 .fade-x-on)
 - `api/gasApi.ts` — GAS `scripts.run` 래핑 (web/과 동일 endpoint)
 - `auth/AuthContext.tsx` — Google OAuth (GIS)
 - `lib/types.ts` — `Holding`·`Indicator`·`TickerItem`(name 포함) 등 데스크 자체 타입

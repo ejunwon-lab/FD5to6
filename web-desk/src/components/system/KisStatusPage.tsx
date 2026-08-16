@@ -48,7 +48,7 @@ export function KisStatusPage() {
   const kisOk = total > 0 && carried === 0
 
   return (
-    <main className="overflow-y-auto overflow-x-hidden p-2 sm:p-3 grid gap-2.5 grid-cols-1 lg:grid-cols-2" style={{ gridAutoRows: 'min-content' }}>
+    <main className="overflow-y-auto overflow-x-hidden [&>*]:min-w-0 p-2 sm:p-3 grid gap-2.5 grid-cols-1 lg:grid-cols-2" style={{ gridAutoRows: 'min-content' }}>
       <div className="lg:col-span-2 flex items-center gap-3">
         <span className="text-2xs text-ink-faint uppercase tracking-widest">
           {loading ? '불러오는 중…' : error ? `오류: ${error}` : `조회 ${d?.now ?? '—'}`}
