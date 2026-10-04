@@ -41,3 +41,4 @@
 - [public repo 금액 금지](feedback_public_repo_no_amounts.md) — repo가 PUBLIC, docs·응답에 실제 원화 금액 쓰지 말 것(마스킹/비율), 정확값은 로컬·backups만
 - [Sheets % 문자열 비대칭](reference_sheets_percent_string_asymmetry.md) — setValues로 음수 % 문자열 쓰면 분수 numeric 자동 파싱(+는 텍스트), 읽기서 typeof 분기 필수
 - [배포 후 수동 대기 폴링 금지](feedback_no_blocking_waits.md) — push·워크플로 성공 확인까지만 하고 보고 종료, CDN 전파는 붙잡지 않음
+- [실행@ 때 만기 확인 항목 직접 실측·보고](feedback_run_reports_due_checks.md) — pending ⏰ 만기 항목은 묻지 말고 gh·로그로 실측해 결과를 바로 말한다
