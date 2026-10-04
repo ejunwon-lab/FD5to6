@@ -112,3 +112,10 @@
 ## 2026-08-16
 - **가로 잘림 2건 수정 (사용자 보고: Holdings·Activity 오른쪽 잘림)** — ①YearlyComparisonPanel 연도표가 스크롤 래퍼 없이 페이지 클리핑에 잘리던 것 → overflow-x-auto 래퍼 추가 ②fade-x 상시 마스크가 스크롤 끝·콘텐츠 맞음 상태에서도 마지막 컬럼을 흐리게 하던 것 → App 중앙 감시자(스크롤 capture·resize·MutationObserver)가 "오른쪽에 실제로 더 있을 때만" .fade-x-on 토글하는 동적 방식으로 교체.
 - **가로 잘림 근본 수정 (스크린샷 실측 검증)** — 헤드리스 크롬 iPad 뷰포트 실측으로 원인 확정: 그리드 자식 min-width:auto가 넓은 표/타일의 min-content를 페이지 트랙까지 전파해 뷰포트 초과 → 클리핑. 9개 페이지 루트+주요 그리드에 `[&>*]:min-w-0` 가드, Activity KPI 6칸은 xl부터(lg는 3칸), TaxSim 타일 min-w-0. 부수: `#activity` 해시 초기 탭 딥링크(테스트·북마크용). 수정 후 1180·820 스크린샷 재확인 — 잘림 0.
+
+## 2026-10-04
+- **watchdog 실패 메일 원인 규명** — GH cron이 8/28부터 +4~7h 지연돼 KST 자정을 넘김 → watchdog이 "막 시작된 날"을 검사해 5주간 매일 2회 오탐(실제 자동화는 정상). 같은 원인으로 KR 백업 cron이 전일 데이터로 "다음 날짜" 리포트를 선생성해 그날 저녁 마감분이 skip된 실결함 9건 확인(리포트 repo 커밋 시각 전수 대조).
+- **watchdog 정시화** — 대상일 개념(KST 20시 이전 실행이면 전일 검사) + 대상일 기준 dedup + telegram-push 체인이 21:10~21:59 KST에 auto dispatch(cron은 백업) + 리포트 커밋 시각 검사 추가. dry_run은 red 안 냄, `date` 입력으로 과거일 재현.
+- **리포트 창 가드** — market-report 자동 실행은 창 안에서만 생성(`.github/scripts/report_window.sh`: US 평일 08:00~21:59 / KR 평일 17:00~23:59 / weekly 일 13:00~23:59 KST).
+- 검증: 창 판정 16케이스·로컬 과거일 재현 3건·러너 dry_run 2건(10/1 KR 00:23 커밋 🔴 감지) 통과. 라이브 확인(21:1x heartbeat·실패 메일 중단·10/5 KR 17시대)은 pending.
+- docs: 설계노트 `docs/plans/2026-10-04-watchdog-자정넘김-KR선생성.md`, errors·code-map·pending 갱신.
