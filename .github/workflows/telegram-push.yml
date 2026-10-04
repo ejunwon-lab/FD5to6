@@ -35,7 +35,7 @@ on:
         default: '120'
 
 permissions:
-  actions: write    # self-dispatch + market-report dispatch (gh workflow run) 용
+  actions: write    # self-dispatch + market-report·watchdog dispatch (gh workflow run) 용
   contents: read    # market-report 리포트 파일 존재 확인 (gh api contents) 용
 
 concurrency:
@@ -80,10 +80,23 @@ jobs:
               && touch "/tmp/mr_${t}_${today}"
             return 0
           }
+          # watchdog 정시 dispatch — cron이 +4~7h 지연돼 자정 넘김 오탐을 냄(errors.md 2026-10-04).
+          # 리포트와 같은 패턴: 이 run 내 /tmp 메모 + watchdog 쪽 대상일 dedup 2중 멱등.
+          maybe_dispatch_watchdog() {
+            local today
+            today=$(TZ='Asia/Seoul' date +%Y-%m-%d)
+            [ -f "/tmp/wd_${today}" ] && return 0
+            echo "  ↳ watchdog dispatch: auto=true (${today})"
+            gh workflow run watchdog.yml --ref main -f auto=true -R "${GITHUB_REPOSITORY}" \
+              && touch "/tmp/wd_${today}"
+            return 0
+          }
           check_report_windows() {
             local dow hm
             dow=$(TZ='Asia/Seoul' date +%u)                     # 1=월 .. 7=일
             hm=$((10#$(TZ='Asia/Seoul' date +%H%M)))            # 10# = 08xx octal 파싱 버그 회피
+            # 매일(주말 포함) 21:10~21:59 KST → watchdog (하루가 끝난 뒤 대사)
+            [ "$hm" -ge 2110 ] && [ "$hm" -le 2159 ] && maybe_dispatch_watchdog
             # 일요일(7): 주간 리포트 창 13:02~13:59 KST → market-report type=weekly dispatch
             if [ "$dow" -eq 7 ]; then
               [ "$hm" -ge 1302 ] && [ "$hm" -le 1359 ] && maybe_dispatch_report weekly WEEK

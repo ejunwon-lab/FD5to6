@@ -15,6 +15,9 @@ name: Market Report (US/KR)
 #   - job별 concurrency group: 중복 dispatch는 1 running + 1 pending으로 수렴, pending이
 #     이어받을 때 커밋된 파일을 보고 skip → 단일 발송.
 #   - 안전망 2회 cron(40분 간격)도 동일 가드로 중복 방지.
+#   - 창 가드(2026-10-04, .github/scripts/report_window.sh): 자동 실행(schedule·auto)은 창 안에서만 생성
+#     (US 평일 08:00~21:59 / KR 평일 17:00~23:59 / weekly 일 13:00~23:59 KST). 백업 cron이 +7h 지연으로
+#     자정을 넘기면 전일 데이터로 "다음 날짜" 파일을 만들어 그날 정규 실행을 skip시켰음(9건, errors.md).
 #   - US: KST 08:02 / 08:42, KR: KST 17:02 / 17:42.
 # workflow_dispatch(auto 미지정·수동)는 항상 재생성·재발송 (guard 무시).
 
@@ -77,7 +80,11 @@ jobs:
           GUARD_ON=no
           [ "${{ github.event_name }}" = "schedule" ] && GUARD_ON=yes
           [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.auto }}" = "true" ] && GUARD_ON=yes
-          if [ "$GUARD_ON" = "yes" ] && [ -f "$REPORT" ]; then
+          # 창 밖 자동 실행 차단 — 지연 cron이 자정 넘겨 전일 데이터로 다음 날짜 파일을 선생성하는 것 방지 (errors.md 2026-10-04)
+          if [ "$GUARD_ON" = "yes" ] && ! bash .github/scripts/report_window.sh us; then
+            echo "already=yes" >> $GITHUB_OUTPUT
+            echo "⏭️ 창 밖 자동 실행($(TZ='Asia/Seoul' date '+%a %H:%M') KST) — US 리포트 생성 안 함 (지연 cron 날짜 밀림 방지)"
+          elif [ "$GUARD_ON" = "yes" ] && [ -f "$REPORT" ]; then
             echo "already=yes" >> $GITHUB_OUTPUT
             echo "⏭️ 오늘(${DATE_KST}) US 리포트 이미 발송됨 — skip"
           else
@@ -218,7 +225,11 @@ jobs:
           GUARD_ON=no
           [ "${{ github.event_name }}" = "schedule" ] && GUARD_ON=yes
           [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.auto }}" = "true" ] && GUARD_ON=yes
-          if [ "$GUARD_ON" = "yes" ] && [ -f "$REPORT" ]; then
+          # 창 밖 자동 실행 차단 — 지연 cron이 자정 넘겨 전일 데이터로 다음 날짜 파일을 선생성하는 것 방지 (errors.md 2026-10-04)
+          if [ "$GUARD_ON" = "yes" ] && ! bash .github/scripts/report_window.sh kr; then
+            echo "already=yes" >> $GITHUB_OUTPUT
+            echo "⏭️ 창 밖 자동 실행($(TZ='Asia/Seoul' date '+%a %H:%M') KST) — KR 리포트 생성 안 함 (지연 cron 날짜 밀림 방지)"
+          elif [ "$GUARD_ON" = "yes" ] && [ -f "$REPORT" ]; then
             echo "already=yes" >> $GITHUB_OUTPUT
             echo "⏭️ 오늘(${DATE_KST}) KR 리포트 이미 발송됨 — skip"
           else
@@ -364,7 +375,11 @@ jobs:
           GUARD_ON=no
           [ "${{ github.event_name }}" = "schedule" ] && GUARD_ON=yes
           [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.auto }}" = "true" ] && GUARD_ON=yes
-          if [ "$GUARD_ON" = "yes" ] && [ -f "$REPORT" ]; then
+          # 창 밖 자동 실행 차단 (errors.md 2026-10-04)
+          if [ "$GUARD_ON" = "yes" ] && ! bash .github/scripts/report_window.sh weekly; then
+            echo "already=yes" >> $GITHUB_OUTPUT
+            echo "⏭️ 창 밖 자동 실행($(TZ='Asia/Seoul' date '+%a %H:%M') KST) — 주간 리포트 생성 안 함 (지연 cron 날짜 밀림 방지)"
+          elif [ "$GUARD_ON" = "yes" ] && [ -f "$REPORT" ]; then
             echo "already=yes" >> $GITHUB_OUTPUT
             echo "⏭️ 이번 주(${DATE_KST}) 주간 리포트 이미 발송됨 — skip"
           else

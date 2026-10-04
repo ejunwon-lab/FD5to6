@@ -253,7 +253,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 
 - `deploy-web.yml` — web/ 빌드·gh-pages 배포 (push to main, paths web/)
 - `deploy-web-desk.yml` — web-desk/ 빌드·gh-pages /desk/ 배포
-- **`watchdog.yml`** (2026-07-19 신규) — 자동화 침묵 실패 감지. 매일 21:10·22:10 KST cron(뒤는 백업, 오늘 성공 run 있으면 dedup skip) → `scripts/watchdog_check.sh` 실행 → 텔레그램 heartbeat **매일 발송**(메시지 부재 = watchdog 사망 신호). 검사 5종: ①푸시 체인 alive ②오늘 sent 건수(run 로그의 GAS result 에코) ③휴장 판정(skip-holiday 관측 — 자체 달력 없음) ④시트 신선도(portfolioMetrics dailyReturns 마지막 날짜==오늘) ⑤리포트 파일(US/KR 평일·WEEK 일요일, private repo checkout). 🔴 있으면 run red + exit 1. 설계 `docs/plans/2026-07-19-자동화-watchdog.md`
+- **`watchdog.yml`** (2026-07-19 신규, 2026-10-04 정시화) — 자동화 침묵 실패 감지. **주경로 = telegram-push 체인이 매일 21:10~21:59 KST 창에서 `auto=true` dispatch**, cron 21:10·22:10은 백업(GH cron +4~7h 지연 실측). `scripts/watchdog_check.sh` 실행 → 텔레그램 heartbeat **매일 발송**(메시지 부재 = watchdog 사망 신호). **대상일** = 실행이 KST 20시 이전이면 전일(지연 발화해도 끝난 하루를 검사). dedup = 같은 대상일 성공 run(cron·chain, `run-name` displayTitle로 구분) 있으면 skip, 수동 dispatch는 항상 실행. 입력: `dry_run`(발송·red 생략)·`auto`·`date`(대상일 강제). 검사 5종: ①푸시 체인 alive ②대상일 sent 건수(run 로그의 GAS result 에코) ③휴장 판정(skip-holiday 관측 — 자체 달력 없음) ④시트 신선도(portfolioMetrics dailyReturns에 대상일 행 존재) ⑤리포트 파일 존재 + **커밋 시각**(대상일 당일·US 7시/KR 16시 이후 — 지연 cron 선생성 감지, checkout `fetch-depth: 0`). 🔴 있으면 run red + exit 1. 설계 `docs/plans/2026-07-19-자동화-watchdog.md`·`docs/plans/2026-10-04-watchdog-자정넘김-KR선생성.md`
 - `diag-egress.yml` (2026-07-03 신규) — dispatch 전용 진단: 러너에서 데이터 소스별 HTTP+본문 head 실측. "차단" 보고 시 재사용 (memory: `reference-webfetch-vs-curl-headless`)
 - **`market-report.yml`** (2026-06-03 신규) — 시장 리포트 자동 발송
   - cron `5 23 * * 0-4` UTC → KST 월~금 08:05 (US, 전일 미국 마감)
@@ -263,6 +263,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
   - 로컬 열람: `docs/reports/` = FD5to6-reports clone (`scripts/run.sh`가 pull). 시트 백업: `scripts/backup_sheets.py` → `backups/`(gitignore) + launchd 주 1회(이 맥: halcyon_m1)
   - 인증: `CLAUDE_CODE_OAUTH_TOKEN` env (Max OAuth, 비용 0)
   - secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `TG_BOT_TOKEN`, `TG_CHAT_IDS`
+  - **창 가드** (2026-10-04): 자동 실행(schedule·auto dispatch)은 `.github/scripts/report_window.sh <us|kr|weekly>` 창 안에서만 생성 — US 평일 08:00~21:59 / KR 평일 17:00~23:59 / weekly 일 13:00~23:59 KST. 창 밖이면 `already=yes`로 skip(지연 cron이 자정 넘겨 전일 데이터로 다음 날짜 파일을 선생성하던 결함 차단). 수동 dispatch는 무관
   - **Alert on generation failure** (2026-07-03): 3개 job 공통 — `found=no`면 텔레그램 경고+`exit 1` (dry_run 시 억제). telegram-push에도 체인 사망 `failure()` 알림. 설계 `docs/plans/2026-07-03-무음실패-알림.md`
   - weekly job: **Pre-fetch GAS portfolio metrics** step이 지표를 파일로 선확보 (에이전트 env 판단 제거, errors.md 2026-07-03)
 
@@ -283,7 +284,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `post_trade.py` — GAS `action=addTrade` POST (매매기록! 원장 기록)
 - `gas_redeploy.py` — Apps Script API로 버전 고정 웹앱 재배포 (에디터 클릭 불필요)
 - `setup_backup_launchd.sh` — 시트 백업 launchd 주 1회 등록 (맥별 1회)
-- `watchdog_check.sh` (2026-07-19 신규) — watchdog.yml의 검사 로직. 로컬 실행 가능(gh 인증 + GAS env 선택) — 같은 스크립트로 스모크
+- `watchdog_check.sh` (2026-07-19 신규) — watchdog.yml의 검사 로직. 로컬 실행 가능(gh 인증 + GAS env 선택) — 같은 스크립트로 스모크. `WATCHDOG_DATE=YYYY-MM-DD`로 과거일 재현, `--print-target [UTC ISO]`로 대상일 규칙만 출력(watchdog.yml dedup이 공유)
 - `git-hooks/pre-commit` (2026-07-19 신규) — 금액·시크릿 커밋 차단 스캐너. 경로 차단(.env·Secret.js·backups·키파일) + 시크릿 패턴(전 파일 추가줄) + 원화 금액 패턴(md만). 활성화 `git config core.hooksPath scripts/git-hooks`(run.sh 자동), 우회 `SCAN_BYPASS=1` 또는 `--no-verify`. memory [[feedback_public_repo_no_amounts]] 집행 장치
 
 ## Web Desk — web-desk/src/ (Bloomberg 스타일, React + Vite)

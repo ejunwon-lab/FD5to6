@@ -6,20 +6,35 @@ name: Watchdog (automation healthcheck)
 # "메시지 부재 = watchdog 사망"을 사용자가 감지(감시자의 감시자). 검사 로직은 scripts/watchdog_check.sh
 # (로컬 실행 가능 — 같은 스크립트로 스모크). 설계: docs/plans/2026-07-19-자동화-watchdog.md
 #
-# cron 2개는 백업 관계(21:10 실패/드롭 시 22:10) — 오늘 성공 run이 있으면 뒤 cron은 skip(중복 발송 방지).
-# 이상(🔴) 발견 시 job도 red — 그날 뒤 cron이 재점검·재발송(의도: 고장난 날은 더 시끄럽게).
-# daisy-chain(telegram-push.yml)은 무수정 — watchdog은 크리티컬 경로 밖 (cron 지연은 무해).
+# 정시화 (2026-10-04, 설계: docs/plans/2026-10-04-watchdog-자정넘김-KR선생성.md):
+#   GH cron이 +4~7h 지연돼 자정을 넘기면서 "막 시작된 날"을 검사해 매일 오탐·실패 메일(8/28~10/4).
+#   → 주경로 = telegram-push 체인이 21:10~21:59 KST 창에서 auto=true dispatch(이벤트 구동, 지연 0).
+#   아래 cron 2개는 체인 사망 시 백업으로 강등. 지연 발화해도 스크립트가 "대상일"(KST 20시 이전
+#   실행이면 전일)을 검사하므로 오탐 없음.
+# dedup: 같은 대상일의 성공 run(cron·chain)이 있으면 skip(중복 발송 방지). 수동 dispatch는 항상 실행.
+# 이상(🔴) 발견 시 job도 red — 그날 뒤 run이 재점검·재발송(의도: 고장난 날은 더 시끄럽게).
+
+# dedup이 cron·chain·manual을 구분하는 키 (gh run list의 displayTitle)
+run-name: ${{ github.event_name == 'schedule' && 'Watchdog cron' || (inputs.auto && 'Watchdog chain' || 'Watchdog manual') }}
 
 on:
   schedule:
-    - cron: '10 12 * * *'   # 21:10 KST
+    - cron: '10 12 * * *'   # 21:10 KST (백업)
     - cron: '10 13 * * *'   # 22:10 KST (백업)
-  workflow_dispatch:        # 수동 테스트 — dedup 무시하고 항상 실행
+  workflow_dispatch:        # auto 미지정(수동) = dedup 무시하고 항상 실행
     inputs:
       dry_run:
-        description: '검사만 실행, 텔레그램 발송 생략 (러너 env·GAS 도달 스모크용)'
+        description: '검사만 실행, 텔레그램 발송·red 처리 생략 (러너 env·GAS 도달 스모크용)'
         type: boolean
         default: false
+      auto:
+        description: '자동 dispatch(체인): cron처럼 dedup 적용'
+        type: boolean
+        default: false
+      date:
+        description: '대상일 강제 YYYY-MM-DD (과거일 재현용, 비우면 자동)'
+        type: string
+        default: ''
 
 permissions:
   actions: read     # telegram-push run 목록·로그 조회
@@ -45,26 +60,32 @@ jobs:
           repository: ejunwon-lab/FD5to6-reports
           ssh-key: ${{ secrets.REPORTS_DEPLOY_KEY }}
           path: docs/reports
+          fetch-depth: 0    # 리포트 커밋 시각 검사(선생성 감지)에 이력 필요
 
-      - name: Dedup (오늘 KST 성공 run 있으면 skip)
+      - name: Dedup (같은 대상일 성공 run 있으면 skip)
         id: dedup
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_DATE: ${{ inputs.date }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          # 대상일 규칙은 스크립트와 공유(--print-target) — KST 20시 이전 실행이면 전일
+          TARGET=$(bash scripts/watchdog_check.sh --print-target)
+          if [ -n "${INPUT_DATE:-}" ]; then TARGET="$INPUT_DATE"; fi
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "대상일: $TARGET"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.auto }}" != "true" ]; then
             echo "skip=no" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          SINCE_UTC=$(python3 -c "
-          from datetime import datetime, timedelta, timezone
-          kst = timezone(timedelta(hours=9))
-          mid = datetime.now(kst).replace(hour=0, minute=0, second=0, microsecond=0)
-          print(mid.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))")
-          # schedule run만 집계 — 수동 dispatch(특히 dry_run, 발송 없음)가 저녁 cron을 억제하지 않게
-          n=$(gh run list -R "${{ github.repository }}" -w watchdog.yml -s success -L 20 \
-            --json createdAt,event --jq "[.[]|select(.createdAt>=\"$SINCE_UTC\" and .event==\"schedule\")]|length")
-          if [ "${n:-0}" -ge 1 ]; then
+          # cron·chain run만 집계 — 수동 dispatch(특히 dry_run, 발송 없음)가 자동 run을 억제하지 않게
+          n=0
+          for ts in $(gh run list -R "${{ github.repository }}" -w watchdog.yml -s success -L 20 \
+            --json createdAt,event,displayTitle \
+            --jq '.[]|select(.event=="schedule" or .displayTitle=="Watchdog chain")|.createdAt'); do
+            if [ "$(bash scripts/watchdog_check.sh --print-target "$ts")" = "$TARGET" ]; then n=$((n + 1)); fi
+          done
+          if [ "$n" -ge 1 ]; then
             echo "skip=yes" >> "$GITHUB_OUTPUT"
-            echo "⏭️ 오늘 성공 run ${n}건 — 중복 발송 방지 skip"
+            echo "⏭️ 대상일 ${TARGET} 성공 run ${n}건 — 중복 발송 방지 skip"
           else
             echo "skip=no" >> "$GITHUB_OUTPUT"
           fi
@@ -79,6 +100,7 @@ jobs:
           TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
           REPORTS_DIR: docs/reports
           OUT_FILE: /tmp/watchdog_msg.txt
+          WATCHDOG_DATE: ${{ steps.dedup.outputs.target }}
         run: bash scripts/watchdog_check.sh
 
       - name: Send heartbeat to Telegram
@@ -96,7 +118,7 @@ jobs:
           echo "heartbeat 발송 완료"
 
       - name: Fail if anomalies
-        if: steps.dedup.outputs.skip == 'no' && steps.checks.outcome == 'failure'
+        if: steps.dedup.outputs.skip == 'no' && steps.checks.outcome == 'failure' && inputs.dry_run != true
         run: |
-          echo "🔴 이상 항목 존재 — run을 red로 (그날 뒤 cron이 재점검)"
+          echo "🔴 이상 항목 존재 — run을 red로 (그날 뒤 run이 재점검)"
           exit 1
