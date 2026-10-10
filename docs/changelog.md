@@ -125,3 +125,4 @@
 - **7월 잔여 확인 3건 닫음(증거 실측)** — 휴장일 권위 소스(10/5 대체공휴일·10/9 한글날 GAS 휴장 판정 정상), 제헌절 후 푸시(거래일 18~20건 발송), US 리포트 수리(매 거래일 08:0x 커밋).
 - watchdog_check.sh: skip-holiday grep의 Broken pipe 노이즈 제거.
 - **안드로이드 크롬 전체 화면(PWA 설치) 복구** — web 아이콘 PNG 404 수정 + desk 매니페스트·아이콘 신설 + 양쪽 패스스루 sw.js. 라이브 8파일 200 확인. 웹 배포 1회 gh-pages push 레이스로 실패 → 재실행 success (errors.md 2026-10-10).
+- **gh-pages 배포 직렬화** — deploy-web·deploy-web-desk에 공통 concurrency 그룹. 적용 push에서 동시 트리거 → 순차 success 실측.

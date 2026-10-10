@@ -13,7 +13,7 @@
 ### deploy-web·deploy-web-desk 동시 push → gh-pages non-fast-forward로 웹 배포 실패
 - **증상**: web/·web-desk/ 양쪽을 건드린 커밋 d9b2781에서 `Deploy Web` run이 `failed to push some refs`로 실패, `Deploy Web Desk`는 success.
 - **원인**: 두 워크플로가 같은 `gh-pages` 브랜치에 `keep_files: true`로 push — 동시 실행 시 늦게 push하는 쪽이 거부됨(레이스). 7/23 b8d8958 직전 두 실패(00d533e·fa5363c)도 같은 날 양쪽 변경이었음 [추측 — 로그 미확인].
-- **해결**: `gh workflow run deploy-web.yml` 재실행으로 복구(사이트 영향 없음 — 실패 run은 push 전 단계라 구버전 유지). **근본 수정 후보**: 두 워크플로에 공통 `concurrency: { group: gh-pages, cancel-in-progress: false }` 추가 → 직렬화. 사용자 승인 대기.
+- **해결**: `gh workflow run deploy-web.yml` 재실행으로 복구(사이트 영향 없음 — 실패 run은 push 전 단계라 구버전 유지). **근본 수정 (같은 날 적용, 9ae6398)**: 두 워크플로에 공통 `concurrency: { group: gh-pages, cancel-in-progress: false }` → 직렬화. 적용 커밋 자체가 양쪽 동시 트리거였고 desk가 pending 대기 후 순차 success로 실측. 설계: `docs/plans/2026-10-10-gh-pages-배포-직렬화.md`.
 - **교훈**: 한 브랜치에 여러 워크플로가 push하면 트리거가 같은 커밋일 때 반드시 레이스. 배포 run 결과는 push 후 확인(7/23 교훈 ③ 재확인).
 
 ## 2026-10-04
