@@ -119,3 +119,8 @@
 - **리포트 창 가드** — market-report 자동 실행은 창 안에서만 생성(`.github/scripts/report_window.sh`: US 평일 08:00~21:59 / KR 평일 17:00~23:59 / weekly 일 13:00~23:59 KST).
 - 검증: 창 판정 16케이스·로컬 과거일 재현 3건·러너 dry_run 2건(10/1 KR 00:23 커밋 🔴 감지) 통과. 라이브 확인(21:1x heartbeat·실패 메일 중단·10/5 KR 17시대)은 pending.
 - docs: 설계노트 `docs/plans/2026-10-04-watchdog-자정넘김-KR선생성.md`, errors·code-map·pending 갱신.
+
+## 2026-10-10
+- **watchdog 정시화·리포트 창 가드 라이브 확정** — 10/5~10/9 실측: 체인 dispatch 매일 21:1x success, cron 백업 dedup skip, KR 백업 cron 자정 넘김 7회 전부 "창 밖" skip, KR 리포트 매일 17:09~17:16 커밋, 실패 메일 1통(10/5 일시 네트워크 → 10/6 백업 재점검 ✅). pending 닫음.
+- **7월 잔여 확인 3건 닫음(증거 실측)** — 휴장일 권위 소스(10/5 대체공휴일·10/9 한글날 GAS 휴장 판정 정상), 제헌절 후 푸시(거래일 18~20건 발송), US 리포트 수리(매 거래일 08:0x 커밋).
+- watchdog_check.sh: skip-holiday grep의 Broken pipe 노이즈 제거.

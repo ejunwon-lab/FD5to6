@@ -75,7 +75,7 @@ for id in $ids; do
   logs_ok=yes
   c=$(printf '%s' "$log" | grep -c '"result":"sent"')
   sent=$((sent + c))
-  printf '%s' "$log" | grep -q 'skip-holiday' && holiday=yes
+  grep -q 'skip-holiday' <<< "$log" && holiday=yes   # 파이프면 grep -q 조기 종료로 printf Broken pipe 노이즈
 done
 
 # 거래일 판정: 주말은 요일로, 평일 공휴일은 GAS 에코(skip-holiday) 관측으로 — 달력 중복 구현 안 함
