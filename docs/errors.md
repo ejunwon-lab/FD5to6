@@ -2,6 +2,20 @@
 
 ---
 
+## 2026-10-10
+
+### 안드로이드 크롬에서 웹·데스크가 전체 화면(standalone)으로 안 열림 — 설치 조건 미충족
+- **증상**: 안드로이드 크롬에서 홈 화면에 추가해도 주소창 있는 일반 탭으로 열림(웹 PWA·데스크 둘 다). 아이폰은 정상.
+- **원인**: 크롬은 매니페스트 설치 조건이 깨지면 "앱 설치" 대신 북마크 바로가기만 만든다. ① web: `manifest.json`이 가리키는 `icon-192/512.png`가 **404**(실파일은 icon.svg뿐) + 서비스 워커 없음. ② web-desk: 매니페스트 자체가 없음(viewport 메타뿐). iOS는 매니페스트 대신 `apple-mobile-web-app-capable` 메타만 봐서 멀쩡했음.
+- **해결**: PNG 아이콘 생성(web은 이모지 SVG라 WebKit 렌더러 qlmanage + 라운드 마스크, desk는 신규 icon.svg를 rsvg), desk `manifest.json`(start_url·scope `/FD5to6/desk/`) + index.html 메타, 양쪽 `public/sw.js` 캐시 없는 패스스루 + `main.tsx`에서 `${BASE_URL}sw.js` 등록. 라이브 8개 파일 200 확인.
+- **교훈**: 매니페스트가 "있다"와 "유효하다"는 다르다 — 가리키는 아이콘 URL을 curl로 한 번 쳐 보면 1초에 드러나는 404를 PWA 선언 이후 내내 방치. 플랫폼별로 설치 조건이 달라(iOS=메타, Android=매니페스트) 한쪽 정상이 다른 쪽 보장이 아님.
+
+### deploy-web·deploy-web-desk 동시 push → gh-pages non-fast-forward로 웹 배포 실패
+- **증상**: web/·web-desk/ 양쪽을 건드린 커밋 d9b2781에서 `Deploy Web` run이 `failed to push some refs`로 실패, `Deploy Web Desk`는 success.
+- **원인**: 두 워크플로가 같은 `gh-pages` 브랜치에 `keep_files: true`로 push — 동시 실행 시 늦게 push하는 쪽이 거부됨(레이스). 7/23 b8d8958 직전 두 실패(00d533e·fa5363c)도 같은 날 양쪽 변경이었음 [추측 — 로그 미확인].
+- **해결**: `gh workflow run deploy-web.yml` 재실행으로 복구(사이트 영향 없음 — 실패 run은 push 전 단계라 구버전 유지). **근본 수정 후보**: 두 워크플로에 공통 `concurrency: { group: gh-pages, cancel-in-progress: false }` 추가 → 직렬화. 사용자 승인 대기.
+- **교훈**: 한 브랜치에 여러 워크플로가 push하면 트리거가 같은 커밋일 때 반드시 레이스. 배포 run 결과는 push 후 확인(7/23 교훈 ③ 재확인).
+
 ## 2026-10-04
 
 ### watchdog 실패 메일 매일 2통(5주) + KR 리포트 "다음 날짜" 선생성 9건 — GH cron 지연이 KST 자정을 넘김
