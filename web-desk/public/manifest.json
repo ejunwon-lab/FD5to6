@@ -1,0 +1,16 @@
+{
+  "name": "port.jun desk",
+  "short_name": "Desk",
+  "description": "JUN & SOO 포트폴리오 데스크",
+  "start_url": "/FD5to6/desk/",
+  "scope": "/FD5to6/desk/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0d12",
+  "theme_color": "#0a0d12",
+  "icons": [
+    { "src": "/FD5to6/desk/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/FD5to6/desk/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/FD5to6/desk/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

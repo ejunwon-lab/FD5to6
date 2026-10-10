@@ -1,6 +1,6 @@
 # 기능 현황
 
-last updated: 2026-07-15
+last updated: 2026-10-10
 
 ## ✅ 완료
 
@@ -72,7 +72,7 @@ last updated: 2026-07-15
 - 분석 — 매트릭스/계좌별5탭/연환산차트/52주포지션
 - 참고지표 — 카테고리별 섹션 + 갱신 버튼
 - GitHub Actions 자동 배포 → https://ejunwon-lab.github.io/FD5to6/
-- PWA (홈화면 설치 가능)
+- PWA (홈화면 설치 가능) — 2026-10-10 안드로이드 크롬 설치 조건 복구: 매니페스트가 가리키던 icon-192/512.png가 404였음 → PNG 생성 + `public/sw.js`(캐시 없는 패스스루) 등록. 설치 후 standalone(주소창 없음)
 
 ### 데스크 (Bloomberg 스타일 — web-desk/)
 - Google OAuth 로그인 (GIS)
@@ -91,6 +91,7 @@ last updated: 2026-07-15
   - 시간당 자동 백그라운드 재페치 (GAS 자동 갱신과 매칭)
 - ⚡ 전체 업데이트 버튼: 사용자 명시 KIS 강제 갱신
 - GitHub Actions 자동 배포 → https://ejunwon-lab.github.io/FD5to6/desk/
+- PWA 설치 가능 (2026-10-10 신규) — `public/manifest.json`(start_url·scope `/FD5to6/desk/`, standalone, orientation any) + icon-192/512.png + `sw.js` 패스스루 + index.html 메타(theme-color·mobile-web-app-capable·apple-touch-icon). 안드로이드 크롬 ⋮→앱 설치, iOS 공유→홈 화면에 추가
 
 ### GAS 자동 트리거
 - `scheduledDailyUpdate` — 매일 17:30 장 마감 후 정리 (`setupDailyTrigger`)

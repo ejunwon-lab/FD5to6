@@ -289,6 +289,8 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 
 ## Web Desk — web-desk/src/ (Bloomberg 스타일, React + Vite)
 
+- `public/manifest.json`·`icon.svg`·`icon-192/512.png`·`sw.js` (2026-10-10) — PWA 설치 조건(안드로이드 크롬 standalone). sw.js는 캐시 없는 네트워크 패스스루(배포 직후 구버전 잔류 방지, 오프라인 미지원). `main.tsx`가 `${BASE_URL}sw.js` 등록. web/도 동일 구조(web/public/)
+
 표시 규칙: 모든 숫자 `toLocaleString()` 풀, 종목명 메인·종목코드 보조 (memory: `feedback_number_display`·`feedback_stock_name_primary`)
 
 - `App.tsx` — `<DataProvider>` wrap + 좌측 사이드바 메뉴 라우팅 + `#holdings` 해시 초기 탭 딥링크 + fade-x 중앙 감시자(가로 스크롤 잔여 있을 때만 .fade-x-on)
