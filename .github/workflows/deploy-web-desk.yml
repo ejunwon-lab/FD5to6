@@ -8,6 +8,12 @@ on:
       - '.github/workflows/deploy-web-desk.yml'
   workflow_dispatch:
 
+# 두 배포(web·web-desk)가 같은 gh-pages 브랜치에 push → 동시 실행 시 늦은 쪽 non-fast-forward 거부(errors.md 2026-10-10).
+# 공통 그룹으로 직렬화. 같은 그룹 대기 중 run은 최신 1개만 남음(이전 pending 자동 취소 — 최신 커밋이 배포되므로 무해).
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
