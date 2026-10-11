@@ -126,3 +126,7 @@
 - watchdog_check.sh: skip-holiday grep의 Broken pipe 노이즈 제거.
 - **안드로이드 크롬 전체 화면(PWA 설치) 복구** — web 아이콘 PNG 404 수정 + desk 매니페스트·아이콘 신설 + 양쪽 패스스루 sw.js. 라이브 8파일 200 확인. 웹 배포 1회 gh-pages push 레이스로 실패 → 재실행 success (errors.md 2026-10-10).
 - **gh-pages 배포 직렬화** — deploy-web·deploy-web-desk에 공통 concurrency 그룹. 적용 push에서 동시 트리거 → 순차 success 실측.
+
+## 2026-10-11
+- **PWA 매니페스트 id 분리** — 안드로이드에서 web·desk가 동일 앱으로 취급되던 것(scope 상하 포함) → `id` 각각 지정. 사용자 재설치 확인 대기.
+- errors.md 교훈 추가: 같은 이름 공간 공유 산출물의 상호작용 점검(scope 겹침·gh-pages 레이스 연속 발생).

@@ -8,7 +8,8 @@
 - **증상**: 안드로이드 크롬에서 홈 화면에 추가해도 주소창 있는 일반 탭으로 열림(웹 PWA·데스크 둘 다). 아이폰은 정상.
 - **원인**: 크롬은 매니페스트 설치 조건이 깨지면 "앱 설치" 대신 북마크 바로가기만 만든다. ① web: `manifest.json`이 가리키는 `icon-192/512.png`가 **404**(실파일은 icon.svg뿐) + 서비스 워커 없음. ② web-desk: 매니페스트 자체가 없음(viewport 메타뿐). iOS는 매니페스트 대신 `apple-mobile-web-app-capable` 메타만 봐서 멀쩡했음.
 - **해결**: PNG 아이콘 생성(web은 이모지 SVG라 WebKit 렌더러 qlmanage + 라운드 마스크, desk는 신규 icon.svg를 rsvg), desk `manifest.json`(start_url·scope `/FD5to6/desk/`) + index.html 메타, 양쪽 `public/sw.js` 캐시 없는 패스스루 + `main.tsx`에서 `${BASE_URL}sw.js` 등록. 라이브 8개 파일 200 확인.
-- **교훈**: 매니페스트가 "있다"와 "유효하다"는 다르다 — 가리키는 아이콘 URL을 curl로 한 번 쳐 보면 1초에 드러나는 404를 PWA 선언 이후 내내 방치. 플랫폼별로 설치 조건이 달라(iOS=메타, Android=매니페스트) 한쪽 정상이 다른 쪽 보장이 아님.
+- **후속 (2026-10-11)**: 안드로이드에서 한쪽만 설치되고 다른 쪽은 "열기"만 뜸 — web scope `/FD5to6/`가 `/FD5to6/desk/`를 포함해 크롬이 **동일 앱으로 취급**. 두 매니페스트에 서로 다른 `id`(`/FD5to6/`·`/FD5to6/desk/`) 추가로 분리(a96dd60). 사용자 재설치 확인 대기 — 구버전 크롬이 겹친 scope를 불허하면 web scope 축소 등 다른 방법 필요.
+- **교훈**: 매니페스트가 "있다"와 "유효하다"는 다르다 — 가리키는 아이콘 URL을 curl로 한 번 쳐 보면 1초에 드러나는 404를 PWA 선언 이후 내내 방치. 플랫폼별로 설치 조건이 달라(iOS=메타, Android=매니페스트) 한쪽 정상이 다른 쪽 보장이 아님. **같은 이름 공간(도메인·경로·브랜치·시트)을 공유하는 산출물이 둘 이상이면 각각의 정합성과 별개로 둘 사이의 상호작용을 반드시 한 번 묻는다** — scope 겹침(이 건)과 gh-pages 동시 push(아래 건)가 같은 날 같은 패턴으로 연속 발생. 둘 다 각 앱·각 워크플로를 따로만 점검해서 놓침.
 
 ### deploy-web·deploy-web-desk 동시 push → gh-pages non-fast-forward로 웹 배포 실패
 - **증상**: web/·web-desk/ 양쪽을 건드린 커밋 d9b2781에서 `Deploy Web` run이 `failed to push some refs`로 실패, `Deploy Web Desk`는 success.
