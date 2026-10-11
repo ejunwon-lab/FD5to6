@@ -128,5 +128,5 @@
 - **gh-pages 배포 직렬화** — deploy-web·deploy-web-desk에 공통 concurrency 그룹. 적용 push에서 동시 트리거 → 순차 success 실측.
 
 ## 2026-10-11
-- **PWA 매니페스트 id 분리** — 안드로이드에서 web·desk가 동일 앱으로 취급되던 것(scope 상하 포함) → `id` 각각 지정. 사용자 재설치 확인 대기.
+- **PWA 매니페스트 id 분리** — 안드로이드에서 web·desk가 동일 앱으로 취급되던 것(scope 상하 포함) → `id` 각각 지정. 사용자 안드로이드 재설치로 두 앱 각각 설치 확인 — 종결.
 - errors.md 교훈 추가: 같은 이름 공간 공유 산출물의 상호작용 점검(scope 겹침·gh-pages 레이스 연속 발생).
