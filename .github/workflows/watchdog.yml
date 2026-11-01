@@ -1,18 +1,22 @@
 name: Watchdog (automation healthcheck)
 
-# 자동화 침묵 실패 감지 — 매일 저녁 "실행됐어야 할 것이 실제 실행됐나" 대사 후 텔레그램 heartbeat.
+# 자동화 침묵 실패 감지 — 매일 저녁 "실행됐어야 할 것이 실제 실행됐나" 대사.
 # 기존 알림(체인 끊김·리포트 생성실패)은 "실행됐지만 실패"만 잡는다 — 실행 자체가 없으면(체인 사망
-# +cron 드롭) 무음. 그 구멍을 매일 1회 read-only 점검으로 메움. heartbeat는 이상 없어도 발송 —
-# "메시지 부재 = watchdog 사망"을 사용자가 감지(감시자의 감시자). 검사 로직은 scripts/watchdog_check.sh
+# +cron 드롭) 무음. 그 구멍을 매일 1회 read-only 점검으로 메움. 검사 로직은 scripts/watchdog_check.sh
 # (로컬 실행 가능 — 같은 스크립트로 스모크). 설계: docs/plans/2026-07-19-자동화-watchdog.md
 #
 # 정시화 (2026-10-04, 설계: docs/plans/2026-10-04-watchdog-자정넘김-KR선생성.md):
-#   GH cron이 +4~7h 지연돼 자정을 넘기면서 "막 시작된 날"을 검사해 매일 오탐·실패 메일(8/28~10/4).
-#   → 주경로 = telegram-push 체인이 21:10~21:59 KST 창에서 auto=true dispatch(이벤트 구동, 지연 0).
-#   아래 cron 2개는 체인 사망 시 백업으로 강등. 지연 발화해도 스크립트가 "대상일"(KST 20시 이전
-#   실행이면 전일)을 검사하므로 오탐 없음.
-# dedup: 같은 대상일의 성공 run(cron·chain)이 있으면 skip(중복 발송 방지). 수동 dispatch는 항상 실행.
-# 이상(🔴) 발견 시 job도 red — 그날 뒤 run이 재점검·재발송(의도: 고장난 날은 더 시끄럽게).
+#   주경로 = telegram-push 체인이 21:10~21:59 KST 창에서 auto=true dispatch(이벤트 구동, 지연 0).
+#   아래 cron 2개는 체인 사망 시 백업. 지연 발화해도 스크립트가 "대상일"(KST 20시 이전 실행이면
+#   전일)을 검사하므로 오탐 없음.
+#
+# 알림 정책 (2026-11-01, 설계: docs/plans/2026-11-01-watchdog-이상시만-알림-월간통계.md):
+#   - 텔레그램은 **이상(🔴)일 때만** — 2분 간격 2회 점검 모두 🔴여야 발송(일시 오류 거름). ✅면 무발송.
+#   - 매일 결과를 private FD5to6-reports `_watchdog/daily.jsonl`에 1줄 기록(이력, 대상일 upsert).
+#   - 대상일이 월말이면 그 달 통계 1통 + `_watchdog/monthly-YYYY-MM.md` 커밋(누락 시 다음 달 첫 run이 대신).
+#   - 🔴여도 run은 green. **red(=GitHub 실패 메일)는 watchdog 자체 고장**(검사 비정상 종료·기록 push 실패)만.
+#   - 수동 dispatch: 전체 메시지 발송(dry_run이면 발송 없음), 기록 안 함. `monthly=YYYY-MM`으로 통계 미리보기.
+# dedup: 같은 대상일의 성공 run(cron·chain)이 있으면 skip — 1일 1기록·1알림.
 
 # dedup이 cron·chain·manual을 구분하는 키 (gh run list의 displayTitle)
 run-name: ${{ github.event_name == 'schedule' && 'Watchdog cron' || (inputs.auto && 'Watchdog chain' || 'Watchdog manual') }}
@@ -24,15 +28,19 @@ on:
   workflow_dispatch:        # auto 미지정(수동) = dedup 무시하고 항상 실행
     inputs:
       dry_run:
-        description: '검사만 실행, 텔레그램 발송·red 처리 생략 (러너 env·GAS 도달 스모크용)'
+        description: '검사만 실행, 텔레그램 발송·기록 생략 (러너 env·GAS 도달 스모크용)'
         type: boolean
         default: false
       auto:
-        description: '자동 dispatch(체인): cron처럼 dedup 적용'
+        description: '자동 dispatch(체인): cron처럼 dedup·기록·이상시만 알림 적용'
         type: boolean
         default: false
       date:
         description: '대상일 강제 YYYY-MM-DD (과거일 재현용, 비우면 자동)'
+        type: string
+        default: ''
+      monthly:
+        description: '월간 통계 미리보기 YYYY-MM (수동 전용, 비우면 생략)'
         type: string
         default: ''
 
@@ -47,12 +55,12 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 리포트 존재 확인용 — 실패해도 검사 진행(스크립트가 ⚠️ skip 처리)
+      # 리포트 커밋 검사 + 일별 기록 저장소 — 실패해도 검사 진행(스크립트가 ⚠️ skip, 기록은 경고 후 생략)
       - name: Checkout reports (private)
         uses: actions/checkout@v4
         continue-on-error: true
@@ -74,8 +82,10 @@ jobs:
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
           echo "대상일: $TARGET"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.auto }}" != "true" ]; then
+            echo "mode=manual" >> "$GITHUB_OUTPUT"
             echo "skip=no" >> "$GITHUB_OUTPUT"; exit 0
           fi
+          echo "mode=auto" >> "$GITHUB_OUTPUT"
           # cron·chain run만 집계 — 수동 dispatch(특히 dry_run, 발송 없음)가 자동 run을 억제하지 않게
           n=0
           for ts in $(gh run list -R "${{ github.repository }}" -w watchdog.yml -s success -L 20 \
@@ -85,7 +95,7 @@ jobs:
           done
           if [ "$n" -ge 1 ]; then
             echo "skip=yes" >> "$GITHUB_OUTPUT"
-            echo "⏭️ 대상일 ${TARGET} 성공 run ${n}건 — 중복 발송 방지 skip"
+            echo "⏭️ 대상일 ${TARGET} 성공 run ${n}건 — 중복 방지 skip"
           else
             echo "skip=no" >> "$GITHUB_OUTPUT"
           fi
@@ -93,32 +103,114 @@ jobs:
       - name: Run healthcheck
         id: checks
         if: steps.dedup.outputs.skip == 'no'
-        continue-on-error: true   # 🔴여도 메시지 발송 step은 진행 — 최종 red는 아래 Fail step이
         env:
           GH_TOKEN: ${{ github.token }}
           GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
           TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
           REPORTS_DIR: docs/reports
           OUT_FILE: /tmp/watchdog_msg.txt
+          JSON_FILE: /tmp/watchdog_result.json
           WATCHDOG_DATE: ${{ steps.dedup.outputs.target }}
-        run: bash scripts/watchdog_check.sh
+          MODE: ${{ steps.dedup.outputs.mode }}
+        run: |
+          set +e   # rc를 직접 판정 (기본 셸 -e)
+          run_check() { rm -f "$JSON_FILE"; bash scripts/watchdog_check.sh; rc=$?; }
+          run_check
+          # auto는 🔴면 2분 뒤 재점검 — 두 번 다 🔴일 때만 이상 확정 (일시 오류 거름, errors.md 2026-10-04 10/5 부류)
+          if [ "$rc" -eq 1 ] && [ "$MODE" = "auto" ] && [ -s "$JSON_FILE" ]; then
+            echo "🔁 이상 감지 — 120초 후 재점검"
+            sleep 120
+            run_check
+          fi
+          # JSON 미생성 = 검사 스크립트 비정상 종료 → run red (GitHub 실패 메일 = watchdog 자체 고장)
+          if [ ! -s "$JSON_FILE" ]; then
+            echo "❌ 검사 스크립트 비정상 종료 (rc=$rc)"
+            exit 1
+          fi
+          if [ "$rc" -eq 1 ]; then echo "red=yes" >> "$GITHUB_OUTPUT"; else echo "red=no" >> "$GITHUB_OUTPUT"; fi
 
-      - name: Send heartbeat to Telegram
-        if: steps.dedup.outputs.skip == 'no' && inputs.dry_run != true
+      - name: Record daily + monthly (auto)
+        id: record
+        if: steps.dedup.outputs.skip == 'no' && steps.dedup.outputs.mode == 'auto' && inputs.dry_run != true
+        env:
+          TARGET: ${{ steps.dedup.outputs.target }}
+        run: |
+          if [ ! -d docs/reports/.git ]; then
+            echo "::warning::리포트 repo 미체크아웃 — 일별 기록·월간 통계 생략"
+            echo "months=" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          W=docs/reports/_watchdog
+          python3 scripts/watchdog_log.py upsert "$W/daily.jsonl" /tmp/watchdog_result.json
+          months=$(python3 scripts/watchdog_log.py due "$W/daily.jsonl" "$TARGET" "$W" | tr '\n' ' ' | xargs)
+          for m in $months; do
+            python3 scripts/watchdog_log.py monthly "$W/daily.jsonl" "$m" > "$W/monthly-$m.md"
+            echo "----- 월간 통계 $m -----"; cat "$W/monthly-$m.md"
+          done
+          cd docs/reports
+          git config user.email 'actions@github.com'
+          git config user.name 'Watchdog Bot'
+          git add _watchdog
+          if git diff --cached --quiet; then
+            echo "변경 없음"
+          else
+            git commit -q -m "watchdog log ${TARGET}${months:+ + monthly ${months}} [skip ci]"
+            # market-report와 같은 repo — 시간대는 분리돼 있지만 경합 대비 rebase 재시도 (파이프 없이 rc 판정)
+            ok=no
+            for i in 1 2 3; do
+              if git push -q; then ok=yes; break; fi
+              echo "push 실패($i) — rebase 후 재시도"
+              git pull --rebase -q || true
+              sleep 5
+            done
+            if [ "$ok" != "yes" ]; then
+              echo "❌ 기록 push 3회 실패 — 월간 통계 발송 보류(다음 run이 재시도)"
+              exit 1
+            fi
+          fi
+          echo "months=$months" >> "$GITHUB_OUTPUT"
+
+      - name: Monthly preview (manual)
+        if: steps.dedup.outputs.mode == 'manual' && inputs.monthly != ''
+        env:
+          MONTH: ${{ inputs.monthly }}
+        run: |
+          if [ ! -f docs/reports/_watchdog/daily.jsonl ]; then echo "기록 파일 없음 — 미리보기 생략"; exit 0; fi
+          python3 scripts/watchdog_log.py monthly docs/reports/_watchdog/daily.jsonl "$MONTH" > /tmp/monthly_preview.txt
+          cat /tmp/monthly_preview.txt
+
+      # 이상 알림은 기록 push 실패와 무관하게 발송(always) — 단 검사 자체가 성공했을 때만
+      - name: Send Telegram (이상·월간·수동)
+        if: always() && steps.checks.outcome == 'success' && inputs.dry_run != true
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
+          MODE: ${{ steps.dedup.outputs.mode }}
+          RED: ${{ steps.checks.outputs.red }}
+          MONTHS: ${{ steps.record.outputs.months }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          IFS=',' read -ra IDS <<< "$TG_CHAT_IDS"
-          for id in "${IDS[@]}"; do
-            curl -sS -m 15 "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
-              -d chat_id="$(echo "$id" | tr -d ' ')" \
-              --data-urlencode "text@/tmp/watchdog_msg.txt" >/dev/null || true
-          done
-          echo "heartbeat 발송 완료"
-
-      - name: Fail if anomalies
-        if: steps.dedup.outputs.skip == 'no' && steps.checks.outcome == 'failure' && inputs.dry_run != true
-        run: |
-          echo "🔴 이상 항목 존재 — run을 red로 (그날 뒤 run이 재점검)"
-          exit 1
+          send() {
+            IFS=',' read -ra IDS <<< "$TG_CHAT_IDS"
+            for id in "${IDS[@]}"; do
+              curl -sS -m 15 "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+                -d chat_id="$(echo "$id" | tr -d ' ')" \
+                --data-urlencode "text@$1" >/dev/null || true
+            done
+            echo "발송: $1"
+          }
+          n=0
+          if [ "$MODE" = "manual" ]; then
+            send /tmp/watchdog_msg.txt; n=$((n + 1))
+            if [ -s /tmp/monthly_preview.txt ]; then send /tmp/monthly_preview.txt; n=$((n + 1)); fi
+          fi
+          if [ "$MODE" = "auto" ] && [ "$RED" = "yes" ]; then
+            {
+              jq -r '"🚨 자동화 이상 — \(.date) (" + (["월","화","수","목","금","토","일"][.dow - 1]) + ")"' /tmp/watchdog_result.json
+              jq -r '.red[]' /tmp/watchdog_result.json
+              echo "(2분 간격 재점검에서도 동일) ${RUN_URL}"
+            } > /tmp/alert.txt
+            cat /tmp/alert.txt
+            send /tmp/alert.txt; n=$((n + 1))
+          fi
+          for m in $MONTHS; do send "docs/reports/_watchdog/monthly-$m.md"; n=$((n + 1)); done
+          if [ "$n" -eq 0 ]; then echo "✅ 이상 없음 — 텔레그램 발송 없음 (기록만)"; fi

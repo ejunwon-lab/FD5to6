@@ -253,7 +253,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 
 - `deploy-web.yml` — web/ 빌드·gh-pages 배포 (push to main, paths web/)
 - `deploy-web-desk.yml` — web-desk/ 빌드·gh-pages /desk/ 배포
-- **`watchdog.yml`** (2026-07-19 신규, 2026-10-04 정시화) — 자동화 침묵 실패 감지. **주경로 = telegram-push 체인이 매일 21:10~21:59 KST 창에서 `auto=true` dispatch**, cron 21:10·22:10은 백업(GH cron +4~7h 지연 실측). `scripts/watchdog_check.sh` 실행 → 텔레그램 heartbeat **매일 발송**(메시지 부재 = watchdog 사망 신호). **대상일** = 실행이 KST 20시 이전이면 전일(지연 발화해도 끝난 하루를 검사). dedup = 같은 대상일 성공 run(cron·chain, `run-name` displayTitle로 구분) 있으면 skip, 수동 dispatch는 항상 실행. 입력: `dry_run`(발송·red 생략)·`auto`·`date`(대상일 강제). 검사 5종: ①푸시 체인 alive ②대상일 sent 건수(run 로그의 GAS result 에코) ③휴장 판정(skip-holiday 관측 — 자체 달력 없음) ④시트 신선도(portfolioMetrics dailyReturns에 대상일 행 존재) ⑤리포트 파일 존재 + **커밋 시각**(대상일 당일·US 7시/KR 16시 이후 — 지연 cron 선생성 감지, checkout `fetch-depth: 0`). 🔴 있으면 run red + exit 1. 설계 `docs/plans/2026-07-19-자동화-watchdog.md`·`docs/plans/2026-10-04-watchdog-자정넘김-KR선생성.md`
+- **`watchdog.yml`** (2026-07-19 신규, 2026-10-04 정시화, 2026-11-01 이상시만 알림) — 자동화 침묵 실패 감지. **주경로 = telegram-push 체인이 매일 21:10~21:59 KST 창에서 `auto=true` dispatch**, cron 21:10·22:10은 백업. `scripts/watchdog_check.sh` 실행 — **대상일** = 실행이 KST 20시 이전이면 전일. **알림 정책**: 텔레그램은 🔴일 때만(auto는 2분 간격 2회 점검 모두 🔴여야 발송), ✅면 무발송 · 매일 결과를 private `FD5to6-reports/_watchdog/daily.jsonl`에 1줄 기록(`watchdog_log.py upsert`) · 대상일이 월말이면 `📊 자동화 월간 통계` 발송 + `_watchdog/monthly-YYYY-MM.md` 커밋(누락 시 다음 달 첫 run 폴백) · 🔴여도 run green, **red(GitHub 실패 메일)는 watchdog 자체 고장**(검사 비정상 종료·기록 push 실패)만. dedup = 같은 대상일 성공 run(cron·chain, `run-name` displayTitle) 있으면 skip. 수동 dispatch: 전체 메시지 발송·기록 안 함, 입력 `dry_run`·`auto`·`date`·`monthly`(통계 미리보기). 검사: ①푸시 체인 alive ②대상일 sent(거래일 < 10건이면 🔴) ③휴장 판정(장중 poke의 skip-holiday 관측) ④시트 신선도(dailyReturns에 대상일 행) ⑤리포트 존재+커밋 시각 ⑥GAS 응답 코드(비정상 ≥6건 🔴, 403이면 재로그인 안내). 설계 `docs/plans/2026-07-19-자동화-watchdog.md`·`2026-10-04-watchdog-자정넘김-KR선생성.md`·`2026-11-01-watchdog-이상시만-알림-월간통계.md`
 - `diag-egress.yml` (2026-07-03 신규) — dispatch 전용 진단: 러너에서 데이터 소스별 HTTP+본문 head 실측. "차단" 보고 시 재사용 (memory: `reference-webfetch-vs-curl-headless`)
 - **`market-report.yml`** (2026-06-03 신규) — 시장 리포트 자동 발송
   - cron `5 23 * * 0-4` UTC → KST 월~금 08:05 (US, 전일 미국 마감)
@@ -284,7 +284,8 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `post_trade.py` — GAS `action=addTrade` POST (매매기록! 원장 기록)
 - `gas_redeploy.py` — Apps Script API로 버전 고정 웹앱 재배포 (에디터 클릭 불필요)
 - `setup_backup_launchd.sh` — 시트 백업 launchd 주 1회 등록 (맥별 1회)
-- `watchdog_check.sh` (2026-07-19 신규) — watchdog.yml의 검사 로직. 로컬 실행 가능(gh 인증 + GAS env 선택) — 같은 스크립트로 스모크. `WATCHDOG_DATE=YYYY-MM-DD`로 과거일 재현, `--print-target [UTC ISO]`로 대상일 규칙만 출력(watchdog.yml dedup이 공유)
+- `watchdog_check.sh` (2026-07-19 신규) — watchdog.yml의 검사 로직. 로컬 실행 가능(gh 인증 + GAS env 선택) — 같은 스크립트로 스모크. `WATCHDOG_DATE=YYYY-MM-DD`로 과거일 재현(푸시 run 조회 -L 100 ≈ 최근 8일 한정), `JSON_FILE`로 결과 JSON 한 줄 출력, `PUSH_MIN`(10)·`ERR_MIN`(6) 임계값 env, `--print-target [UTC ISO]`로 대상일 규칙만 출력(watchdog.yml dedup이 공유)
+- `watchdog_log.py` (2026-11-01 신규) — watchdog 일별 기록·월간 통계. `upsert <daily.jsonl> <result.json>`(대상일 키 멱등) · `due <daily.jsonl> <대상일> <dir>`(월말이면 그 달 + 직전 달 폴백, 요약 파일 없고 기록 있는 달만) · `monthly <daily.jsonl> <YYYY-MM>`(문구: 기록일수·거래일 푸시 평균/최저·GAS 오류·리포트 US/KR/주간·이상일 목록)
 - `git-hooks/pre-commit` (2026-07-19 신규) — 금액·시크릿 커밋 차단 스캐너. 경로 차단(.env·Secret.js·backups·키파일) + 시크릿 패턴(전 파일 추가줄) + 원화 금액 패턴(md만). 활성화 `git config core.hooksPath scripts/git-hooks`(run.sh 자동), 우회 `SCAN_BYPASS=1` 또는 `--no-verify`. memory [[feedback_public_repo_no_amounts]] 집행 장치
 
 ## Web Desk — web-desk/src/ (Bloomberg 스타일, React + Vite)

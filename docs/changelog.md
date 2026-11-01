@@ -130,3 +130,8 @@
 ## 2026-10-11
 - **PWA 매니페스트 id 분리** — 안드로이드에서 web·desk가 동일 앱으로 취급되던 것(scope 상하 포함) → `id` 각각 지정. 사용자 안드로이드 재설치로 두 앱 각각 설치 확인 — 종결.
 - errors.md 교훈 추가: 같은 이름 공간 공유 산출물의 상호작용 점검(scope 겹침·gh-pages 레이스 연속 발생).
+
+## 2026-11-01
+- **watchdog 알림 정책 전환** — 매일 ✅ heartbeat 폐지 → 이상(🔴)일 때만 텔레그램(2분 간격 2회 점검 확정) + 매일 결과를 private 리포트 repo `_watchdog/daily.jsonl`에 기록 + 월말 `📊 자동화 월간 통계` 1통. red run(GitHub 메일)은 watchdog 자체 고장 전용.
+- **watchdog 판정 강화** — 거래일 발송 < 10건 🔴, poke 비정상 응답 ≥6건 🔴(403이면 재로그인 안내). 10월 OAuth 403 구간 4번을 전부 ✅로 놓쳤던 것 대응. 금요일 휴장 오판 잠복 결함(자정 넘은 토요일 poke) 수정.
+- `scripts/watchdog_log.py` 신설(upsert·due·monthly). pending OAuth ⓒ(403 알림) 흡수.
