@@ -12,6 +12,12 @@ xcuserdata/
 
 # Apps Script
 apps-script-v2/Secret.js
+apps-script-v2/Secret.gs*
+
+# 개인 재무 데이터 — 공개 repo라 스프레드시트는 전부 제외 (2026-11-10, errors.md)
+*.xlsx
+*.xls
+*.numbers
 
 # Cloudflare Wrangler cache (deploy state, build artifacts)
 apps-script-v2/cloudflare-worker/.wrangler/

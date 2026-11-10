@@ -9,8 +9,10 @@
 
 ## 🔴 결정·확인 대기 (사용자 액션 필요)
 
+- **🔴 공개 repo 개인 기록 분리 + 옛 버전 정리 — 설계 점검·날짜 결정 대기 (2026-11-10)** — 발견: `매입매수정보.xlsx`(실매매 기록) 5/8부터 공개(11/10 현재 버전에서 제외, **옛 버전엔 남음**) · 옛 버전에 개인 이메일(커밋 7·4·2개) · 커밋 작성자 이메일이 개인 Gmail(462커밋) · docs·memory에 증권사·계좌 종류·가려진 계좌번호·수수료율. 권고안: 코드는 공개 유지(Pages·Actions 무료 — 텔레그램 체인이 월 약 45,000분이라 비공개 불가, 나머지는 월 550분) / docs·memory·config → 비공개 repo(옛 버전 보험은 비공개 쪽과 로컬 백업에 보존) → 공개 repo 옛 버전에서 해당 폴더·`*.xlsx` 경로 단위 삭제(force push, 다른 맥 재클론) → GitHub GC 요청(아래 GC 항목과 합침) + 커밋 작성자 이메일 noreply. 설계 시 고려: market-report가 `docs/reports/_config/*-prompt.md`를 읽음(위치 결정), harness 저장이 두 repo를 커밋하도록, 메모리 복원 경로. errors.md 2026-11-10.
+
 - **🔴 GAS 죽은 코드 정리 — Secret.js 확인 대기 (2026-07-03)** — 모바일 GET 8함수(`newMobileGet*` 등)+KIS 메서드 절반이 로컬 grep 도달 불가. 단 원격 전용 Secret.js가 doGet 라우팅 보유 가능 → **사용자가 GAS 에디터에서 Secret.js 내 `doGet`/`newMobileGet` 참조 유무 확인** 후 삭제 범위 확정. 부수: 환율 fallback 불일치(`_getFxRates` 0 vs `_mGetFxRates` 1400/1700 — 5곳 중복), buildDashboard 셀 단위 I/O 배치화.
-- **🔴 프라이버시 스크럽 마무리 — GitHub Support GC 요청 (2026-07-16 격상)** — force-push 2회(금액·실거래 스크럽) 완료했으나 **dangling 객체는 GitHub 서버에 남아 옛 SHA URL로 접근 가능**. https://support.github.com/request 에 "force-pushed ejunwon-lab/FD5to6 to remove sensitive files; please run GC" 요지로 요청해야 정리 완결.
+- **🔴 프라이버시 스크럽 마무리 — GitHub Support GC 요청 (2026-07-16 격상)** — force-push 2회(금액·실거래 스크럽) 완료했으나 **dangling 객체는 GitHub 서버에 남아 옛 SHA URL로 접근 가능**. https://support.github.com/request 에 "force-pushed ejunwon-lab/FD5to6 to remove sensitive files; please run GC" 요지로 요청해야 정리 완결. **→ 2026-11-10: 위 "개인 기록 분리 + 옛 버전 정리"의 force push 뒤 한 번에 요청(중복 요청 방지).**
 - **🔴 kr-theses.md 투자논리 초안 → 사용자 확정** — 확정 시 리포트의 "(논리 초안)" 라벨 제거. + KR 리포트 로테이션/파이프라인 분석이 실제 유용한지 내용 품질 피드백. (구 "KR 리포트 B+C" 항목의 잔여분)
 
 ## 🟡 진행 중 · 예정
