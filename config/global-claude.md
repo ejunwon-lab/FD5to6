@@ -1,4 +1,4 @@
-# 전역 Claude 설정 (사용자: junwon.lee@mz.co.kr)
+# 전역 Claude 설정
 
 이 파일은 **모든 폴더**에서 작동하는 보편 규칙이다. 프로젝트별 지식은 각 프로젝트의 CLAUDE.md에 둔다.
 

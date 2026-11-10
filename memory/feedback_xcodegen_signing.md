@@ -11,4 +11,4 @@ XcodeGen(`xcodegen generate`)으로 project.pbxproj를 재생성하기 전에, p
 
 **Why:** XcodeGen은 project.yml에 없는 설정을 pbxproj에서 삭제함. `CODE_SIGN_STYLE = Automatic`이 누락되면 Xcode 디버거 실행은 되지만 iOS 콜드 런치에서 서명 검증 실패 (2026-04-27 발생, 내 실수)
 
-**How to apply:** `xcodegen generate` 호출 전 project.yml의 settings.base 섹션 확인. 현재 이 프로젝트의 팀 ID는 `3N9UDPW4BP` (junspad2@gmail.com)
+**How to apply:** `xcodegen generate` 호출 전 project.yml의 settings.base 섹션 확인. 현재 이 프로젝트의 팀 ID는 `3N9UDPW4BP` (Apple 개발자 계정)

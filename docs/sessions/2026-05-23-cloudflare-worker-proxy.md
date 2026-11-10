@@ -37,7 +37,7 @@ Worker 코드 ~30줄, 외부 라이브러리 0, 비용 0 (무료 티어 일 10�
 
 ## 사용자가 직접 한 셋업
 
-1. Cloudflare 계정 생성 (halcyon.public@gmail.com), 2FA
+1. Cloudflare 계정 생성 (소유자 계정 Gmail), 2FA
 2. Worker 생성: `tg-portfolio-proxy` → URL: `https://tg-portfolio-proxy.halcyon-public.workers.dev`
 3. Worker 코드 → 우리 `worker.js`로 교체 후 Deploy (manually deployed)
 4. Settings → Variables and Secrets → `SECRET`, `GAS_URL` 두 개 추가 (Encrypted)
