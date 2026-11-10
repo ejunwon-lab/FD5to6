@@ -228,6 +228,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 
 ### Secret.js — KIS appkey/secret. **원격(Google)에만 존재. 절대 건드리지 않음.**
 배포는 반드시 `python3 apps-script-v2/push_safe.py` (clasp push 금지).
+앱 전부 404 "Requested entity was not found" → 소유자 계정으로 GAS 에디터 1회 재저장 (errors.md 2026-11-10). KIS 키 갱신 시: 스크립트 속성 `KIS_ACCESS_TOKEN`·`KIS_TOKEN_EXPIRY` 삭제 후 🔄 전체 업데이트 — 토큰 캐시가 앱키를 모름 + **웹앱 고정 배포 3개 재배포 필수**(버전에 Secret.gs가 얼려짐) (errors.md 2026-11-10).
 
 ---
 
