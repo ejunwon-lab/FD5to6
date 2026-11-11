@@ -265,7 +265,8 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
   - 인증: `CLAUDE_CODE_OAUTH_TOKEN` env (Max OAuth, 비용 0)
   - secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `TG_BOT_TOKEN`, `TG_CHAT_IDS`
   - **창 가드** (2026-10-04): 자동 실행(schedule·auto dispatch)은 `.github/scripts/report_window.sh <us|kr|weekly>` 창 안에서만 생성 — US 평일 08:00~21:59 / KR 평일 17:00~23:59 / weekly 일 13:00~23:59 KST. 창 밖이면 `already=yes`로 skip(지연 cron이 자정 넘겨 전일 데이터로 다음 날짜 파일을 선생성하던 결함 차단). 수동 dispatch는 무관
-  - **Alert on generation failure** (2026-07-03): 3개 job 공통 — `found=no`면 텔레그램 경고+`exit 1` (dry_run 시 억제). telegram-push에도 체인 사망 `failure()` 알림. 설계 `docs/plans/2026-07-03-무음실패-알림.md`
+  - **Alert on generation failure** (2026-07-03): 3개 job 공통 — `found=no`면 텔레그램 경고+`exit 1` (dry_run 시 억제). telegram-push에도 체인 끊김 알림(2026-11-11부터 조건 = 후속 run 예약·보조 dispatch 모두 실패, `steps.next.outcome == 'failure'`). 설계 `docs/plans/2026-07-03-무음실패-알림.md`
+  - **telegram-push 후속 run 사전 예약** (2026-11-11): 다음 run을 종료 직전이 아니라 **시작 5분 뒤** dispatch → concurrency pending으로 대기, 현 run이 어떻게 끝나든(실패·취소·러너 유실) 이어받음. 끝 step은 `if: always()` 보조 dispatch(5분 미만 생존이면 폭주 방지로 안 함). poke curl `--max-time 400`. 설계 `docs/plans/2026-11-11-푸시체인-후속run-사전예약.md`
   - weekly job: **Pre-fetch GAS portfolio metrics** step이 지표를 파일로 선확보 (에이전트 env 판단 제거, errors.md 2026-07-03)
 
 ## GitHub Actions scripts — `.github/scripts/`

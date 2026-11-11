@@ -6,16 +6,21 @@ name: Telegram Push (intraday P&L)
 #   → 6/10 실측 spread 후에도 18틱 중 2틱만 발화(고빈도 cron일수록 통째 드롭) → 체인 전환.
 #   교훈 "best-effort 의존 횟수를 줄여라"의 극한: 정상상태에서 cron 의존 0회.
 #
-# 동작: 각 run이 120분 sleep 루프(5분마다 GAS action=pushPnL poke) 후 종료 직전
-#   workflow_dispatch로 다음 run을 self-dispatch (GITHUB_TOKEN 예외 규칙 — workflow_dispatch는
+# 동작: 각 run이 120분 sleep 루프(5분마다 GAS action=pushPnL poke). 시작 5분 뒤(2번째 poke)
+#   workflow_dispatch로 다음 run을 **사전 예약** (GITHUB_TOKEN 예외 규칙 — workflow_dispatch는
 #   재귀 방지 대상에서 제외). dispatch는 이벤트 구동이라 cron과 달리 드롭 안 됨(6/8~10 실측 0건).
 #   카덴스(~20분)·휴장·시간대·중복은 GAS tgPushPnL이 18분 dedup으로 단일 결정 (v13 — result 에코 포함).
+#   사전 예약 (2026-11-11, 설계: docs/plans/2026-11-11-푸시체인-후속run-사전예약.md): 예약된 run은
+#   concurrency pending으로 기다리다 이 run이 **어떻게 끝나든**(성공·실패·취소·러너 유실) 이어받는다.
+#   전에는 종료 직전에 dispatch해서, 러너 유실(11/11)·타임아웃 취소(11/7) 때 그 step이 못 돌아 체인이 끊겼다.
 #
 # 체인 관리:
-#   - concurrency group: 체인 생존 중 cron 백업이 발화해도 pending 1개로 수렴(증식 불가).
-#     pending run은 현 run 종료 즉시 이어받음 → 체인은 항상 single-file.
-#   - 체인 사망(러너 죽음·dispatch 실패) 시: cron 백업(장중 20분 격자)이 재시드.
-#   - ⏹️ 완전 정지: run 취소만으론 cron이 재시드함 → `gh workflow disable "Telegram Push (intraday P&L)"`.
+#   - concurrency group: 체인 생존 중 cron 백업·사전 예약·수동 dispatch가 겹쳐도 pending 1개로 수렴
+#     (새 run이 기존 pending을 대체). pending run은 현 run 종료 즉시 이어받음 → 체인은 항상 single-file.
+#   - 체인 사망(시작 5분 안 러너 유실·예약 실패) 시: 끝 step이 보조 dispatch, 그것도 실패하면 🔴 알림.
+#     cron 백업(장중 20분 격자)이 재시드.
+#   - ⏹️ 완전 정지: run 취소만으론 pending·cron이 이어받음 → `gh workflow disable "Telegram Push (intraday P&L)"`
+#     + 실행 중·pending run 취소 (disable만 하면 이미 예약된 run이 한 번 더 돌고 예약 실패 🔴 알림 1회).
 #   - 24/7 체인: 장외·주말 poke는 GAS가 즉시 skip(result=skip-offhours/holiday) — 다음 거래일 아침을
 #     cron에 의존하지 않기 위한 비용 (public repo라 분 무료).
 #   - ⚠️ 수동 dispatch 시 minutes는 125 이하(timeout-minutes=130에 잘림).
@@ -52,15 +57,18 @@ jobs:
           GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
           TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
           MINUTES: ${{ github.event.inputs.minutes || '120' }}
-          GH_TOKEN: ${{ github.token }}            # market-report dispatch/contents 확인용
+          GH_TOKEN: ${{ github.token }}            # market-report dispatch/contents 확인용 + 후속 run 예약
           GITHUB_REPOSITORY: ${{ github.repository }}
+          WF_NAME: ${{ github.workflow }}
         run: |
+          START=$(date -u +%s)
+          echo "$START" > /tmp/chain_start               # 끝 step의 "5분 미만 생존" 판정용
           if [ -z "$GAS_WEB_APP_URL" ] || [ -z "$TG_WEBHOOK_SECRET" ]; then
             echo "⏭️ GAS_WEB_APP_URL / TG_WEBHOOK_SECRET 미설정 — soft skip (롤아웃 전이면 정상)"
             exit 0
           fi
           POKE_GAP=300                                   # 5분
-          END=$(( $(date -u +%s) + MINUTES * 60 ))
+          END=$(( START + MINUTES * 60 ))
           echo "=== 시작 $(date -u '+%H:%M:%S') UTC | ${MINUTES}분 동안 ${POKE_GAP}s 간격 poke ==="
 
           # ── market-report 정시 dispatch (cron 지연 우회) ──────────────────
@@ -107,30 +115,61 @@ jobs:
             [ "$hm" -ge 1702 ] && [ "$hm" -le 1759 ] && maybe_dispatch_report kr KR
             return 0
           }
+          # ── 후속 run 사전 예약 ──────────────────────────────────────────
+          # 시작 5분 뒤에야 예약 = 매번 즉시 죽는 run이 즉시 예약을 반복하는 폭주 순환 방지(순환 ≥5분 간격).
+          # 성공할 때까지 poke마다 재시도(러너 일시 네트워크 부류, errors.md 2026-10-04). 실패해도 루프는 계속.
+          # 중복 예약은 무해 — concurrency가 pending 1개로 수렴.
+          ensure_successor() {
+            [ -f /tmp/successor_ok ] && return 0
+            [ "$(( $(date -u +%s) - START ))" -lt 300 ] && return 0
+            if gh workflow run "$WF_NAME" --ref main -f minutes=120 -R "$GITHUB_REPOSITORY"; then
+              touch /tmp/successor_ok
+              echo "  ↳ 후속 체인 run 사전 예약 완료 (이 run 종료 시 이어받음)"
+            else
+              echo "  ↳ ⚠️ 후속 체인 run 사전 예약 실패 — 다음 poke에서 재시도"
+            fi
+            return 0
+          }
 
           n=0
           while [ "$(date -u +%s)" -lt "$END" ]; do
             n=$((n + 1))
             # GAS 웹앱: POST→302→googleusercontent echo 리다이렉트. -X POST 금지(echo가 405).
             #   --data가 초기요청을 POST로(doPost 실행), -L이 302를 GET으로 따라가 결과 회수.
-            code=$(curl -sS -L -o /tmp/resp.txt -w '%{http_code}' \
+            # --max-time: 11/7 curl이 31분 멈춰 job 타임아웃 취소. 정상 응답 최대 64초(11/11 실측),
+            #   GAS 1회 실행 상한 6분 → 400초 넘는 응답은 비정상. 끊겨도 GAS 쪽 실행은 계속됨(HTTP=000 기록).
+            code=$(curl -sS -L --connect-timeout 30 --max-time 400 -o /tmp/resp.txt -w '%{http_code}' \
               "$GAS_WEB_APP_URL" \
               -H 'Content-Type: application/json' \
               --data "{\"action\":\"pushPnL\",\"secret\":\"${TG_WEBHOOK_SECRET}\"}" || echo 000)
             printf '%s UTC  poke#%s  HTTP=%s  resp=%s\n' \
               "$(date -u '+%H:%M:%S')" "$n" "$code" "$(cat /tmp/resp.txt 2>/dev/null)"
             check_report_windows || true               # 리포트 정시 dispatch (격리 — 실패 무해)
+            ensure_successor || true                   # 후속 run 사전 예약 (5분 경과 후 1회, 실패 시 재시도)
             # 남은 시간이 간격 이하면 종료 (window 넘어 잠들지 않게)
             [ "$(( END - $(date -u +%s) ))" -le "$POKE_GAP" ] && break
             sleep "$POKE_GAP"
           done
           echo "=== 종료 $(date -u '+%H:%M:%S') UTC | poke ${n}회 ==="
 
-      - name: Dispatch next chain run
-        if: success()
+      # 보조 경로 — 사전 예약이 끝내 실패했을 때만. always(): 루프 step이 실패·취소돼도 체인을 잇는다.
+      # (러너 유실이면 이 step도 못 돎 — 그래서 사전 예약이 주경로)
+      - name: Dispatch next chain run (사전 예약 실패 시 보조)
+        id: next
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if [ -f /tmp/successor_ok ]; then
+            echo "✓ 후속 run 사전 예약됨 — 추가 dispatch 불필요"
+            exit 0
+          fi
+          # 5분도 못 산 run은 잇지 않음 — 매번 즉시 죽는 경우의 폭주 순환 방지 (알림 후 cron 백업이 재시드)
+          START=$(cat /tmp/chain_start 2>/dev/null || date -u +%s)
+          if [ "$(( $(date -u +%s) - START ))" -lt 300 ]; then
+            echo "🔴 시작 5분 안에 종료 — 폭주 방지로 dispatch 안 함"
+            exit 1
+          fi
           # 파이프 금지 — 실제 exit code로 판정 (errors.md 2026-06-10 push|tail 교훈)
           for i in 1 2 3; do
             if gh workflow run "${{ github.workflow }}" --ref main -f minutes=120 -R "${{ github.repository }}"; then
@@ -144,13 +183,14 @@ jobs:
           exit 1
 
       # 체인 끊김을 텔레그램으로 능동 통보 — cron 재시드 전까지의 무음 공백 가시화 (docs/plans/2026-07-03-무음실패-알림.md)
+      # 조건 = 후속 run을 끝내 잇지 못함(보조 dispatch 실패). 루프 step이 예약 뒤에 실패해도 체인은 이어지므로 알림 안 함.
       - name: Alert on chain break
-        if: failure()
+        if: always() && steps.next.outcome == 'failure'
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
         run: |
-          MSG="🔴 텔레그램 푸시 체인 끊김 — cron 재시드 전까지 장중 푸시 공백 가능. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MSG="🔴 텔레그램 푸시 체인 끊김 — 다음 run 예약 실패. cron 재시드 전까지 장중 푸시 공백 가능. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           IFS=',' read -ra IDS <<< "$TG_CHAT_IDS"
           for id in "${IDS[@]}"; do
             curl -sS -m 15 "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
