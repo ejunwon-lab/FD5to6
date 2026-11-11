@@ -2,6 +2,15 @@
 
 ---
 
+## 2026-11-11
+
+### 장중 텔레그램 푸시 09시대 공백 — 푸시 체인 러너 유실(11/11) + curl 무한 대기(11/7), 끊김 알림도 미발화
+- **증상**: 11/11 09:00 첫 장중 푸시 없음. GAS 로그에 `tgPushPnL` 0건. (11/7 토~11/8 일 ~25h 공백도 같은 계열 — 주간 리포트 20:18 지연)
+- **원인**: ①11/11 02:26 KST 체인 run의 poke step이 로그 없이 failure(`--log-failed`도 "log not found", job은 45분 뒤 종료) = **러너 유실**. ②11/7은 poke curl이 31분 멈춤(`--max-time` 없음) → `timeout-minutes: 130` 초과 cancelled. 둘 다 같은 job 안의 "Dispatch next"·"Alert on chain break"(`if: failure()`)가 못 돎(cancelled는 failure 아님, 러너 유실은 step 자체 미실행) → 체인 끊김 + **무음**. 장중 cron 백업(20분 격자)은 09:00~09:40 미발화(GH cron best-effort).
+- **응급조치 (2026-11-11 09:44)**: `gh workflow run "Telegram Push (intraday P&L)" -f minutes=120` 수동 재시드 → 첫 poke에서 v34 웹앱 `updateAllNew` 전 단계 성공 확인.
+- **부수 발견**: 같은 시각 `EGW00103`(유효하지 않은 AppKey) 로그는 **구 시스템 GAS 프로젝트**(scriptId `12MAcPpo…`, 다른 시트에 바운드, 5/19 repo 제거 후에도 트리거 생존)의 08:26·08:29 트리거 — 함수명 `runFullUpdate`가 현재 코드에 없음으로 판별. 로그 `deployment_id` 라벨이 현재 배포 목록에 없으면 다른 프로젝트를 의심할 것(같은 GCP 프로젝트에 여러 스크립트가 로그를 남김).
+- **교훈**: job 내부의 실패 알림은 job이 *끝까지 살아 있을 때만* 동작 — 러너 유실·타임아웃 취소는 체인 자신이 보고할 수 없다. 체인 생존은 **체인 밖**(watchdog 등)에서 장중에도 확인해야 함. 수정은 pending 🔴 항목(`/design-check` 후).
+
 ## 2026-11-10
 
 ### 실제 매매 기록 엑셀(`매입매수정보.xlsx`)이 공개 repo에 6개월 노출 — 7/16 프라이버시 스크럽에서 누락
