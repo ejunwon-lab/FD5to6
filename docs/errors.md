@@ -9,7 +9,8 @@
 - **원인**: ①11/11 02:26 KST 체인 run의 poke step이 로그 없이 failure(`--log-failed`도 "log not found", job은 45분 뒤 종료) = **러너 유실**. ②11/7은 poke curl이 31분 멈춤(`--max-time` 없음) → `timeout-minutes: 130` 초과 cancelled. 둘 다 같은 job 안의 "Dispatch next"·"Alert on chain break"(`if: failure()`)가 못 돎(cancelled는 failure 아님, 러너 유실은 step 자체 미실행) → 체인 끊김 + **무음**. 장중 cron 백업(20분 격자)은 09:00~09:40 미발화(GH cron best-effort).
 - **응급조치 (2026-11-11 09:44)**: `gh workflow run "Telegram Push (intraday P&L)" -f minutes=120` 수동 재시드 → 첫 poke에서 v34 웹앱 `updateAllNew` 전 단계 성공 확인.
 - **부수 발견**: 같은 시각 `EGW00103`(유효하지 않은 AppKey) 로그는 **구 시스템 GAS 프로젝트**(scriptId `12MAcPpo…`, 다른 시트에 바운드, 5/19 repo 제거 후에도 트리거 생존)의 08:26·08:29 트리거 — 함수명 `runFullUpdate`가 현재 코드에 없음으로 판별. 로그 `deployment_id` 라벨이 현재 배포 목록에 없으면 다른 프로젝트를 의심할 것(같은 GCP 프로젝트에 여러 스크립트가 로그를 남김).
-- **교훈**: job 내부의 실패 알림은 job이 *끝까지 살아 있을 때만* 동작 — 러너 유실·타임아웃 취소는 체인 자신이 보고할 수 없다. 체인 생존은 **체인 밖**(watchdog 등)에서 장중에도 확인해야 함. 수정은 pending 🔴 항목(`/design-check` 후).
+- **해결 (2026-11-11 오후, f72c552)**: **후속 run 사전 예약** — 다음 run을 종료 직전이 아니라 시작 5분 뒤 dispatch해 concurrency pending으로 세워 둠 → 현 run이 실패·취소·러너 유실 어느 쪽으로 끝나도 이어받음(11/10 run 42853334158도 pending이 있었으면 03:11 KST에 이어받았을 것). 끝 step은 `if: always()` 보조 dispatch(5분 미만 생존이면 폭주 방지로 생략), 끊김 알림은 둘 다 실패할 때만. poke curl `--max-time 400`(실측 최대 64초 — 원안 90초는 v34의 poke당 가격 갱신 응답을 끊을 뻔함). 원안의 "watchdog 장중 재시드"는 같은 GH cron 시계라 보류. 설계: `docs/plans/2026-11-11-푸시체인-후속run-사전예약.md`.
+- **교훈**: job 내부의 실패 처리는 job이 *끝까지 살아 있을 때만* 동작 — 러너 유실·타임아웃 취소 때는 체인이 스스로 보고도 복구도 못 한다. **다음 고리를 끝이 아니라 앞에서 미리 걸어 두면** 끝을 못 맞아도 이어진다. 남은 구멍(시작 5분 안 유실·유실 판정 지연 ~45분)은 체인 밖 독립 시계로만 메울 수 있음.
 
 ## 2026-11-10
 
