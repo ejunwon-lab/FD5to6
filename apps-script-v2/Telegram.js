@@ -35,6 +35,10 @@ const TG = {
   API:               'https://api.telegram.org/bot',
   PUSH_HANDLER:      'tgPushPnL',
   PUSH_MINUTES_AT:   [0, 20, 40], // 매시 :00 / :20 / :40 근처에 실행
+  // GAS 백업 발송 (2026-11-12, docs/plans/2026-11-12-푸시-GAS-백업발송.md)
+  FALLBACK_AFTER_MIN: 27,          // 직전 발송 후 이 분 이상 지나면 GitHub 신호 끊김으로 판단 (정상 체인 상한 ~25분 < 27 < 트리거 간격 30분)
+  FALLBACK_FROM_MIN:  9 * 60 + 10, // 09:10부터 판정 (체인의 09:00 첫 발송 여유 10분)
+  PROP_FALLBACK_ALERT: 'tg_chainFallbackAlertDate',   // 끊김 알림 하루 1회 dedup (상태값, yyyy-MM-dd)
   CMD_KEYWORDS:      ['갱신', '업데이트', 'ㄱㄱ', 'update', 'refresh', '/update', '/start', '/pnl'],
 };
 
@@ -200,6 +204,58 @@ function tgPushPnL() {
   } catch (e) {
     Logger.log('tgPushPnL 오류: ' + e.message);
     try { tgSendMessage('⚠️ 푸시 실패: ' + e.message); } catch (_) {}
+    return 'error:' + e.message;
+  }
+}
+
+/**
+ * 백업 발송 판정 (순수 함수) — 거래일 · 09:10~16:00 · 직전 발송 후 FALLBACK_AFTER_MIN분 이상.
+ * @param {boolean} isTradingDay @param {number} minsKst 자정 기준 분 @param {number} lastPushMs @param {number} nowMs
+ */
+function _tgFallbackDue(isTradingDay, minsKst, lastPushMs, nowMs) {
+  if (!isTradingDay) return false;
+  if (minsKst < TG.FALLBACK_FROM_MIN || minsKst > 16 * 60) return false;
+  return (nowMs - lastPushMs) / 60000 >= TG.FALLBACK_AFTER_MIN;
+}
+
+/**
+ * GAS 백업 발송 — GitHub 푸시 체인이 끊겨(러너 장애 등) 장중 발송이 27분 넘게 없으면 GAS가 직접 보낸다.
+ * scheduledHourlyUpdate(30분 시간 트리거, HEAD 코드) 앞머리에서 호출 — GitHub과 독립된 시계.
+ * 발송은 tgPushPnL 재사용(락·18분 dedup·전체 갱신 동일) → 체인이 살아나도 중복 없음.
+ * 발송 성공 시 그날 1회만 끊김 알림. 체인 재시작은 하지 않음(수동 `gh workflow run` 또는 cron 재시드).
+ * @return {string} 'n/a'(비거래일·장외) | 'ok'(정상) | 'fallback:<tgPushPnL 결과>' | 'error:…'
+ */
+function tgChainFallback() {
+  try {
+    const tz = 'Asia/Seoul';
+    const now = new Date();
+    const mins = Number(Utilities.formatDate(now, tz, 'H')) * 60 + Number(Utilities.formatDate(now, tz, 'm'));
+    const trading = _mIsTradingDay();
+    if (!trading || mins < TG.FALLBACK_FROM_MIN || mins > 16 * 60) {
+      Logger.log('tgChainFallback: 대상 아님 (비거래일·장외)');
+      return 'n/a';
+    }
+    const props = _tgProps();
+    const lastMs = Number(props.getProperty('tg_lastPushEpoch') || 0);
+    const elapsedMin = (now.getTime() - lastMs) / 60000;
+    if (!_tgFallbackDue(trading, mins, lastMs, now.getTime())) {
+      Logger.log('tgChainFallback: 정상 — 직전 발송 ' + elapsedMin.toFixed(1) + '분 전');
+      return 'ok';
+    }
+    Logger.log('tgChainFallback: 직전 발송 ' + elapsedMin.toFixed(1) + '분 전 — GitHub 신호 끊김 판단, GAS가 직접 발송');
+    const result = tgPushPnL();
+    Logger.log('tgChainFallback: 백업 발송 결과 = ' + result);
+    if (result === 'sent') {
+      const today = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+      if (props.getProperty(TG.PROP_FALLBACK_ALERT) !== today) {
+        props.setProperty(TG.PROP_FALLBACK_ALERT, today);
+        const since = elapsedMin < 600 ? '직전 발송 후 ' + Math.round(elapsedMin) + '분' : '오늘 첫 발송';
+        tgSendMessage('🔴 GitHub 푸시 신호가 끊겨 GAS가 대신 보냈습니다 (' + since + '). 복구 전까지 약 30분 간격으로 옵니다.');
+      }
+    }
+    return 'fallback:' + result;
+  } catch (e) {
+    Logger.log('tgChainFallback 오류: ' + e.message);
     return 'error:' + e.message;
   }
 }

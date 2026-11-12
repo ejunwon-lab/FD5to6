@@ -116,7 +116,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `updateAllNew` — 전체 업데이트: 가격→보유현황→대시보드 (`menuUpdateAll` alias)
 - `menuUpdatePricesOnly` — 현재가만
 - `scheduledDailyUpdate` / `setupDailyTrigger` / `deleteDailyTrigger` — 17:30 자동 트리거 (장 마감 후 정리)
-- `scheduledHourlyUpdate` / `setupHourlyTrigger` / `deleteHourlyTrigger` — 장중 매시 :30 트리거 (거래일 09:30~16:30, `everyMinutes(30)` + 핸들러 분 체크 / LockService로 tgPushPnL·사용자 갱신과 충돌 방지)
+- `scheduledHourlyUpdate` / `setupHourlyTrigger` / `deleteHourlyTrigger` — 장중 매시 :30 트리거 (거래일 09:30~16:30, `everyMinutes(30)` + 핸들러 분 체크 / LockService로 tgPushPnL·사용자 갱신과 충돌 방지). 매 틱 앞머리에서 `tgChainFallback()` — `fallback:sent`면 갱신 중복 없이 return (2026-11-12)
 - `_handleCashReserveTimestamp(e)` — onEdit 분기. *설정* C7:C12(대기자금) 편집 시 같은 행 E열에 yyyy-MM-dd HH:mm 자동 스탬프 (빈 값으로 지우면 스탬프도 지움)
 
 ### Holidays.js — 증시 휴장일 단일 소스
@@ -199,6 +199,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `tgSendMessage(text)` — Telegram sendMessage API 호출 (Markdown)
 - `_tgFormatPnL` — `newMobileGetPortfolio()` → `summary.trendTotalProfit/totalProfitRate/dayChangAmount/dayChangePct/priceAsOfDate` 추출 → 메시지 포맷
 - `tgPushPnL` — 장중 텔레그램 푸시 (**GitHub Actions가 5분마다 `action=pushPnL` poke** — F 구조 "단일 신뢰 시작 + 자체 루프", 2026-06-09). **거래일 + 09:00~16:00 + 락 + 18분 dedup(`tg_lastPushEpoch` 슬롯 선점)** 자체 게이트 → **`updateAllNew()` 전체 갱신**(FX·가격·보유현황·종목지표·추이기록 AD2·대시보드) + 발송, 그 외 silent skip. (2026-06-10: 부분갱신→전체. 부분갱신은 추이기록 AD2=합계손익이 stale→+0/직전값 버그) dedup이 카덴스의 단일 권위(겹치는 잡·중복 poke 무해화 → ~20분 간격)
+- `tgChainFallback` / `_tgFallbackDue` (2026-11-12) — **GAS 백업 발송**. `scheduledHourlyUpdate`(30분 트리거, HEAD) 앞머리에서 호출. 거래일·09:10~16:00·직전 발송(`tg_lastPushEpoch`) 후 27분 이상이면 GitHub 체인 끊김으로 보고 `tgPushPnL()` 직접 호출, 성공 시 하루 1회 끊김 알림(`tg_chainFallbackAlertDate`). 반환 `n/a`·`ok`·`fallback:<결과>`. 백업 모드는 30분 간격. 체인 재시작은 안 함. 설계 `docs/plans/2026-11-12-푸시-GAS-백업발송.md`
 - `_tgHandlePushPost(e)` — doPost `action=pushPnL` 분기. secret(`TG_WEBHOOK_SECRET`) 검증 → `tgPushPnL()` 호출 → `{success:true}`. GitHub Actions `telegram-push.yml` 전용 엔드포인트
 - `tgRefreshAndPush` — 수동 갱신 (가격 + 보유현황 재계산 후 푸시 → `tg_lastPushEpoch` 갱신해 직후 자동 poke 중복 방지). 대시보드·추이 렌더 생략 (응답 시간 단축)
 - `doPost`/`handleTelegramWebhook(e)` — Telegram webhook 진입점 (Main.js의 doPost가 `action` 보고 위임. `action=addMarketReport`면 `_tgHandleMarketReportPost`, 아니면 webhook으로)

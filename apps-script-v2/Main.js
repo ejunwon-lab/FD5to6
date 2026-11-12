@@ -179,8 +179,11 @@ function deleteDailyTrigger() {
  * 장중 매시 :30 자동 업데이트 (거래일 09:30~16:30, 8회/일).
  * everyMinutes(30)으로 슬랙 ±2분 확보 → 핸들러에서 30분 단위 + 시각·거래일 체크.
  * LockService로 tgPushPnL·사용자 갱신과 충돌 시 skip (다음 슬롯에서 복구).
+ * 매 틱(30분) 앞머리에서 tgChainFallback — 푸시 체인 끊김 시 GAS 백업 발송 (2026-11-12).
  */
 function scheduledHourlyUpdate() {
+  // 0. 푸시 체인 백업 — GitHub 신호가 끊겨 장중 발송이 27분 넘게 없으면 여기서 직접 발송 (Telegram.js tgChainFallback, 자체 try/catch)
+  if (tgChainFallback() === 'fallback:sent') return;   // 방금 전체 갱신+발송 완료 — 아래 갱신 중복 불필요
   // 1. 거래일이 아니면 skip
   if (!_mIsTradingDay()) {
     Logger.log('scheduledHourlyUpdate: 비거래일 — skip');
