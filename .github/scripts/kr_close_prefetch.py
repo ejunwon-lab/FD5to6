@@ -8,6 +8,8 @@
 보유 종목 가격의 출처 (위에서부터):
   1) GAS portfolioMetrics 의 krClose — 오늘 날짜이고 잠긴 기록. 종목마다 네이버 분봉 마감 값과 대조하고, 다르면 분봉 값을 쓴다.
   2) 그 밖(잠금 실패·휴장일·GAS 응답 없음) — 네이버 분봉 마감 값 ÷ 기준가(전 거래일 정규장 종가).
+지시문의 보유 목록에는 있는데 GAS 표에 없는 종목도 2)의 방법으로 표에 넣는다(†) — 에이전트가 그 종목만
+17시대 `/basic`(애프터마켓 진행가)으로 채우는 일이 없게. 두 목록이 어긋난 개수와 분류만 로그에 남긴다.
 
 이 저장소의 실행 로그는 공개다 — 표준 출력에는 개수·상태만 쓰고 종목명·가격은 쓰지 않는다 (표는 러너의 임시 파일로만).
 어떤 실패에도 exit 0: 리포트 에이전트는 표 머리의 상태 문구를 보고 대체 경로를 탄다.
@@ -124,6 +126,22 @@ def main():
             time.sleep(0.15)
             rows.append((name or nm or code, code, mc, ((mc / base - 1) * 100) if (mc and base) else None))
 
+    # 지시문 목록에만 있는 종목 — 같은 정규장 종가 방식으로 표에 추가(†)
+    have = {r[1] for r in rows}
+    prompt_codes = codes_from_prompt(prompt_path or "")
+    extra = [c for c in prompt_codes if c not in have]
+    gas_only = len([c for c in have if prompt_codes and c not in prompt_codes])
+    norm = lambda t: re.sub(r"\s+", "", str(t or "")).upper()
+    hold_cat = {norm(h.get("name")): h.get("category") for h in (gas.get("holdings") or [])}
+    extra_cats = []
+    for code in extra:
+        mc = minute_close(code, asof, cmin)
+        base, nm = naver_base(code)
+        time.sleep(0.15)
+        rows.append(((nm or code) + " †", code, mc, ((mc / base - 1) * 100) if (mc and base) else None))
+        key = norm(nm)
+        extra_cats.append(next((cat for k, cat in hold_cat.items() if key and (key in k or k in key)), None))
+
     got = sum(1 for r in rows if r[2])
     out = [f"# KR 마감 사전 수집 — {asof} 기준" + ("" if asof == today else f" (오늘 {today}은 새 기록 없음 — 직전 거래일 값)"), ""]
     if rows and got:
@@ -131,6 +149,8 @@ def main():
                 "- 아래 표의 종가·등락률을 **그대로** 쓴다. 이 시각에 네이버 `/basic`을 다시 부르면 애프터마켓 진행가가 나오므로 부르지 않는다.", "",
                 "## 보유 종목 (정규장 종가 기준)", "", "| 종목 | 코드 | 정규장 종가 | 등락률 |", "|---|---|---|---|"]
         out += [f"| {n} | {c} | {('%s' % format(round(p), ',')) if p else '—'} | {pct(g)} |" for n, c, p, g in rows]
+        if extra:
+            out += ["", f"† 지시문의 보유 목록에는 있으나 GAS 보유현황 표에는 없던 종목 {len(extra)}개 — 가격은 같은 방식(네이버 분봉의 정규장 종가 ÷ 기준가)으로 넣었다."]
     else:
         out += ["- **보유 종목 사전 수집 실패** — 지시문의 대체 경로(1-B)로 가격을 받는다. 16시 이후의 네이버 표시가는 애프터마켓 가격이므로, "
                 "분봉 API의 정규장 마감 값을 쓰거나 리포트에 \"애프터마켓 반영가\"라고 밝힌다."]
@@ -158,7 +178,8 @@ def main():
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(out) + "\n")
     print(f"prefetch: asof={asof} holdings={len(rows)} priced={got} source={'gas-lock' if use_gas else 'naver-minute'}"
-          f" crosscheck={match}/{checked} replaced={replaced} market={mk_state}")
+          f" crosscheck={match}/{checked} replaced={replaced} market={mk_state}"
+          f" prompt_only={len(extra)} gas_only={gas_only} prompt_only_categories={extra_cats}")
 
 
 if __name__ == "__main__":
