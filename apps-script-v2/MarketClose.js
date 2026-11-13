@@ -26,7 +26,6 @@ const MC = {
   MARKET_UNTIL: 18 * 60 + 30,       // 시장 숫자 수집을 시도하는 마지막 시각
   AM_ALERT_FROM: 20 * 60 + 3,       // 애프터마켓 종료(20:00) 뒤 알림 시도 시작
   AM_ALERT_TO: 21 * 60,
-  HELD_CATS: ['국내주식', '국내ETF'],
   PROP_LOCK: 'kr_close_lock',       // {date, at, via:'kis'|'naver'|'kis+naver', skip:[code]} — 상태(한 칸 덮어쓰기)
   PROP_TRY: 'kr_close_try',         // {date, n}
   PROP_CHECK: 'kr_close_check',     // {date, prevDate, total, match, fixed, prevLocked}
@@ -258,7 +257,7 @@ function mcEnsureMarketSnapshot() {
 }
 
 /**
- * 보유 원화 종목(여러 계좌에 있으면 한 줄)의 마감 기록 — 마감 리포트·애프터마켓 알림용. 수량·금액 없음.
+ * 보유 원화 종목(국내 형식 코드, 여러 계좌에 있으면 한 줄)의 마감 기록 — 마감 리포트·애프터마켓 알림용. 수량·금액 없음.
  * @return {{date: ?string, locked: boolean, closeHHMM: ?string, items: Array<{code, name, close, changePct}>}}
  */
 function mcKrCloseTable(ss) {
@@ -268,9 +267,10 @@ function mcKrCloseTable(ss) {
   const names = {}, order = [];
   pos.getRange(2, 1, pos.getLastRow() - 1, 15).getValues().forEach(r => {
     if (String(r[0]) === '합계' || String(r[1]) === '합계' || !(Number(r[6]) > 0)) return;
-    if (MC.HELD_CATS.indexOf(String(r[2] || '').trim()) < 0) return;
+    // 원화로 거래소에서 거래되는 보유 종목 = 국내 형식 코드 + KIS 시세 대상 분류 — 잠금의 국내 종목 판정과 같은 기준
+    // (국내 상장 해외지수 ETF처럼 분류가 '해외ETF'여도 코드가 국내 형식이면 포함, 펀드·예금 등은 제외)
     const code = _normCode(String(r[0]));
-    if (!code || names[code]) return;
+    if (!code || !_mcIsDomestic(code) || NS.KIS_SKIP.indexOf(String(r[2] || '').trim()) >= 0 || names[code]) return;
     names[code] = String(r[1] || code);
     order.push(code);
   });

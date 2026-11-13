@@ -244,7 +244,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `mcApplyCloseLock(codes, freshRow, todayRow, carried)` — `updateNewPriceHistory`가 오늘 행을 쓰기 직전에 호출. 창 안이면 KIS 새 값으로 잠금(조회 실패 종목은 네이버 분봉으로 보충, 그것도 없으면 그 종목만 `skip`), 잠긴 뒤엔 국내 종목 칸을 오늘 행 값으로 유지, 창을 놓쳤으면 네이버 분봉의 정규장 마감 값으로 채우고 잠금. 속성 `kr_close_lock` = `{date, at, via, skip}`
 - `mcCloseCheck(sheet, prevRow, codes, prevPrices)` — 장중 첫 갱신에서 1회: 앞 행(직전 거래일) 값 = 오늘 KIS 기준가(`KIS_API._baseMap`)인지 대조. **잠기지 않았던 날**의 불일치만(차이 15% 이내) 기준가로 보정, 잠긴 날은 개수만. 속성 `kr_close_check`, 로그 `closeCheck:`
 - `mcEnsureMarketSnapshot` / `_mcFetchMarket` — 마감 +5분부터 18:30까지, 그날 치가 없으면 네이버에서 업종 등락(79개)·급등락 상위 10·코스피/코스닥 종가·등락률·거래대금을 받아 속성 `kr_market_close`(한 칸 덮어쓰기)에 저장. 애프터마켓 시작 뒤에 받았으면 `late:true`
-- `mcKrCloseTable(ss)` — 보유 원화 종목(국내주식·국내ETF, 계좌 중복은 한 줄)의 `{date, locked, closeHHMM, items:[{code,name,close,changePct}]}`. 수량·금액 없음. 리포트(`getPortfolioMetrics().krClose`)와 알림이 공용
+- `mcKrCloseTable(ss)` — 보유 원화 종목(국내 형식 코드 + KIS 시세 대상 분류 — 잠금의 국내 종목 판정과 같은 기준, 계좌 중복은 한 줄)의 `{date, locked, closeHHMM, items:[{code,name,close,changePct}]}`. 수량·금액 없음. 리포트(`getPortfolioMetrics().krClose`)와 알림이 공용
 - `mcAfterMarketAlert` / `_mcFormatAmAlert` — 거래일 20:03~21:00에 하루 1통(`am_alert_date`): 보유 원화 종목 **전부**의 변화율(정규장 종가 → 네이버 `/basic` 20시 이후 값 = 애프터마켓 종료가). 크기로 거르지 않고, 조회 실패 종목도 "실패"로 표기
 - `_mcNaverRegularCloses`(분봉의 정규장 마감 값 — 실행 시각 무관) / `_mcNaverBasicPrices` / `_mcFetchJsonAll` — 네이버 공개 API
 - 다른 파일의 접점: `NewSystem.js updateNewPriceHistory`(잠금·대조 호출, 실패 시 새 값 그대로) · `KIS_API.getKisPricesBatch`(기준가 `stck_sdpr`를 `KIS_API._baseMap`에) · `Telegram.js _tgHandlePushPost` · `Main.js scheduledHourlyUpdate` · `MobileAPI.js getPortfolioMetrics`(`krClose`·`marketClose`) · `Diag.js`(`krCloseLock`·`closeCheck`·`marketClose`·`amAlertDate`)
@@ -301,7 +301,7 @@ KIS 키 갱신 (2026-11-13 v35 배포 — 사용자 리허설 후 확정): **시
   - `kr-prompt.md` — KR 분석 (Naver·뉴스는 **Bash curl 필수** — WebFetch 도구 계층 차단 2026-07-03, iconv euc-kr. 수급/업종/종목뉴스API + 보유종목 그룹별)
   - `weekly-prompt.md` — 주간 리캡 (GAS 지표 pre-fetch 파일 1차, Yahoo curl 429 재시도)
 - `send_telegram.py` — Telegram Bot API 발송 헬퍼 (Markdown→plain text fallback, 두 chat_id 순회)
-- `kr_close_prefetch.py` (2026-11-14) — KR 마감 리포트 사전 수집. `market-report.yml` KR job의 "Pre-fetch close snapshot" 단계가 GAS `portfolioMetrics` 응답을 받아 넘기면, 보유 종목의 **정규장 종가·등락률** 표와 마감 시장 숫자(지수·업종·순위)를 `/tmp/kr/close.md`로 만든다. 잠긴 GAS 기록을 네이버 분봉의 정규장 마감 값과 대조(다르면 분봉 값), 잠금·GAS 응답이 없으면 분봉 값 ÷ 기준가로 계산. **로그에는 개수·상태만**(공개 로그) — `prefetch: asof=… source=gas-lock|naver-minute crosscheck=n/m …`. 실패해도 exit 0(에이전트가 지시문의 대체 경로)
+- `kr_close_prefetch.py` (2026-11-14) — KR 마감 리포트 사전 수집. `market-report.yml` KR job의 "Pre-fetch close snapshot" 단계가 GAS `portfolioMetrics` 응답을 받아 넘기면, 보유 종목의 **정규장 종가·등락률** 표와 마감 시장 숫자(지수·업종·순위)를 `/tmp/kr/close.md`로 만든다. 잠긴 GAS 기록을 네이버 분봉의 정규장 마감 값과 대조(다르면 분봉 값), 잠금·GAS 응답이 없으면 분봉 값 ÷ 기준가로 계산. 지시문의 보유 목록에만 있는 종목도 같은 방식으로 표에 추가(†, 로그 `prompt_only`·`gas_only`). **로그에는 개수·상태만**(공개 로그) — `prefetch: asof=… source=gas-lock|naver-minute crosscheck=n/m …`. 실패해도 exit 0(에이전트가 지시문의 대체 경로)
 
 ## scripts/ — 로컬 스크립트·git 훅
 
