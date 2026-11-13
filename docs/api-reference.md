@@ -71,7 +71,7 @@ last updated: 2026-11-13
 | `newMobileGetSoldTracker()` | SoldTrackerResponse | 매도 복기 What-if. `asOfDate` + `items[]` 16필드 (sellDate·code·name·category·broker·account·sellQty·sellPrice·sellAmount·avgBuyPrice·buyCost·realizedProfit·**currentPrice**·**ifHeldProfit**(안팔았다면)·**diff**(판것대비차이)·elapsedDays) ← *매도추적*. 국내만 what-if(해외 currentPrice/ifHeldProfit/diff=null·환율 미반영), 매도일 desc |
 | `newMobileGetIndicators()` | IndicatorsResponse | 참고지표 (key·name·category·value·change·changePct) |
 | `newMobileGetIndicatorHistory()` | IndicatorHistoryResponse | **참고지표 시계열** (*참고지표_히스토리* 시트 wide JSON: keys + entries[{date, KOSPI, SPX, ...}]). 벤치마크 outperformance 차트용 — 날짜 asc 정렬, name→key 매핑 |
-| `newMobileGetSystemStatus()` | SystemStatusResponse | 시스템 상태 (데스크 KIS Status) — `_buildDiag`(날짜·참거짓·개수·충족도만) + `kis_carried_status`{date·carried·total}. 금액·종목명 없음 (2026-07-23). diag에 `kisKeySource`(property/secret)·`kisTokenMatchesKey`·`propCount`(속성 개수) 추가 (2026-11-13, 배포 후) |
+| `newMobileGetSystemStatus()` | SystemStatusResponse | 시스템 상태 (데스크 KIS Status) — `_buildDiag`(날짜·참거짓·개수·충족도만) + `kis_carried_status`{date·carried·total}. 금액·종목명 없음 (2026-07-23). diag에 `kisKeySource`(property/secret)·`kisTokenMatchesKey`·`propCount`(속성 개수) 추가 (2026-11-13, v35) |
 | `newMobileGetNews()` | NewsResponse | 보유 종목 뉴스 (데스크 Today) — `{success, fetchedAt, stockCount, items[], earnings[]}`. item: code·name·title·source·dt(YYYYMMDDHHmm)·url(KR 기사 직링크 / US 종목 뉴스탭). earnings: US 종목 다음 실적일 {code·name·date(YYYY-MM-DD 현지)·estimate}(Yahoo crumb 2단 인증, 실패 시 []). 최신순 최대 40건, GAS CacheService 30분. 소스: 네이버 국내(m.stock)·해외(api.stock, 한국어)·Yahoo(실적일만) — News.js (2026-08-06) |
 | `newMobileUpdateCurrentPrice()` | — | 현재가 갱신 트리거 |
 | `newMobileUpdateHistory()` | — | *현재가_이력* 갱신 트리거 |
