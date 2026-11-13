@@ -24,6 +24,14 @@ fi
 # 2. git add
 git add -A
 
+# 2.5. 저장 직전 자동 검사 — harness/session.sh 와 같은 검사기 (공개 repo라 걸리면 커밋 중단)
+GUARD="$(dirname "$(readlink "$HOME/.claude/CLAUDE.md" 2>/dev/null)")/save_guard.py"
+if [ -f "$GUARD" ] && command -v python3 >/dev/null 2>&1; then
+  python3 -I "$GUARD" "$ROOT" || exit 1
+else
+  echo "⚠ 저장 검사 생략 — harness/save_guard.py 또는 python3 없음"
+fi
+
 # 3. 변경 없으면 종료
 if git diff --cached --quiet; then
   echo "✓ 커밋할 변경 없음 — 종료"

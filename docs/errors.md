@@ -26,7 +26,7 @@
 ### 실제 매매 기록 엑셀(`매입매수정보.xlsx`)이 공개 repo에 6개월 노출 — 7/16 프라이버시 스크럽에서 누락
 - **증상**: 이메일 가리기 중 repo 최상위 파일 목록에서 발견. 매입일·증권사·종목·수량·단가·매도 정보(43행, 숫자 셀 716개 — 값 미열람, 구조만 확인). 2026-05-08 커밋(a37a29c) 이후 현재 버전에도 존재.
 - **원인**: ① `.gitignore`에 스프레드시트 확장자 규칙 없음 ② 7/16 스크럽은 `git-filter-repo --replace-text`(텍스트 리터럴 치환) — xlsx는 압축 바이너리라 치환에 안 걸림 **[추정 — 당시 대상 목록 기록 없음]** ③ 공개 repo 하나에 코드와 개인 기록이 섞인 구조.
-- **해결 (부분)**: `git rm --cached`(맥의 파일은 유지) + `.gitignore`에 `*.xlsx`·`*.xls`·`*.numbers`·`apps-script-v2/Secret.gs*` 추가. **옛 버전에는 남아 있음** → pending 🔴 "공개 repo 개인 기록 분리 + 옛 버전 정리".
+- **해결 (부분)**: `git rm --cached`(맥의 파일은 유지) + `.gitignore`에 `*.xlsx`·`*.xls`·`*.numbers`·`apps-script-v2/Secret.gs*` 추가. **옛 버전에는 남아 있음** → pending 🔴 "공개 repo 개인 기록 분리 + 옛 버전 정리". **재발 방지 (2026-11-13)**: 저장 직전 자동 검사 `harness/save_guard.py` — 공개 repo에 새 데이터·바이너리 파일이나 개인 이메일·금액·계좌번호 줄이 들어가면 커밋 중단(5/8 커밋 재현 시 중단 확인).
 - **교훈**: 텍스트 패턴 스크럽은 바이너리(엑셀·PDF·이미지)를 못 본다 — 정리 전에 `git -c core.quotepath=false ls-files`로 확장자별 목록부터. 공개 repo의 1차 방어는 확장자 단위 무시 규칙.
 
 ### 웹·데스크·iOS 전부 `HTTP 404 Requested entity was not found` — 소유자 아닌 계정으로 GAS 저장
