@@ -110,7 +110,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 ### Main.js — 메뉴·트리거
 - `onOpen` — **📊 뉴시스템**(데이터 작업) + **🛠️ 유지보수**(진단·트리거) 두 메뉴 생성
   - 뉴시스템: 전체/현재가/보유현황/대시보드 갱신 + 휴장일 동기화
-  - 유지보수: 🔍 진단(`runDiag`) / ⏰ 17:30 트리거 / 🕐 장중 매시 :30 트리거 / 📱 Telegram 푸시 / 📊 시장 리포트 큐 트리거(`tgSetupReportQueueTrigger`)·수동 발송(`tgFlushReportQueueNow`)
+  - 유지보수: 🔍 진단(`runDiag`) / 🔑 KIS 키 교체(`kisRotateKey`, KIS_API.js) / ⏰ 17:30 트리거 / 🕐 장중 매시 :30 트리거 / 📱 Telegram 푸시 / 📊 시장 리포트 큐 트리거(`tgSetupReportQueueTrigger`)·수동 발송(`tgFlushReportQueueNow`)
 - `doPost(e)` — action 라우팅: `addMarketReport`→`_tgHandleMarketReportPost` / `pushPnL`→`_tgHandlePushPost`(GitHub Actions 장중 텔레그램 푸시) / 그 외→`handleTelegramWebhook` (모두 Telegram.js)
 - `onEdit` — 입력폼 제출·대시보드 정렬 드롭다운 분기
 - `updateAllNew` — 전체 업데이트: 가격→보유현황→대시보드 (`menuUpdateAll` alias)
@@ -154,7 +154,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `newMobileGetIndicators` — 참고지표 (현재값)
 - `newMobileGetIndicatorHistory` — **참고지표 시계열** (*참고지표_히스토리* 시트 wide JSON, name→key 매핑, 날짜 asc). 벤치마크 차트·지표 상세 모달용
 - `getPortfolioMetrics` / `_handlePortfolioMetricsPost` — **포트폴리오 상대 지표** (리포트 public용, doPost `action=portfolioMetrics`+시크릿). 자산군 비중%(현금성 포함)·종목 비중%·MDD%·`recentReturns`(운용수익률% 누적 시계열, AC열)·`dailyReturns:[{date,dRatePct,rawPct?,flowAdj?,suspect?}]`(최근 7거래일 **일별 총자산 변화율%**, S열 — 마지막5 복리=d5라 주간 리포트 일자별 표와 d5 정합. **TWR read-time 보정**: 원장 입금/출금 행으로 flow 맵 구성(비거래일 롤포워드) → `r_adj=(Q−F−V_prev)/V_prev`·`flowAdj:true`, |dRate|≥3%인데 flow 없으면 `suspect:true`. ₩ 금액 비노출)·`portfolioReturn{d5,d20}`(보정된 dRate 복리누적, 매매 강건·벤치 단위일치) — **원화 절대액 미포함**. MDD=*추이 기록* 일별 Q열 peak-to-trough. **% 셀은 `_mPctVal`로 파싱**(numeric=분수×100/텍스트=% — Sheets가 음수 % 문자열만 분수로 자동 파싱하는 비대칭, errors.md 2026-07-16)
-- `_handleEmailReportPost` / `_emailReportSelfTest` / `emailKillSwitch_ON` / `emailKillSwitch_OFF` / `_mdToHtml` — **이메일 셀프발송** (PB 리포트, doPost `action=emailReport`+시크릿). 수신=발송=`getEffectiveUser` 소유자 고정(제3자 불가). 안전장치 5중: killswitch(`email_disabled`)·제목화이트리스트(`Market Close/Wrap`)·일일상한 6·주소마스킹·수신자고정. `_mdToHtml`=MarkdownV1→HTML(htmlBody). 스코프 `script.send_mail` 필요(재승인)
+- `_handleEmailReportPost` / `_emailReportSelfTest` / `emailKillSwitch_ON` / `emailKillSwitch_OFF` / `_mdToHtml` — **이메일 셀프발송** (PB 리포트, doPost `action=emailReport`+시크릿). 수신=발송=`getEffectiveUser` 소유자 고정(제3자 불가). 안전장치 5중: killswitch(`email_disabled`)·제목화이트리스트(`Market Close/Wrap`)·일일상한 6·주소마스킹·수신자고정. 일일 카운터는 속성 한 칸 `email_count` = `날짜|횟수`(상태, 덮어쓰기 — 2026-11-13, 그전 날짜별 키 `email_count_<날짜>`는 쌓이기만 했음). `_emailCountCleanup(props, max)` = 옛 날짜별 키만 골라 발송 성공 뒤 실행당 60개씩 삭제, 응답에 `cleaned` 개수. `_mdToHtml`=MarkdownV1→HTML(htmlBody). 스코프 `script.send_mail` 필요(재승인)
 - `_mMapHolding` — 보유현황 행 + *종목지표* → holding 객체 (지표는 `_readStockMetrics`로 읽음, StockMetrics.js)
 - `_mGetBuyDates` / `_mGetFxRates` / `_mGetCashReserve` (*설정* A7:E12) / `_mGetNonStockAssets` (KIS_SKIP 카테고리 행) / `_mFindPrevDayProfitChange`
 - `_mGroupBy` — 분류별/계좌별 집계
@@ -186,7 +186,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 
 ### Diag.js — 사용자 트리거 진단 (유지보수 메뉴)
 - `runDiag` — `🛠️ 유지보수 → 🔍 진단` 메뉴 핸들러. 최소 진단 JSON 팝업으로 표시 (복사용)
-- `_buildDiag` — 날짜·참거짓·개수·지표충족도·상태만 (금액·종목명·계좌 절대 미포함)
+- `_buildDiag` — 날짜·참거짓·개수·지표충족도·상태만 (금액·종목명·계좌 절대 미포함). KIS 키 출처 `kisKeySource`·토큰 일치 `kisTokenMatchesKey`·스크립트 속성 개수 `propCount`(속성 화면 수동 편집 한도 50개 감시) 포함
 - 공개 엔드포인트 없음. 사용자가 메뉴로만 트리거
 
 ### Trend.js — `logToTrendSheet(ss)` *추이 기록* 갱신 + 헬퍼
@@ -226,10 +226,17 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
   - 모두 GAS PropertiesService(서버 전용). 클라이언트(워치/iPhone)에 시크릿 0개
 
 ### KIS_API.js — `KIS_API` 객체: 토큰 발급, 국내·해외 주식/지수/선물 시세 조회
+- `_kisKeys()` — KIS 앱키·앱시크릿 `{key, secret, source}`. 스크립트 속성 `KIS_APP_KEY`·`KIS_APP_SECRET`이 **둘 다** 있으면 속성(`source:'property'`), 아니면 Secret.js(`'secret'`). 한 실행에 한 번만 읽음(전역 캐시). 모든 KIS 요청 헤더가 이걸 씀
+- `_kisKeyFp(key)` — 앱키 지문(SHA-256 앞 12자). `getAccessToken`이 토큰 캐시(`KIS_ACCESS_TOKEN`·`KIS_TOKEN_EXPIRY`)와 함께 `KIS_TOKEN_KEYFP`로 저장 → 재사용 조건 = 만료 전 **그리고** 지문 일치 (키가 바뀌면 자동 재발급)
+- `_kisRequestToken(key, secret)` — 토큰 발급 요청 1회 → `{token, expiresMs}` 또는 `{error}`. 저장은 호출한 쪽(`getAccessToken`·`kisRotateKey`)
+- `kisRotateKey` — **`🛠️ 유지보수 → 🔑 KIS 키 교체`** (시트 메뉴 전용). 입력창 2개(앱키·앱시크릿) → 공백 제거 → 그 값으로 토큰 발급 시험 → **성공할 때만** `KIS_APP_KEY`·`KIS_APP_SECRET`·토큰·만료·지문을 한 번에 저장. 실패·취소·빈값이면 무변경(기존 키로 계속 동작). 키 값은 로그·알림창에 안 남김. 속성 화면·편집기·로그인 계정과 무관
+- 🔍 진단(`_buildDiag`)에 `kisKeySource`·`kisTokenMatchesKey` (키 값은 미표시)
 
 ### Secret.js — KIS appkey/secret. **원격(Google)에만 존재. 절대 건드리지 않음.**
 배포는 반드시 `python3 apps-script-v2/push_safe.py` (clasp push 금지).
-앱 전부 404 "Requested entity was not found" → 소유자 계정으로 GAS 에디터 1회 재저장 (errors.md 2026-11-10). KIS 키 갱신 시: 스크립트 속성 `KIS_ACCESS_TOKEN`·`KIS_TOKEN_EXPIRY` 삭제 후 🔄 전체 업데이트 — 토큰 캐시가 앱키를 모름 + **웹앱 고정 배포 3개 재배포 필수**(버전에 Secret.gs가 얼려짐) (errors.md 2026-11-10).
+앱 전부 404 "Requested entity was not found" → 소유자 계정으로 GAS 에디터 1회 재저장 (errors.md 2026-11-10).
+KIS 키 갱신 (2026-11-13 코드 반영 — 배포·사용자 리허설 후 확정): **시트 `🛠️ 유지보수 → 🔑 KIS 키 교체`에 새 앱키·앱시크릿 입력 → "완료" 창 → 🔄 전체 업데이트**. 메뉴가 토큰 발급을 시험한 뒤 스크립트 속성에 저장하고, 속성은 버전에 안 얼려져 재배포·편집기 저장이 필요 없다. 속성이 비면 Secret.js 폴백. (속성 화면에서 두 칸을 직접 고쳐도 지문으로 토큰이 자동 교체되지만, 수동 추가는 속성 50개까지라 메뉴가 기본 경로)
+(속성 이전 전 옛 절차: 토큰 속성 2개 삭제 + 🔄 전체 업데이트 + 웹앱 고정 배포 3개 재배포 — errors.md 2026-11-10)
 
 ---
 

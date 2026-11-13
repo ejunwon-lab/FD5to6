@@ -17,6 +17,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('🛠️ 유지보수')
     .addItem('🔍 진단', 'runDiag')
+    .addItem('🔑 KIS 키 교체', 'kisRotateKey')
     .addSeparator()
     .addItem('⏰ 매일 17:30 자동 트리거 등록', 'setupDailyTrigger')
     .addItem('🗑️ 17:30 자동 트리거 해제', 'deleteDailyTrigger')

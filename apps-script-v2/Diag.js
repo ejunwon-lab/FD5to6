@@ -76,5 +76,21 @@ function _buildDiag() {
     out.lastUpdate = String(dash.getRange(2, 1).getValue() || '');
   }
 
+  // KIS 키 출처(property=스크립트 속성 / secret=Secret.js)와 토큰 캐시가 지금 키로 발급됐는지 — 키 값은 넣지 않음
+  try {
+    const keys = _kisKeys();
+    out.kisKeySource = keys.source;
+    out.kisTokenMatchesKey = PropertiesService.getScriptProperties().getProperty('KIS_TOKEN_KEYFP') === _kisKeyFp(keys.key);
+  } catch (e) {
+    out.kisKeySource = 'error: ' + e.message;
+  }
+
+  // 스크립트 속성 개수 — 속성 화면 수동 편집 한도(50개) 감시용. 이름·값은 넣지 않음
+  try {
+    out.propCount = PropertiesService.getScriptProperties().getKeys().length;
+  } catch (e) {
+    out.propCount = -1;
+  }
+
   return out;
 }

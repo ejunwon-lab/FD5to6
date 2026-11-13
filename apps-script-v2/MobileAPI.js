@@ -507,9 +507,11 @@ function _handleEmailReportPost(e) {
       return _emailJsonOut({ success: false, error: 'subject_not_allowed' });
     }
     // [4] 일일 상한 — subject 무관 (dedup 우회 폭주·쿼터 소진 차단)
+    //     한 칸 'email_count' = "날짜|횟수" 를 덮어쓴다 (상태). 날짜별 키(email_count_YYYY-MM-DD)는 지워지지 않고 쌓여
+    //     속성 화면의 수동 편집 한도(50개)를 넘겼다 — errors.md 2026-11-13.
     const today = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
-    const cntKey = 'email_count_' + today;
-    const cnt = Number(props.getProperty(cntKey) || 0);
+    const cntRec = String(props.getProperty('email_count') || '').split('|');
+    const cnt = cntRec[0] === today ? (Number(cntRec[1]) || 0) : 0;
     if (cnt >= _EMAIL_DAILY_MAX) {
       Logger.log('emailReport: 일일 상한(' + _EMAIL_DAILY_MAX + ') 초과 — 차단');
       return _emailJsonOut({ success: false, error: 'daily_limit' });
@@ -527,12 +529,22 @@ function _handleEmailReportPost(e) {
     MailApp.sendEmail({ to: to, subject: subject, body: text, htmlBody: _mdToHtml(text) });
     props.setProperty(key + '_subj', String(subject));
     props.setProperty(key + '_ms', String(Date.now()));
-    props.setProperty(cntKey, String(cnt + 1));
-    return _emailJsonOut({ success: true, result: 'sent' });   // 수신주소 미노출
+    props.setProperty('email_count', today + '|' + (cnt + 1));
+    // 옛 날짜별 카운터 정리 — 실행당 일부만(응답 지연 한정), 다 지우면 대상이 없어 바로 끝난다. 실패해도 발송 결과는 그대로.
+    let cleaned = 0;
+    try { cleaned = _emailCountCleanup(props, 60); } catch (e2) { Logger.log('email_count 정리 실패: ' + e2.message); }
+    return _emailJsonOut({ success: true, result: 'sent', cleaned: cleaned });   // 수신주소 미노출
   } catch (err) {
     Logger.log('_handleEmailReportPost 오류: ' + err.message);
     return _emailJsonOut({ success: false, error: String(err) });
   }
+}
+
+/** 옛 날짜별 발송 카운터(email_count_YYYY-MM-DD)를 최대 max 개 삭제하고 지운 개수를 돌려준다. 그 밖의 속성은 건드리지 않는다. */
+function _emailCountCleanup(props, max) {
+  const old = props.getKeys().filter(k => /^email_count_\d{4}-\d{2}-\d{2}$/.test(k)).slice(0, max);
+  old.forEach(k => props.deleteProperty(k));
+  return old.length;
 }
 
 /** 🛑 이메일 발송 즉시 전면 차단 (해킹·오발송 의심 시 에디터에서 이 함수 ▶ 실행). */

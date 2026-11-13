@@ -2,51 +2,128 @@
  * KIS_API.gs
  * 한국투자증권 API 연동 모듈
  */
+
+/**
+ * KIS 앱키·앱시크릿 — 스크립트 속성 KIS_APP_KEY·KIS_APP_SECRET이 둘 다 있으면 속성, 아니면 Secret.js.
+ * 속성은 버전에 얼려지지 않아 키 갱신 때 재배포·에디터 저장이 필요 없다 (docs/plans/2026-11-10-KIS-키-연간갱신-대비.md).
+ * 한 실행 안에서는 한 번만 읽는다 (요청마다 속성 읽기 방지).
+ */
+let _kisKeysCache = null;
+function _kisKeys() {
+  if (_kisKeysCache) return _kisKeysCache;
+  const p = PropertiesService.getScriptProperties();
+  const key = (p.getProperty('KIS_APP_KEY') || '').trim();
+  const secret = (p.getProperty('KIS_APP_SECRET') || '').trim();
+  _kisKeysCache = (key && secret)
+    ? { key: key, secret: secret, source: 'property' }
+    : { key: SECRET.KIS_APP_KEY, secret: SECRET.KIS_APP_SECRET, source: 'secret' };
+  return _kisKeysCache;
+}
+
+/** 앱키 지문 = SHA-256 앞 12자 — 토큰 캐시가 어느 키로 발급됐는지 기록 (errors.md 2026-11-10 옛 토큰 재사용) */
+function _kisKeyFp(key) {
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(key || ''), Utilities.Charset.UTF_8);
+  return bytes.slice(0, 6).map(b => ((b + 256) % 256).toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * 토큰 발급 요청 1회 — 성공 { token, expiresMs }, 거절 { error: KIS 응답 본문 }.
+ * 저장은 호출한 쪽이 한다 (getAccessToken = 캐시 갱신, kisRotateKey = 시험 후 저장).
+ */
+function _kisRequestToken(key, secret) {
+  const url = `${SECRET.KIS_BASE_URL}/oauth2/tokenP`;
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({ "grant_type": "client_credentials", "appkey": key, "appsecret": secret }),
+    muteHttpExceptions: true,
+    headers: {
+      "Accept": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+  };
+  Logger.log(`[KIS API] 토큰 발급 요청 중... URL: ${url}`);
+  const data = JSON.parse(UrlFetchApp.fetch(url, options).getContentText());
+  return data.access_token
+    ? { token: data.access_token, expiresMs: data.expires_in * 1000 }
+    : { error: JSON.stringify(data) };
+}
+
+/**
+ * 🛠️ 유지보수 → 🔑 KIS 키 교체 (시트 메뉴 전용 — 에디터에서 직접 실행하면 입력창에서 멈춘다).
+ * 앱키·앱시크릿을 입력받아 그 값으로 토큰 발급을 시험하고, 성공했을 때만 스크립트 속성에 저장한다.
+ * 실패·취소·빈값이면 아무것도 바꾸지 않는다 (기존 키로 계속 동작). 키 값은 로그·알림창에 남기지 않는다.
+ * 속성 화면·편집기·로그인 계정과 무관 — errors.md 2026-11-10(앱 404)·2026-11-13(속성 화면 50개 한도) 경로를 피한다.
+ */
+function kisRotateKey() {
+  const ui = SpreadsheetApp.getUi();
+  const title = '🔑 KIS 키 교체';
+  const ask = (step, msg) => {
+    const r = ui.prompt(title + ' (' + step + '/2)', msg + '\n취소하면 아무것도 바뀌지 않습니다.', ui.ButtonSet.OK_CANCEL);
+    return r.getSelectedButton() === ui.Button.OK ? String(r.getResponseText() || '').replace(/\s+/g, '') : null;
+  };
+  const key = ask(1, '앱키(App Key)를 붙여 넣고 확인을 누르세요.');
+  if (key === null) return;
+  const secret = ask(2, '앱시크릿(App Secret)을 붙여 넣고 확인을 누르세요.');
+  if (secret === null) return;
+  if (!key || !secret) {
+    ui.alert(title, '앱키와 앱시크릿이 모두 필요합니다. 바뀐 것은 없습니다.', ui.ButtonSet.OK);
+    return;
+  }
+  let r;
+  try {
+    r = _kisRequestToken(key, secret);
+  } catch (e) {
+    r = { error: String((e && e.message) || e) };
+  }
+  if (!r.token) {
+    // KIS 응답을 그대로 보여 주되, 입력값이 되돌아왔다면 가린다
+    const detail = String(r.error || '').split(key).join('(앱키)').split(secret).join('(앱시크릿)').slice(0, 300);
+    Logger.log('kisRotateKey: 토큰 발급 거절 — 저장 안 함');
+    ui.alert(title + ' — 실패', '이 키로는 토큰을 받지 못했습니다. 바뀐 것은 없고, 기존 키로 계속 동작합니다.\n\nKIS 응답: ' + detail, ui.ButtonSet.OK);
+    return;
+  }
+  PropertiesService.getScriptProperties().setProperties({
+    KIS_APP_KEY: key,
+    KIS_APP_SECRET: secret,
+    KIS_ACCESS_TOKEN: r.token,
+    KIS_TOKEN_EXPIRY: String(Date.now() + r.expiresMs),
+    KIS_TOKEN_KEYFP: _kisKeyFp(key)
+  });
+  _kisKeysCache = null;
+  Logger.log('kisRotateKey: 새 키로 토큰 발급 성공 — 속성 저장');
+  ui.alert(title + ' — 완료', '새 키로 토큰을 받아 저장했습니다.\n\n이어서 📊 뉴시스템 → 🔄 전체 업데이트를 한 번 실행해 주세요.', ui.ButtonSet.OK);
+}
+
 const KIS_API = {
   /**
    * 접근 토큰(Access Token) 발급 및 관리
-   * - 유효기간이 남았으면 재사용, 없으면 재발급
+   * - 유효기간이 남았고 지금 앱키로 발급된 토큰이면 재사용, 아니면 재발급
    */
   getAccessToken: function() {
     const props = PropertiesService.getScriptProperties();
     const token = props.getProperty('KIS_ACCESS_TOKEN');
     const expiry = props.getProperty('KIS_TOKEN_EXPIRY');
     const now = new Date().getTime();
-    // 토큰이 있고 유효기간이 1분 이상 남았으면 재사용
-    if (token && expiry && now < Number(expiry) - 60000) {
+    const keys = _kisKeys();
+    const fp = _kisKeyFp(keys.key);
+    // 토큰이 있고, 지금 앱키로 발급됐고, 유효기간이 1분 이상 남았으면 재사용
+    if (token && expiry && props.getProperty('KIS_TOKEN_KEYFP') === fp && now < Number(expiry) - 60000) {
       return token;
     }
     // 토큰 재발급 요청
-    const url = `${SECRET.KIS_BASE_URL}/oauth2/tokenP`;
-    const payload = {
-      "grant_type": "client_credentials",
-      "appkey": SECRET.KIS_APP_KEY,
-      "appsecret": SECRET.KIS_APP_SECRET
-    };
     try {
-      const options = {
-        method: 'post',
-        contentType: 'application/json',
-        payload: JSON.stringify(payload),
-        muteHttpExceptions: true,
-        headers: {
-          "Accept": "application/json",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-      };
-      
-      Logger.log(`[KIS API] 토큰 발급 요청 중... URL: ${url}`);
-      const res = UrlFetchApp.fetch(url, options);
-      const data = JSON.parse(res.getContentText());
-      
-      if (data.access_token) {
+      const r = _kisRequestToken(keys.key, keys.secret);
+      if (r.token) {
         // 유효기간 저장 (보통 24시간)
-        const expiresIn = data.expires_in * 1000; // 밀리초 변환
-        props.setProperty('KIS_ACCESS_TOKEN', data.access_token);
-        props.setProperty('KIS_TOKEN_EXPIRY', String(now + expiresIn));
-        return data.access_token;
+        props.setProperties({
+          KIS_ACCESS_TOKEN: r.token,
+          KIS_TOKEN_EXPIRY: String(now + r.expiresMs),
+          KIS_TOKEN_KEYFP: fp
+        });
+        return r.token;
       } else {
-        throw new Error('토큰 발급 실패: ' + JSON.stringify(data));
+        throw new Error('토큰 발급 실패: ' + r.error);
       }
     } catch (e) {
       Logger.log('KIS 토큰 발급 중 오류: ' + e);
@@ -83,8 +160,8 @@ const KIS_API = {
     const headers = {
       "content-type": "application/json; charset=utf-8",
       "authorization": "Bearer " + token,
-      "appkey": SECRET.KIS_APP_KEY,
-      "appsecret": SECRET.KIS_APP_SECRET,
+      "appkey": _kisKeys().key,
+      "appsecret": _kisKeys().secret,
       "tr_id": "FHKST01010100", // 주식현재가 시세
       "Accept": "application/json",
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -131,8 +208,8 @@ const KIS_API = {
           headers: {
             "content-type": "application/json; charset=utf-8",
             "authorization": "Bearer " + token,
-            "appkey": SECRET.KIS_APP_KEY,
-            "appsecret": SECRET.KIS_APP_SECRET,
+            "appkey": _kisKeys().key,
+            "appsecret": _kisKeys().secret,
             "tr_id": "FHKST01010100"
           },
           method: 'get',
@@ -183,8 +260,8 @@ const KIS_API = {
         headers: {
           "content-type": "application/json; charset=utf-8",
           "authorization": "Bearer " + token,
-          "appkey": SECRET.KIS_APP_KEY,
-          "appsecret": SECRET.KIS_APP_SECRET,
+          "appkey": _kisKeys().key,
+          "appsecret": _kisKeys().secret,
           "tr_id": "FHKST01010100"
         },
         method: 'get',
@@ -237,8 +314,8 @@ const KIS_API = {
           headers: {
             "content-type": "application/json; charset=utf-8",
             "authorization": "Bearer " + token,
-            "appkey": SECRET.KIS_APP_KEY,
-            "appsecret": SECRET.KIS_APP_SECRET,
+            "appkey": _kisKeys().key,
+            "appsecret": _kisKeys().secret,
             "tr_id": "HHDFS00000300"
           },
           method: 'get',
@@ -287,8 +364,8 @@ const KIS_API = {
     const headers = {
       "content-type": "application/json; charset=utf-8",
       "authorization": "Bearer " + token,
-      "appkey": SECRET.KIS_APP_KEY,
-      "appsecret": SECRET.KIS_APP_SECRET,
+      "appkey": _kisKeys().key,
+      "appsecret": _kisKeys().secret,
       "tr_id": "FHKST01010100"
     };
     try {
@@ -326,8 +403,8 @@ const KIS_API = {
     const headers = {
       "content-type": "application/json; charset=utf-8",
       "authorization": "Bearer " + token,
-      "appkey": SECRET.KIS_APP_KEY,
-      "appsecret": SECRET.KIS_APP_SECRET,
+      "appkey": _kisKeys().key,
+      "appsecret": _kisKeys().secret,
       "tr_id": "HHDFS00000300", // 해외주식 현재가
       "Accept": "application/json",
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -357,8 +434,8 @@ const KIS_API = {
           const ccnlHeaders = {
             "content-type": "application/json; charset=utf-8",
             "authorization": "Bearer " + token,
-            "appkey": SECRET.KIS_APP_KEY,
-            "appsecret": SECRET.KIS_APP_SECRET,
+            "appkey": _kisKeys().key,
+            "appsecret": _kisKeys().secret,
             "tr_id": "HHDFS76240000"
           };
           
@@ -412,8 +489,8 @@ const KIS_API = {
       const headers = {
         "content-type": "application/json; charset=utf-8",
         "authorization": "Bearer " + token,
-        "appkey": SECRET.KIS_APP_KEY,
-        "appsecret": SECRET.KIS_APP_SECRET,
+        "appkey": _kisKeys().key,
+        "appsecret": _kisKeys().secret,
         "tr_id": "HHDFS76240000"
       };
       
@@ -441,8 +518,8 @@ const KIS_API = {
       const headers = {
         "content-type": "application/json; charset=utf-8",
         "authorization": "Bearer " + token,
-        "appkey": SECRET.KIS_APP_KEY,
-        "appsecret": SECRET.KIS_APP_SECRET,
+        "appkey": _kisKeys().key,
+        "appsecret": _kisKeys().secret,
         "tr_id": "FHKST03010100" // 주식기간별시세(일/주/월/년)
       };
       
@@ -523,8 +600,8 @@ const KIS_API = {
       headers = {
         "content-type": "application/json; charset=utf-8",
         "authorization": "Bearer " + token,
-        "appkey": SECRET.KIS_APP_KEY,
-        "appsecret": SECRET.KIS_APP_SECRET,
+        "appkey": _kisKeys().key,
+        "appsecret": _kisKeys().secret,
         "tr_id": "HHDFS76410000"
       };
     } else {
@@ -532,8 +609,8 @@ const KIS_API = {
       headers = {
         "content-type": "application/json; charset=utf-8",
         "authorization": "Bearer " + token,
-        "appkey": SECRET.KIS_APP_KEY,
-        "appsecret": SECRET.KIS_APP_SECRET,
+        "appkey": _kisKeys().key,
+        "appsecret": _kisKeys().secret,
         "tr_id": "FHKST03010100"
       };
     }
@@ -619,8 +696,8 @@ const KIS_API = {
         headers: {
           "content-type": "application/json; charset=utf-8",
           "authorization": "Bearer " + token,
-          "appkey": SECRET.KIS_APP_KEY,
-          "appsecret": SECRET.KIS_APP_SECRET,
+          "appkey": _kisKeys().key,
+          "appsecret": _kisKeys().secret,
           "tr_id": "HHDFS76240000"
         },
         muteHttpExceptions: true
@@ -728,8 +805,8 @@ const KIS_API = {
     const headers = {
       "content-type": "application/json; charset=utf-8",
       "authorization": "Bearer " + token,
-      "appkey": SECRET.KIS_APP_KEY,
-      "appsecret": SECRET.KIS_APP_SECRET,
+      "appkey": _kisKeys().key,
+      "appsecret": _kisKeys().secret,
       "tr_id": "FHPUP02100000"
     };
     try {
@@ -769,8 +846,8 @@ const KIS_API = {
     const headers = {
       "content-type": "application/json; charset=utf-8",
       "authorization": "Bearer " + token,
-      "appkey": SECRET.KIS_APP_KEY,
-      "appsecret": SECRET.KIS_APP_SECRET,
+      "appkey": _kisKeys().key,
+      "appsecret": _kisKeys().secret,
       "tr_id": "HHDFS00000300"
     };
     try {
@@ -822,8 +899,8 @@ const KIS_API = {
     const headers = {
       "content-type": "application/json; charset=utf-8",
       "authorization": "Bearer " + token,
-      "appkey": SECRET.KIS_APP_KEY,
-      "appsecret": SECRET.KIS_APP_SECRET,
+      "appkey": _kisKeys().key,
+      "appsecret": _kisKeys().secret,
       "tr_id": "FHMIF10000000"
     };
     try {

@@ -28,8 +28,13 @@ git add -A
 GUARD="$(dirname "$(readlink "$HOME/.claude/CLAUDE.md" 2>/dev/null)")/save_guard.py"
 if [ -f "$GUARD" ] && command -v python3 >/dev/null 2>&1; then
   python3 -I "$GUARD" "$ROOT" || exit 1
+elif [ "${SAVE_ALLOW:-}" = "1" ]; then
+  echo "⚠ 저장 검사 생략 — harness/save_guard.py 또는 python3 없음 (SAVE_ALLOW=1)"
 else
-  echo "⚠ 저장 검사 생략 — harness/save_guard.py 또는 python3 없음"
+  # 공개 repo — 검사 없이 저장하지 않는다. 풀어 둔 변경은 그대로 두고 멈춤 (git add 만 된 상태)
+  echo "✗ 저장 중단 — 검사기(harness/save_guard.py) 또는 python3 를 찾지 못함. harness 연결 확인: bash harness/bootstrap.sh"
+  echo "  의도된 경우에만 SAVE_ALLOW=1 (사용자 승인)"
+  exit 1
 fi
 
 # 3. 변경 없으면 종료
