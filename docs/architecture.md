@@ -1,6 +1,6 @@
 # 시스템 아키텍처 — FD5to6
 
-last updated: 2026-11-12
+last updated: 2026-11-14
 
 JUN & SOO 주식 포트폴리오 시스템의 전체 그림.
 **작업 시작 전 이 문서를 먼저 본다** — 코드 위치는 `code-map.md`, 기능 체크리스트는 `features.md`, API 응답 필드는 `api-reference.md`, 설계 결정 이유는 `decisions.md`.
@@ -183,6 +183,7 @@ iOS / web / web-desk
 | `scheduledDailyUpdate` | 매일 17:30 (±15분) | — | `updateAllNew` | 없음 (장 마감 후) |
 | `scheduledHourlyUpdate` | 매 30분 (everyMinutes) | **거래일 + 09:25~16:35 + minute 25~35** | `updateAllNew` | LockService.tryLock(2000) |
 | ↳ `tgChainFallback` (위 트리거 앞머리, 2026-11-12) | 매 30분 틱마다 | **거래일 + 09:10~16:00 + 직전 푸시 후 27분 이상** | `tgPushPnL` 직접 호출(푸시 체인 끊김 백업) + 하루 1회 알림 | tgPushPnL 내부 락·18분 dedup |
+| ↳ `mcTick` (같은 30분 틱 + GitHub 5분 신호 `_tgHandlePushPost`, 2026-11-14) | 30분 틱·5분 신호마다 | **거래일** + ① 정규장 마감 +5~29분(평소 15:35~15:59)·미잠금 ② 마감 +5분~18:30·그날 시장 숫자 없음 ③ 20:03~21:00·그날 알림 전 | ① `updateAllNew` 1회 → 국내 종목 마감 기록 잠금 ② 업종·순위·지수를 속성에 저장 ③ 애프터마켓 알림 1통(보유 원화 종목 전부) | LockService.tryLock(1000) + 속성 `kr_close_lock`·`kr_market_close`·`am_alert_date` (하루 1회) |
 | `tgPushPnL` | GitHub Actions 5분 poke(F 구조) | **거래일 + 09:00~16:00 + 18분 dedup** | 가격+보유현황 갱신 후 Telegram 푸시 (~20분 카덴스) | LockService.tryLock(1000) + `tg_lastPushEpoch` |
 | `scheduledHolidaySync` | 매월 25일 | — | 구글 공휴일 캘린더 → 휴장일 시트 (공휴일 분류 필터) | 없음 |
 | `tgFlushReportQueue` | 매일 08:05·17:05 KST (2개 트리거) | — (큐 비어 있으면 즉시 종료) | *시장리포트_큐* 시트의 "대기" 행 → Telegram 발송 → 마킹 | 없음 (큐가 직렬화) |

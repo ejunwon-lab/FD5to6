@@ -181,10 +181,14 @@ function deleteDailyTrigger() {
  * everyMinutes(30)으로 슬랙 ±2분 확보 → 핸들러에서 30분 단위 + 시각·거래일 체크.
  * LockService로 tgPushPnL·사용자 갱신과 충돌 시 skip (다음 슬롯에서 복구).
  * 매 틱(30분) 앞머리에서 tgChainFallback — 푸시 체인 끊김 시 GAS 백업 발송 (2026-11-12).
+ * 이어서 mcTick — 마감 기록 잠금(15:56 틱)·시장 숫자·애프터마켓 알림(20:26 틱)의 GAS 쪽 시계 (2026-11-14).
  */
 function scheduledHourlyUpdate() {
   // 0. 푸시 체인 백업 — GitHub 신호가 끊겨 장중 발송이 27분 넘게 없으면 여기서 직접 발송 (Telegram.js tgChainFallback, 자체 try/catch)
-  if (tgChainFallback() === 'fallback:sent') return;   // 방금 전체 갱신+발송 완료 — 아래 갱신 중복 불필요
+  const fb = tgChainFallback();
+  // 0-1. 마감 기록 잠금·마감 시장 숫자·애프터마켓 알림 — GitHub 5분 신호가 끊겨도 이 30분 시계가 받친다 (MarketClose.js, 단계별 자체 격리)
+  try { mcTick(); } catch (e) { Logger.log('mcTick 오류: ' + e.message); }
+  if (fb === 'fallback:sent') return;   // 방금 전체 갱신+발송 완료 — 아래 갱신 중복 불필요
   // 1. 거래일이 아니면 skip
   if (!_mIsTradingDay()) {
     Logger.log('scheduledHourlyUpdate: 비거래일 — skip');

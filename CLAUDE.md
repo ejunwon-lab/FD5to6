@@ -62,7 +62,7 @@ cp config/global-claude.md ~/.claude/CLAUDE.md
 - `ios2/` — SwiftUI 네이티브
 - `apps-script-v2/Telegram.js` — Telegram 봇 (워치 손익 알림)
 
-**데이터 흐름**: KIS API → GAS `updateAllNew` → Google Sheets 캐시 → 4개 클라이언트가 **시트만 읽음** (KIS 직접 호출 없음). 사용자 ⚡ 전체 업데이트 버튼 누를 때만 KIS 강제 갱신.
+**데이터 흐름**: KIS API → GAS `updateAllNew` → Google Sheets 캐시 → 4개 클라이언트가 **시트만 읽음** (KIS 직접 호출 없음). 사용자 ⚡ 전체 업데이트 버튼 누를 때만 KIS 강제 갱신. **하루 마감 기록 = 정규장 종가(15:30)** — 15:35 이후에는 국내 종목 가격이 잠겨 저녁 갱신에도 바뀌지 않는다(애프터마켓 가격은 기록하지 않고 20시 뒤 알림 1통으로만).
 
 **자동 트리거** (등록은 시트 메뉴 🛠️ 유지보수에서 사용자가 1회 클릭):
 
@@ -72,6 +72,7 @@ cp config/global-claude.md ~/.claude/CLAUDE.md
 | `scheduledHourlyUpdate` | 거래일 09:30~16:30 매시 :30 | `updateAllNew` (8회/일) |
 | `tgPushPnL` | 거래일 09:00~16:00 매시 :00/:20/:40 | 가격 갱신 후 Telegram 푸시 |
 | `scheduledHolidaySync` | 매월 25일 | 구글 공휴일 캘린더 동기화 (공휴일 분류 필터) |
+| `mcTick` (트리거 아님 — 5분 신호·30분 시계에 얹힘) | 거래일 15:35~15:59 / 20:03~ | 국내 종목 마감 기록을 **정규장 종가로 잠금** + 마감 시장 숫자 저장 / 애프터마켓 알림 1통 (`MarketClose.js`) |
 
 **데스크 표시 규칙** (모든 새 컴포넌트에 자동 적용 — memory: `feedback_number_display`·`feedback_stock_name_primary`):
 - 숫자: `Math.round(n).toLocaleString()` 풀. `compactKRW`·`억`·`만`·`M`·`K` 등 축약 금지

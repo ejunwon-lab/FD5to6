@@ -1,6 +1,6 @@
 # API Reference — GAS 모바일 엔드포인트 데이터 계약
 
-last updated: 2026-11-13
+last updated: 2026-11-14
 
 `apps-script-v2/MobileAPI.js`의 `newMobile*` 함수가 iOS(`ios2`)·웹(`web`)에 돌려주는 JSON 계약.
 **"어떤 필드가 이상하다"** 류 버그는 코드를 뒤지기 전에 이 표에서 필드 → 계산 위치를 먼저 찾는다.
@@ -71,12 +71,14 @@ last updated: 2026-11-13
 | `newMobileGetSoldTracker()` | SoldTrackerResponse | 매도 복기 What-if. `asOfDate` + `items[]` 16필드 (sellDate·code·name·category·broker·account·sellQty·sellPrice·sellAmount·avgBuyPrice·buyCost·realizedProfit·**currentPrice**·**ifHeldProfit**(안팔았다면)·**diff**(판것대비차이)·elapsedDays) ← *매도추적*. 국내만 what-if(해외 currentPrice/ifHeldProfit/diff=null·환율 미반영), 매도일 desc |
 | `newMobileGetIndicators()` | IndicatorsResponse | 참고지표 (key·name·category·value·change·changePct) |
 | `newMobileGetIndicatorHistory()` | IndicatorHistoryResponse | **참고지표 시계열** (*참고지표_히스토리* 시트 wide JSON: keys + entries[{date, KOSPI, SPX, ...}]). 벤치마크 outperformance 차트용 — 날짜 asc 정렬, name→key 매핑 |
-| `newMobileGetSystemStatus()` | SystemStatusResponse | 시스템 상태 (데스크 KIS Status) — `_buildDiag`(날짜·참거짓·개수·충족도만) + `kis_carried_status`{date·carried·total}. 금액·종목명 없음 (2026-07-23). diag에 `kisKeySource`(property/secret)·`kisTokenMatchesKey`·`propCount`(속성 개수) 추가 (2026-11-13, v35) |
+| `newMobileGetSystemStatus()` | SystemStatusResponse | 시스템 상태 (데스크 KIS Status) — `_buildDiag`(날짜·참거짓·개수·충족도만) + `kis_carried_status`{date·carried·total}. 금액·종목명 없음 (2026-07-23). diag에 `kisKeySource`(property/secret)·`kisTokenMatchesKey`·`propCount`(속성 개수) 추가 (2026-11-13, v35) · `krCloseLock`·`closeCheck`·`marketClose`·`amAlertDate`(날짜·시각·개수 문자열) 추가 (2026-11-14, v36) |
 | `newMobileGetNews()` | NewsResponse | 보유 종목 뉴스 (데스크 Today) — `{success, fetchedAt, stockCount, items[], earnings[]}`. item: code·name·title·source·dt(YYYYMMDDHHmm)·url(KR 기사 직링크 / US 종목 뉴스탭). earnings: US 종목 다음 실적일 {code·name·date(YYYY-MM-DD 현지)·estimate}(Yahoo crumb 2단 인증, 실패 시 []). 최신순 최대 40건, GAS CacheService 30분. 소스: 네이버 국내(m.stock)·해외(api.stock, 한국어)·Yahoo(실적일만) — News.js (2026-08-06) |
 | `newMobileUpdateCurrentPrice()` | — | 현재가 갱신 트리거 |
 | `newMobileUpdateHistory()` | — | *현재가_이력* 갱신 트리거 |
 | `newMobileUpdateAll()` | — | 통합 갱신 트리거 |
 | `getPortfolioMetrics()` (doPost `action=portfolioMetrics`+secret) | `{success, assetClassWeights:{분류:%}, holdings:[{name,category,weight}], mdd:음수%, recentReturns:[{date,opRatePct}], dailyReturns:[{date,dRatePct,rawPct?,flowAdj?,suspect?}], portfolioReturn:{d5,d20}}` | **상대 지표만 — 원화 절대액 미포함** (public 리포트용). 비중 분모=보유현황 평가금액 합, MDD=*추이 기록* 일별 총자산(Q열) peak-to-trough. `recentReturns`=운용수익률%(AC열, 원가기준 누적), **`dailyReturns`=일별 총자산 변화율%(S열, 최근 7거래일 — 마지막5 복리=d5, 주간 리포트 일자별용)** + TWR 필드: `flowAdj:true`=원장 입금/출금 행으로 보정됨(원값 `rawPct`), `suspect:true`=|dRate|≥3%인데 입출금 기록 없음(미기록 왜곡 의심). `portfolioReturn{d5,d20}`=보정 dRate 복리누적 |
+| ↳ 같은 응답의 `krClose`·`marketClose` (2026-11-14, v36) | `krClose:{date, locked, closeHHMM, items:[{code,name,close,changePct}]}` · `marketClose:{date, at, late, index:{KOSPI,KOSDAQ:{close,change,pct,value}}, sectors:[[이름,등락률]], up/down:[[이름,코드,등락률]]}` 또는 null | KR 마감 리포트 사전 수집용. `krClose` = 보유 원화 종목의 **정규장 종가**(마감 +5~29분 잠금 기록, 오늘 행 ÷ 앞 행), `marketClose` = 같은 시간대에 받아 둔 네이버 시장 숫자. 수량·금액 없음 — `MarketClose.js mcKrCloseTable`·`mcEnsureMarketSnapshot` |
+| doPost `action=pushPnL`+secret (GitHub 5분 신호) | `{success, result, mc:{close, mkt, am}}` | `result` = `tgPushPnL` 결과 코드(기존). `mc` = `mcTick` 단계별 상태(2026-11-14): `close` n/a·locked·locked-now·not-locked·gave-up·skip-lock / `mkt` n/a·have·saved·saved-late·fail / `am` n/a·done·sent·no-holdings·no-close·fail·skip-lock (각 `error` 가능) |
 
 상세 필드는 web `src/models/types.ts`의 `StockDetailResponse`·`MonthlyRealizedResponse` 등 참조.
 

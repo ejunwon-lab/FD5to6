@@ -226,6 +226,8 @@ const KIS_API = {
             const data = JSON.parse(res.getContentText());
             if (data.rt_cd === "0") {
               result[code] = parseInt(data.output.stck_prpr);
+              // 기준가(= 전 거래일 정규장 종가) — 아침 대조용 (MarketClose.js mcCloseCheck)
+              (KIS_API._baseMap = KIS_API._baseMap || {})[code] = parseInt(data.output.stck_sdpr);
             } else {
               Logger.log(`KIS batch fail(${code}): ${data.msg1}`);
               result[code] = null;

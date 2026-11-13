@@ -369,6 +369,9 @@ function getPortfolioMetrics() {
     // recentReturns(AC=운용수익률%, 원가기준 누적)와 달리 d5와 같은 소스라 합이 d5에 수렴.
     result.dailyReturns = dated.slice(-7);
   }
+  // 마감 리포트용 — 정규장 종가로 잠근 보유 원화 종목 표 + 같은 시각에 받아 둔 시장 숫자 (MarketClose.js). 수량·금액 없음.
+  try { result.krClose = mcKrCloseTable(ss); } catch (e) { Logger.log('krClose 실패: ' + e); }
+  try { result.marketClose = _mcReadJson(MC.PROP_MARKET); } catch (e) { Logger.log('marketClose 실패: ' + e); }
   return result;
 }
 

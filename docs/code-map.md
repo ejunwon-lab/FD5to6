@@ -54,6 +54,9 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 | 거래일/휴일 판정 | GAS `Holidays.js`(휴일) · `MobileAPI.js`(거래일) | `_isKoreanHoliday` · `_mIsTradingDay` · `_isTradingDateStr` |
 | 휴장일 동기화 | GAS `Holidays.js` → *휴장일* 시트 | `syncHolidays` (구글 공휴일 캘린더 '공휴일' 분류, 매월 25일 트리거) |
 | 입력폼 → 원장 등록 | GAS `NewSystem.js` | `addTransactionFromForm` |
+| 장 마감 뒤 국내 종목 가격이 안 바뀜(의도된 동작) · 마감 기록이 정규장 종가와 다름 | GAS `MarketClose.js` | `mcApplyCloseLock`(잠금) · `mcCloseCheck`(아침 대조) — 🔍 진단 `krCloseLock`·`closeCheck` |
+| 저녁 애프터마켓 알림이 안 옴/두 번 옴 | GAS `MarketClose.js` | `mcAfterMarketAlert` (5분 신호 응답의 `mc.am`, 속성 `am_alert_date`) |
+| 마감 리포트의 종목 등락·업종·순위가 이상함 | `.github/scripts/kr_close_prefetch.py` + GAS `MarketClose.js` | 실행 로그 `prefetch:` 줄(source·crosscheck) · `mcKrCloseTable` · `mcEnsureMarketSnapshot` |
 
 > 응답 JSON의 필드별 의미·계산 위치는 `docs/api-reference.md` 참조.
 
@@ -76,6 +79,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - 1행 = 헤더: `[A]"날짜"` + `[B…]종목코드`
 - 2행~ = 데이터: `[A]날짜` + `[B…]그 날짜의 종목별 현재단가`
 - **거래일 행만 존재해야 함** — 비거래일 행이 끼면 변동/라벨 계산이 오염됨
+- **국내 종목 칸 = 정규장 종가** (2026-11-14): 정규장 마감 +5~29분(평소 15:35~15:59)의 갱신 값으로 잠기고, 그 뒤 자정까지의 갱신은 국내 종목 칸을 덮어쓰지 않는다(해외 종목 칸은 계속 갱신). 애프터마켓 가격은 이 시트에 기록하지 않는다 — `MarketClose.js`
 
 ### *거래_입력폼* (NS.FORM) — 입력은 C열, 행은 `NS.FR` 상수
 `FR = {DATE:3, TYPE:4, CODE:5, NAME:6, CAT:7, BROKER:8, ACCT:9, QTY:10, PRICE:11, AMT:12, FEE:13, MEMO:14, SUBMIT:16}`
@@ -232,6 +236,19 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `kisRotateKey` — **`🛠️ 유지보수 → 🔑 KIS 키 교체`** (시트 메뉴 전용). 입력창 2개(앱키·앱시크릿) → 공백 제거 → 그 값으로 토큰 발급 시험 → **성공할 때만** `KIS_APP_KEY`·`KIS_APP_SECRET`·토큰·만료·지문을 한 번에 저장. 실패·취소·빈값이면 무변경(기존 키로 계속 동작). 키 값은 로그·알림창에 안 남김. 속성 화면·편집기·로그인 계정과 무관
 - 🔍 진단(`_buildDiag`)에 `kisKeySource`·`kisTokenMatchesKey` (키 값은 미표시)
 
+### MarketClose.js — 정규장 종가 마감 기록 잠금 · 마감 시장 숫자 · 애프터마켓 알림 (2026-11-14)
+배경: 9/14 거래소 애프터마켓(16:00~20:00) 개설. 다음 거래일 기준가 = 정규장 종가(15:30)라 마감 기록·마감 리포트는 정규장 종가를 쓴다. 설계 `docs/plans/2026-11-14-정규장종가-마감기록-애프터마켓알림.md`.
+- `MC` — 상수. `SHIFT_MIN`(정규장 마감이 늦는 날 — 수능일, **해마다 추가**, `.github/scripts/kr_close_prefetch.py`의 같은 표와 함께) · 잠금 창(마감 +5~29분) · 알림 창(20:03~21:00) · 속성 키
+- `mcTick` — **진입점**. `_tgHandlePushPost`(GitHub 5분 신호, 응답 `mc:{close,mkt,am}`)와 `scheduledHourlyUpdate` 앞머리(GAS 30분 시계)가 호출. 아래 세 단계를 각각 try/catch로 실행
+- `mcEnsureCloseSnapshot` — 잠금 창 안(또는 창을 놓친 뒤 하루 3회까지)인데 아직 안 잠겼으면 `updateAllNew` 1회. 반환 `n/a`·`locked`·`locked-now`·`not-locked`·`gave-up`·`skip-lock`
+- `mcApplyCloseLock(codes, freshRow, todayRow, carried)` — `updateNewPriceHistory`가 오늘 행을 쓰기 직전에 호출. 창 안이면 KIS 새 값으로 잠금(조회 실패 종목은 네이버 분봉으로 보충, 그것도 없으면 그 종목만 `skip`), 잠긴 뒤엔 국내 종목 칸을 오늘 행 값으로 유지, 창을 놓쳤으면 네이버 분봉의 정규장 마감 값으로 채우고 잠금. 속성 `kr_close_lock` = `{date, at, via, skip}`
+- `mcCloseCheck(sheet, prevRow, codes, prevPrices)` — 장중 첫 갱신에서 1회: 앞 행(직전 거래일) 값 = 오늘 KIS 기준가(`KIS_API._baseMap`)인지 대조. **잠기지 않았던 날**의 불일치만(차이 15% 이내) 기준가로 보정, 잠긴 날은 개수만. 속성 `kr_close_check`, 로그 `closeCheck:`
+- `mcEnsureMarketSnapshot` / `_mcFetchMarket` — 마감 +5분부터 18:30까지, 그날 치가 없으면 네이버에서 업종 등락(79개)·급등락 상위 10·코스피/코스닥 종가·등락률·거래대금을 받아 속성 `kr_market_close`(한 칸 덮어쓰기)에 저장. 애프터마켓 시작 뒤에 받았으면 `late:true`
+- `mcKrCloseTable(ss)` — 보유 원화 종목(국내주식·국내ETF, 계좌 중복은 한 줄)의 `{date, locked, closeHHMM, items:[{code,name,close,changePct}]}`. 수량·금액 없음. 리포트(`getPortfolioMetrics().krClose`)와 알림이 공용
+- `mcAfterMarketAlert` / `_mcFormatAmAlert` — 거래일 20:03~21:00에 하루 1통(`am_alert_date`): 보유 원화 종목 **전부**의 변화율(정규장 종가 → 네이버 `/basic` 20시 이후 값 = 애프터마켓 종료가). 크기로 거르지 않고, 조회 실패 종목도 "실패"로 표기
+- `_mcNaverRegularCloses`(분봉의 정규장 마감 값 — 실행 시각 무관) / `_mcNaverBasicPrices` / `_mcFetchJsonAll` — 네이버 공개 API
+- 다른 파일의 접점: `NewSystem.js updateNewPriceHistory`(잠금·대조 호출, 실패 시 새 값 그대로) · `KIS_API.getKisPricesBatch`(기준가 `stck_sdpr`를 `KIS_API._baseMap`에) · `Telegram.js _tgHandlePushPost` · `Main.js scheduledHourlyUpdate` · `MobileAPI.js getPortfolioMetrics`(`krClose`·`marketClose`) · `Diag.js`(`krCloseLock`·`closeCheck`·`marketClose`·`amAlertDate`)
+
 ### Secret.js — KIS appkey/secret. **원격(Google)에만 존재. 절대 건드리지 않음.**
 배포는 반드시 `python3 apps-script-v2/push_safe.py` (clasp push 금지).
 앱 전부 404 "Requested entity was not found" → 소유자 계정으로 GAS 에디터 1회 재저장 (errors.md 2026-11-10).
@@ -284,6 +301,7 @@ KIS 키 갱신 (2026-11-13 v35 배포 — 사용자 리허설 후 확정): **시
   - `kr-prompt.md` — KR 분석 (Naver·뉴스는 **Bash curl 필수** — WebFetch 도구 계층 차단 2026-07-03, iconv euc-kr. 수급/업종/종목뉴스API + 보유종목 그룹별)
   - `weekly-prompt.md` — 주간 리캡 (GAS 지표 pre-fetch 파일 1차, Yahoo curl 429 재시도)
 - `send_telegram.py` — Telegram Bot API 발송 헬퍼 (Markdown→plain text fallback, 두 chat_id 순회)
+- `kr_close_prefetch.py` (2026-11-14) — KR 마감 리포트 사전 수집. `market-report.yml` KR job의 "Pre-fetch close snapshot" 단계가 GAS `portfolioMetrics` 응답을 받아 넘기면, 보유 종목의 **정규장 종가·등락률** 표와 마감 시장 숫자(지수·업종·순위)를 `/tmp/kr/close.md`로 만든다. 잠긴 GAS 기록을 네이버 분봉의 정규장 마감 값과 대조(다르면 분봉 값), 잠금·GAS 응답이 없으면 분봉 값 ÷ 기준가로 계산. **로그에는 개수·상태만**(공개 로그) — `prefetch: asof=… source=gas-lock|naver-minute crosscheck=n/m …`. 실패해도 exit 0(에이전트가 지시문의 대체 경로)
 
 ## scripts/ — 로컬 스크립트·git 훅
 

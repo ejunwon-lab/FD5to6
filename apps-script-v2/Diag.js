@@ -85,6 +85,18 @@ function _buildDiag() {
     out.kisKeySource = 'error: ' + e.message;
   }
 
+  // 정규장 종가 잠금·아침 대조·마감 시장 숫자·애프터마켓 알림 상태 (MarketClose.js) — 날짜·시각·개수만
+  try {
+    const lk = _mcReadJson(MC.PROP_LOCK), ck = _mcReadJson(MC.PROP_CHECK), mk = _mcReadJson(MC.PROP_MARKET);
+    out.krCloseLock = lk ? (lk.date + ' ' + lk.at + ' ' + lk.via + ((lk.skip || []).length ? ' 제외 ' + lk.skip.length : '')) : null;
+    out.closeCheck = !ck ? null : (ck.skipped ? ck.date + ' 건너뜀'
+      : ck.date + ' 일치 ' + ck.match + '/' + ck.total + (ck.fixed ? ' 보정 ' + ck.fixed : ''));
+    out.marketClose = mk ? (mk.date + ' ' + mk.at + (mk.late ? ' 늦음' : '')) : null;
+    out.amAlertDate = PropertiesService.getScriptProperties().getProperty(MC.PROP_AM_ALERT) || null;
+  } catch (e) {
+    out.krCloseLock = 'error: ' + e.message;
+  }
+
   // 스크립트 속성 개수 — 속성 화면 수동 편집 한도(50개) 감시용. 이름·값은 넣지 않음
   try {
     out.propCount = PropertiesService.getScriptProperties().getKeys().length;

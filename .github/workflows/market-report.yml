@@ -248,6 +248,33 @@ jobs:
           curl -fsSL https://claude.ai/install.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
+      # 정규장 종가 사전 수집 (2026-11-14) — 17시대의 네이버 표시가는 애프터마켓 진행가라, GAS가 정규장 마감 직후 잠근
+      # 보유 종목 기록(portfolioMetrics.krClose)과 같은 시각에 받아 둔 시장 숫자(marketClose)를 표로 만들어 에이전트에 넘긴다.
+      # 스크립트가 네이버 분봉의 정규장 마감 값과 대조하고, 잠금이 없으면 분봉 값으로 대체한다. 로그에는 개수·상태만(공개 로그).
+      # 실패해도 리포트는 계속 — 에이전트가 표 머리의 상태 문구를 보고 지시문의 대체 경로를 탄다.
+      # 설계: docs/plans/2026-11-14-정규장종가-마감기록-애프터마켓알림.md
+      - name: Pre-fetch close snapshot (정규장 종가·마감 시장 숫자)
+        if: steps.guard.outputs.already == 'no'
+        env:
+          GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
+          TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
+        run: |
+          mkdir -p /tmp/kr
+          OUT=/tmp/kr/gas_metrics.json
+          if [ -z "$GAS_WEB_APP_URL" ] || [ -z "$TG_WEBHOOK_SECRET" ]; then
+            echo '{"success":false,"reason":"env-unset"}' > "$OUT"
+            echo "pre-fetch: env unset — 네이버 분봉 경로로"
+          else
+            PAYLOAD=$(jq -n --arg s "$TG_WEBHOOK_SECRET" '{action:"portfolioMetrics", secret:$s}')
+            code=$(curl -sS -L -m 60 -o "$OUT" -w '%{http_code}' "$GAS_WEB_APP_URL" \
+              -H 'Content-Type: application/json' --data "$PAYLOAD" || echo 000)
+            if [ "$code" != "200" ] || ! jq -e '.success == true' "$OUT" >/dev/null 2>&1; then
+              echo "{\"success\":false,\"reason\":\"http-$code\"}" > "$OUT"
+            fi
+            echo "pre-fetch: HTTP=$code success=$(jq -r '.success' "$OUT") krCloseLocked=$(jq -r '.krClose.locked | tostring' "$OUT") marketCloseAt=$(jq -r '.marketClose.at | tostring' "$OUT")"
+          fi
+          python3 .github/scripts/kr_close_prefetch.py "$OUT" /tmp/kr/close.md "$(TZ='Asia/Seoul' date +%Y-%m-%d)" docs/reports/_config/kr-prompt.md || true
+
       - name: Generate KR report (Claude CLI headless)
         if: steps.guard.outputs.already == 'no'
         env:

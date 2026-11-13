@@ -840,9 +840,19 @@ function updateNewPriceHistory(ss) {
     return '';
   });
 
+  // 정규장 마감 뒤에는 국내 종목 칸을 정규장 종가로 잠근다 — 16:00 이후 갱신이 애프터마켓 가격으로 덮어쓰지 않게
+  // (MarketClose.js mcApplyCloseLock). 잠금 처리가 실패하면 새 값 그대로 기록한다.
+  let rowToWrite = priceRow;
+  try {
+    const todayVals = todayRow ? sheet.getRange(todayRow, 2, 1, existingCodes.length).getValues()[0] : [];
+    rowToWrite = mcApplyCloseLock(existingCodes, priceRow, todayVals, carried).row;
+  } catch (e) { Logger.log('closeLock 오류(새 값 그대로 기록): ' + e); }
+  // 장중 첫 갱신에서 1회 — 어제 기록이 오늘 기준가(= 어제 정규장 종가)와 같은지 대조 (MarketClose.js mcCloseCheck)
+  try { mcCloseCheck(sheet, prevRow, existingCodes, prevPrices); } catch (e) { Logger.log('closeCheck 오류(무시): ' + e); }
+
   sheet.getRange(writeRow, 1).setValue(todayDT);
-  if (priceRow.length > 0) {
-    sheet.getRange(writeRow, 2, 1, priceRow.length).setValues([priceRow])
+  if (rowToWrite.length > 0) {
+    sheet.getRange(writeRow, 2, 1, rowToWrite.length).setValues([rowToWrite])
       .setNumberFormat('#,##0');
   }
 

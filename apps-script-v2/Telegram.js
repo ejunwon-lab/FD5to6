@@ -736,7 +736,10 @@ function _tgHandlePushPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     const result = tgPushPnL();   // 거래일·09:00~16:00·락 자체 체크 → KIS 갱신 + 손익 계산 + 발송 (또는 skip)
-    return ContentService.createTextOutput(JSON.stringify({ success: true, result: result || 'unknown' }))
+    // 마감 기록 잠금·마감 시장 숫자·애프터마켓 알림 (MarketClose.js) — 5분 신호가 시계 역할. 상태만 응답에 실어 GitHub 로그로 관측.
+    let mc = null;
+    try { mc = mcTick(); } catch (e2) { mc = { error: String(e2 && e2.message) }; }
+    return ContentService.createTextOutput(JSON.stringify({ success: true, result: result || 'unknown', mc: mc }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     Logger.log('_tgHandlePushPost 오류: ' + err.message);
