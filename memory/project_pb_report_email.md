@@ -20,3 +20,5 @@ metadata:
 **휴장**: 직전거래일 리뷰 풀 리포트(빈 메시지 폐지). KR은 Yahoo `^KS11`/`^KQ11` 폴백.
 
 GAS v18→v22. 발송은 market-report.yml job(daisy-chain dispatch, guard 멱등). 프롬프트 수정 = `.github/scripts/{kr,us}-prompt.md`. 설계: `docs/plans/2026-06-20-PB리포트-이메일채널.md`. **월요일(6/22) 첫 실런 = 이메일 HTML 실발송 라이브 검증.**
+
+**현재 상태 (2026-11-15 실측)**: ① **주간 리포트 이메일은 제거됨** — 사용자 결정으로 `market-report.yml` weekly job의 이메일 단계 삭제(추가 때부터 제목 허용 목록에 없어 발송된 적 없음). 다시 넣자고 먼저 제안하지 말 것. ② **일일 US·KR 이메일은 안 나가고 있다** — GAS 응답 `You do not have permission to call MailApp.sendEmail`(10/9~11/13 로그 전부). 채널 제거 vs 권한 재승인은 사용자 결정 대기(`docs/pending.md` 🔴). "이메일도 발송된다"고 전제하지 말고 실행 로그의 `이메일 HTTP=… resp=` 줄로 확인할 것.
