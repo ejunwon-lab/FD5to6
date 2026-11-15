@@ -47,3 +47,4 @@
 - [운영 배포는 명시 문구로 허가받기](feedback_deploy_explicit_wording.md) — "진행해"로는 push_safe·재배포가 자동 승인에서 막힘, 선택지에 "배포"를 넣어 한 번에 받는다
 - [구조적으로 정확한 방법을 기본안으로](feedback_correct_by_construction.md) — "먼저 비교·실측해 보고"로 미루지 말 것, 정의상 맞는 방법이 있으면 그게 1안
 - [목록·알림은 거르지 말고 전부](feedback_show_all_no_filtering.md) — 임계값으로 종목을 넣고 빼지 않는다, 변화 없음·실패도 표기
+- [Life OS는 말할 때만](feedback_lifeos_only_when_asked.md) — "리마인드해줘"만으로 Life OS에 넣지 않는다, 사용자가 Life OS를 직접 말했을 때만 기록·조회
