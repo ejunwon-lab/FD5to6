@@ -177,4 +177,5 @@
 - `실행@` 실측 — 푸시 체인 5분 신호 응답 24/24에 새 단계 상태(`mc`)·오류 0 → GAS v37이 웹앱 경로에서 정상 실행(주말이라 전부 대상 아님).
 - **주간 리포트 이메일 발송 제거** (사용자 결정) — `market-report.yml` weekly-report job의 `Send Email (GAS self)` 단계 삭제(12 → 11단계, us·kr job 불변). 추가 때부터 GAS 제목 허용 목록에 없어 발송된 적이 없던 기능. GAS 변경·재배포 없음. 주간 지시문(비공개 repo) 문구 정리.
 - 전수 조사 중 발견 — 일일 US·KR 리포트 이메일도 메일 권한 미승인으로 10/9 이전부터 미발송(errors.md 2026-11-15).
-- **리포트 이메일 채널 전체 제거** (사용자 결정 "텔레그램으로만") — `market-report.yml` us·kr job의 이메일 단계 삭제(us 11→10, kr 12→11단계). GAS는 `emailReport` 분기·이메일 코드 구역(함수 8개)·`script.send_mail` 스코프 삭제 + 잔여 속성 정리 `_cleanupLegacyEmailProps` — **코드 반영, 배포 대기**. 스텁 시험 10건 통과(전 파일 로드, 분기, 속성 정리 대상 한정, 실패 격리). 일일 지시문(비공개 repo) 문구 정리.
+- **리포트 이메일 채널 전체 제거** (사용자 결정 "텔레그램으로만") — `market-report.yml` us·kr job의 이메일 단계 삭제(us 11→10, kr 12→11단계). GAS는 `emailReport` 분기·이메일 코드 구역(함수 8개)·`script.send_mail` 스코프 삭제 + 잔여 속성 정리 `_cleanupLegacyEmailProps`. 스텁 시험 10건 통과(전 파일 로드, 분기, 속성 정리 대상 한정, 실패 격리). 일일 지시문(비공개 repo) 문구 정리.
+- **GAS v38 배포** (18:58 KST, 사용자 "배포해") — 원본 저장(소유자 계정) → v38 → 고정 배포 3개 v37→v38. v38 소스에 `MailApp`·`emailReport`·`script.send_mail` 없음. 더미 secret POST 9건 정상(`emailReport` 요청은 기본 분기의 `forbidden`으로 바뀜 = 새 버전 응답). 스코프를 뺀 뒤에도 웹앱 5분 신호 로그 지속.
