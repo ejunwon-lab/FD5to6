@@ -35,7 +35,7 @@
 - [GAS 재배포 API로 자율 처리](reference_gas_redeploy_via_api.md) — 버전 고정 웹앱 배포는 Apps Script API(POST /versions + PUT /deployments)로 직접 재배포, 에디터 수동 클릭 불필요
 - [전역 환경 늘 동일하게](feedback_global_env_consistent.md) — 전역 설정 변경은 harness repo(claude-2026)에 커밋·푸시해 모든 컴퓨터 동기화. settings.json은 심링크라 실제 타겟 편집
 - [GH Actions daisy-chain](reference_github_actions_daisy_chain.md) — cron은 고빈도일수록 드롭, 신뢰 스케줄은 self-dispatch 체인(GITHUB_TOKEN의 workflow_dispatch 예외)
-- [PB 리포트·이메일 채널](project_pb_report_email.md) — 시장 리포트 PB 격상 + 이메일 셀프발송(안전장치 5중)·데이터 정합성·휴장 폴백
+- [PB 리포트 (이메일 채널은 제거됨)](project_pb_report_email.md) — 시장 리포트 PB 격상·데이터 정합성·휴장 폴백. 이메일 발송은 2026-11-15 전부 제거, 리포트는 텔레그램만
 - [WebFetch vs curl (헤드리스)](reference_webfetch_vs_curl_headless.md) — GH Actions에서 "차단" 보고는 층위 진단(서비스≠IP≠WebFetch), 리포트 fetch는 Bash curl
 - [매매기록! 명령어](feedback_trade_record_command.md) — "매매기록!"/"매매기록하자!" + 체결 카톡 → 원장 자동 기록 프로세스 실행 (묻지 말고)
 - [public repo 금액 금지](feedback_public_repo_no_amounts.md) — repo가 PUBLIC, docs·응답에 실제 원화 금액 쓰지 말 것(마스킹/비율), 정확값은 로컬·backups만

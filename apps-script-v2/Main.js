@@ -93,9 +93,6 @@ function doPost(e) {
     if (action === 'portfolioMetrics') {
       return _handlePortfolioMetricsPost(e);   // KR 리포트 → 익스포저%·MDD·최근추세 (상대 지표만)
     }
-    if (action === 'emailReport') {
-      return _handleEmailReportPost(e);   // PB 리포트 → 시트 소유계정 Gmail 셀프발송
-    }
     if (action === 'addTrade') {
       return _handleAddTradePost(e);   // 카톡 매매 알림 → *거래_원장* 1행 기록
     }
@@ -155,6 +152,23 @@ function menuUpdatePricesOnly() {
 /** 매일 17:30 자동 업데이트 트리거 (장 마감 후) */
 function scheduledDailyUpdate() {
   updateAllNew();
+  // 리포트 이메일 채널 제거(2026-11-15)로 남은 속성 정리 — 실패해도 갱신 결과와 무관
+  try { _cleanupLegacyEmailProps(); } catch (e) { Logger.log('이메일 잔여 속성 정리 오류: ' + e.message); }
+}
+
+/**
+ * 제거된 리포트 이메일 채널이 남긴 스크립트 속성을 지운다 — 발송 횟수(날짜별로 쌓인 것 포함)·중복 방지 기록·킬스위치.
+ * 다 지우고 나면 대상이 없어 아무 일도 하지 않는다. 그 밖의 속성은 건드리지 않는다. (docs/plans/2026-11-15-이메일채널-전체제거.md)
+ * @return {number} 지운 개수
+ */
+function _cleanupLegacyEmailProps() {
+  const props = PropertiesService.getScriptProperties();
+  const old = props.getKeys()
+    .filter(k => /^email_(count(_\d{4}-\d{2}-\d{2})?|disabled|last_(us|kr)_(subj|ms))$/.test(k))
+    .slice(0, 300);
+  old.forEach(k => props.deleteProperty(k));
+  if (old.length) Logger.log('이메일 잔여 속성 정리: ' + old.length + '개 삭제');
+  return old.length;
 }
 
 function setupDailyTrigger() {

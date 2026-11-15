@@ -119,7 +119,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `onEdit` — 입력폼 제출·대시보드 정렬 드롭다운 분기
 - `updateAllNew` — 전체 업데이트: 가격→보유현황→대시보드 (`menuUpdateAll` alias)
 - `menuUpdatePricesOnly` — 현재가만
-- `scheduledDailyUpdate` / `setupDailyTrigger` / `deleteDailyTrigger` — 17:30 자동 트리거 (장 마감 후 정리)
+- `scheduledDailyUpdate` / `setupDailyTrigger` / `deleteDailyTrigger` — 17:30 자동 트리거 (장 마감 후 정리). 갱신 뒤 `_cleanupLegacyEmailProps()` — 제거된 이메일 채널이 남긴 속성(`email_count`·`email_count_<날짜>`·`email_last_*`·`email_disabled`)을 지움, 다 지우면 대상 없음(2026-11-15)
 - `scheduledHourlyUpdate` / `setupHourlyTrigger` / `deleteHourlyTrigger` — 장중 매시 :30 트리거 (거래일 09:30~16:30, `everyMinutes(30)` + 핸들러 분 체크 / LockService로 tgPushPnL·사용자 갱신과 충돌 방지). 매 틱 앞머리에서 `tgChainFallback()` — `fallback:sent`면 갱신 중복 없이 return (2026-11-12)
 - `_handleCashReserveTimestamp(e)` — onEdit 분기. *설정* C7:C12(대기자금) 편집 시 같은 행 E열에 yyyy-MM-dd HH:mm 자동 스탬프 (빈 값으로 지우면 스탬프도 지움)
 
@@ -158,7 +158,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `newMobileGetIndicators` — 참고지표 (현재값)
 - `newMobileGetIndicatorHistory` — **참고지표 시계열** (*참고지표_히스토리* 시트 wide JSON, name→key 매핑, 날짜 asc). 벤치마크 차트·지표 상세 모달용
 - `getPortfolioMetrics` / `_handlePortfolioMetricsPost` — **포트폴리오 상대 지표** (리포트 public용, doPost `action=portfolioMetrics`+시크릿). 자산군 비중%(현금성 포함)·종목 비중%·MDD%·`recentReturns`(운용수익률% 누적 시계열, AC열)·`dailyReturns:[{date,dRatePct,rawPct?,flowAdj?,suspect?}]`(최근 7거래일 **일별 총자산 변화율%**, S열 — 마지막5 복리=d5라 주간 리포트 일자별 표와 d5 정합. **TWR read-time 보정**: 원장 입금/출금 행으로 flow 맵 구성(비거래일 롤포워드) → `r_adj=(Q−F−V_prev)/V_prev`·`flowAdj:true`, |dRate|≥3%인데 flow 없으면 `suspect:true`. ₩ 금액 비노출)·`portfolioReturn{d5,d20}`(보정된 dRate 복리누적, 매매 강건·벤치 단위일치) — **원화 절대액 미포함**. MDD=*추이 기록* 일별 Q열 peak-to-trough. **% 셀은 `_mPctVal`로 파싱**(numeric=분수×100/텍스트=% — Sheets가 음수 % 문자열만 분수로 자동 파싱하는 비대칭, errors.md 2026-07-16)
-- `_handleEmailReportPost` / `_emailReportSelfTest` / `emailKillSwitch_ON` / `emailKillSwitch_OFF` / `_mdToHtml` — **이메일 셀프발송** (PB 리포트, doPost `action=emailReport`+시크릿). 수신=발송=`getEffectiveUser` 소유자 고정(제3자 불가). 안전장치 5중: killswitch(`email_disabled`)·제목화이트리스트(`Market Close/Wrap`)·일일상한 6·주소마스킹·수신자고정. 일일 카운터는 속성 한 칸 `email_count` = `날짜|횟수`(상태, 덮어쓰기 — 2026-11-13, 그전 날짜별 키 `email_count_<날짜>`는 쌓이기만 했음). `_emailCountCleanup(props, max)` = 옛 날짜별 키만 골라 발송 성공 뒤 실행당 60개씩 삭제, 응답에 `cleaned` 개수. `_mdToHtml`=MarkdownV1→HTML(htmlBody). 스코프 `script.send_mail` 필요(재승인)
+- (삭제 2026-11-15) **이메일 셀프발송** — `_handleEmailReportPost`·`_mdToHtml`·`emailKillSwitch_ON/OFF`·`_emailReportSelfTest` 등 리포트 이메일 채널 코드와 doPost `action=emailReport` 분기, manifest의 `script.send_mail` 스코프를 제거. 리포트는 텔레그램만. 설계 `docs/plans/2026-11-15-이메일채널-전체제거.md`
 - `_mMapHolding` — 보유현황 행 + *종목지표* → holding 객체 (지표는 `_readStockMetrics`로 읽음, StockMetrics.js)
 - `_mGetBuyDates` / `_mGetFxRates` / `_mGetCashReserve` (*설정* A7:E12) / `_mGetNonStockAssets` (KIS_SKIP 카테고리 행) / `_mFindPrevDayProfitChange`
 - `_mGroupBy` — 분류별/계좌별 집계
@@ -292,7 +292,7 @@ KIS 키 갱신 (2026-11-13 v35 배포 — 사용자 리허설 후 확정): **시
   - **창 가드** (2026-10-04): 자동 실행(schedule·auto dispatch)은 `.github/scripts/report_window.sh <us|kr|weekly>` 창 안에서만 생성 — US 평일 08:00~21:59 / KR 평일 17:00~23:59 / weekly 일 13:00~23:59 KST. 창 밖이면 `already=yes`로 skip(지연 cron이 자정 넘겨 전일 데이터로 다음 날짜 파일을 선생성하던 결함 차단). 수동 dispatch는 무관
   - **Alert on generation failure** (2026-07-03): 3개 job 공통 — `found=no`면 텔레그램 경고+`exit 1` (dry_run 시 억제). telegram-push에도 체인 끊김 알림(2026-11-11부터 조건 = 후속 run 예약·보조 dispatch 모두 실패, `steps.next.outcome == 'failure'`). 설계 `docs/plans/2026-07-03-무음실패-알림.md`
   - **telegram-push 후속 run 사전 예약** (2026-11-11): 다음 run을 종료 직전이 아니라 **시작 5분 뒤** dispatch → concurrency pending으로 대기, 현 run이 어떻게 끝나든(실패·취소·러너 유실) 이어받음. 끝 step은 `if: always()` 보조 dispatch(5분 미만 생존이면 폭주 방지로 안 함). poke curl `--max-time 400`. 설계 `docs/plans/2026-11-11-푸시체인-후속run-사전예약.md`
-  - weekly job: **Pre-fetch GAS portfolio metrics** step이 지표를 파일로 선확보 (에이전트 env 판단 제거, errors.md 2026-07-03). **발송은 텔레그램만** — 이메일 단계는 2026-11-15 제거(us·kr job에는 `Send Email (GAS self)` 단계가 남아 있음)
+  - weekly job: **Pre-fetch GAS portfolio metrics** step이 지표를 파일로 선확보 (에이전트 env 판단 제거, errors.md 2026-07-03). **발송은 텔레그램만** — 세 job 모두 `Send Email (GAS self)` 단계를 2026-11-15 제거
 
 ## GitHub Actions scripts — `.github/scripts/`
 

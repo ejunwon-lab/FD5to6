@@ -1,6 +1,6 @@
 ---
 name: project_pb_report_email
-description: 시장 리포트 PB 격상 + 이메일 셀프발송 채널(안전장치 5중) — 2026-06-20 구축
+description: 시장 리포트 PB 격상(2026-06-20). 이메일 셀프발송 채널은 2026-11-15 제거 — 리포트는 텔레그램만
 metadata: 
   node_type: memory
   type: project
@@ -21,4 +21,4 @@ metadata:
 
 GAS v18→v22. 발송은 market-report.yml job(daisy-chain dispatch, guard 멱등). 프롬프트 수정 = `.github/scripts/{kr,us}-prompt.md`. 설계: `docs/plans/2026-06-20-PB리포트-이메일채널.md`. **월요일(6/22) 첫 실런 = 이메일 HTML 실발송 라이브 검증.**
 
-**현재 상태 (2026-11-15 실측)**: ① **주간 리포트 이메일은 제거됨** — 사용자 결정으로 `market-report.yml` weekly job의 이메일 단계 삭제(추가 때부터 제목 허용 목록에 없어 발송된 적 없음). 다시 넣자고 먼저 제안하지 말 것. ② **일일 US·KR 이메일은 안 나가고 있다** — GAS 응답 `You do not have permission to call MailApp.sendEmail`(10/9~11/13 로그 전부). 채널 제거 vs 권한 재승인은 사용자 결정 대기(`docs/pending.md` 🔴). "이메일도 발송된다"고 전제하지 말고 실행 로그의 `이메일 HTTP=… resp=` 줄로 확인할 것.
+**⛔ 이메일 채널은 2026-11-15 제거됨** — 사용자: "텔레그램으로만 확인할거야. 이메일로 나가는 건 다 없애." 워크플로 세 job의 이메일 단계, GAS `emailReport`·이메일 코드, manifest `script.send_mail` 스코프를 삭제(설계 `docs/plans/2026-11-15-이메일채널-전체제거.md`). 위의 이메일 설명은 과거 기록이다. **리포트는 텔레그램만** — 이메일 발송을 다시 제안하지 말 것. 배경: 일일 메일은 메일 권한 미승인으로 10/9 이전부터, 주간 메일은 제목 허용 목록 누락으로 추가 때부터 한 통도 안 나갔는데 단계가 `continue-on-error`라 아무도 몰랐다 — "요청 HTTP 200"을 "발송됨"으로 보지 말고 응답 본문을 확인할 것.
