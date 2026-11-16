@@ -32,6 +32,10 @@ REASON_RE = re.compile(r"^\s*(🟢|🟡|🔴)\s*\*?이유\*?\s*:?")
 WEEKDAY_RE = re.compile(r"(?<![\d/])(?:(\d{4})-)?(\d{1,2})([/-])(\d{1,2})\(([월화수목금토일])\)")
 WD = "월화수목금토일"
 SUMMARY_MAX_LINES, SUMMARY_MAX_CHARS = 34, 900
+# 쉬운 말 점검 — 글자만 바꿔도 문장이 안 깨지는 것은 바꾸고, 나머지는 개수만 로그에 남긴다(지시문을 고칠 근거)
+SAFE_WORDS = {"외인": "외국인", "KOSPI": "코스피", "KOSDAQ": "코스닥"}
+JARGON = ("로테이션", "리스크 오프", "리스크오프", "경기방어", "초과방어", "thesis", "익스포저", "모멘텀", "가이던스",
+          "밸류에이션", "HBM", "순매도", "순매수", "수급", "트리거", "MDD", "SOX", "컨센서스")
 
 
 def first_color(line):
@@ -111,6 +115,22 @@ def fix_weekdays(lines, ref):
         if "(" in l:
             lines[i] = WEEKDAY_RE.sub(sub, l)
     return n
+
+
+def plain_words(lines):
+    """쉬운 말 점검(코드블록 밖). → (바꾼 낱말 수, 남은 어려운 말 수)"""
+    mask = code_mask(lines)
+    fixed = left = 0
+    for i, l in enumerate(lines):
+        if mask[i]:
+            continue
+        for a, b in SAFE_WORDS.items():
+            if a in l:
+                fixed += l.count(a)
+                l = l.replace(a, b)
+        lines[i] = l
+        left += sum(l.count(w) for w in JARGON)
+    return fixed, left
 
 
 def block_end(lines, start, stop):
@@ -319,10 +339,13 @@ def main():
             notes.append("no-split")
         div = ensure_dividers(lines, fi)
         wk = fix_weekdays(lines, ref)
+        wf, wl = plain_words(lines)
         if nb or nd or div:
             notes.append(f"shape=bullets:{nb}/dividers:{nd}+{div}")
         if wk:
             notes.append(f"weekday-fixed={wk}")
+        if wf or wl:
+            notes.append(f"words=fixed:{wf}/jargon:{wl}")
         summary = lines[fi:split_at(lines)]
         body = [l for l in summary if l.strip()]
         chars = sum(len(l) for l in body)
