@@ -43,6 +43,59 @@ def set_color(line, color):
     return color + rest
 
 
+REASON_RE = re.compile(r"^\s*(🟢|🟡|🔴)\s*이유\s*:")
+
+
+def enforce_lines(lines, fi, spec, final, escalated):
+    """요약의 뼈대 줄(첫 줄·숫자 줄·신호 이유)을 사전 수집이 만든 글자 그대로 맞춘다. → 고친 항목 이름들.
+
+    AI는 이 줄들을 복사만 하게 돼 있다. 다르게 쓰면(이름을 바꾸거나 숫자를 고치면) 여기서 되돌린다.
+    사건으로 🔴이 된 경우 첫 줄의 색과 이유 줄은 AI가 쓴 것을 둔다."""
+    fixed = []
+    end = lambda: next((i for i, l in enumerate(lines) if SPLIT_RE.match(l)), len(lines))
+    used, last = {fi}, fi
+    for x in spec:
+        if x["key"] == "head":
+            want = set_color(x["text"], final) if escalated else x["text"]
+            if lines[fi].strip() != want:
+                lines[fi] = want
+                fixed.append("head")
+        elif x["key"] != "reason":
+            idx = next((i for i in range(fi + 1, end()) if i not in used and any(lines[i].lstrip().startswith(l) for l in x["labels"])), None)
+            if idx is None:   # 빠뜨린 줄 — 앞 뼈대 줄 바로 다음(첫 번째면 결론 문장과 빈 줄 다음)에 넣는다
+                pos = last + 1 if last != fi else min(fi + 3, end())
+                lines.insert(pos, x["text"])
+                used = {u + 1 if u >= pos else u for u in used}
+                idx = pos
+                fixed.append(x["key"] + "+")
+            elif lines[idx].strip() != x["text"]:
+                lines[idx] = x["text"]
+                fixed.append(x["key"])
+            used.add(idx)
+            last = idx
+    if not escalated:
+        want = next((x["text"] for x in spec if x["key"] == "reason"), None)
+        have = [i for i in range(fi, end()) if REASON_RE.match(lines[i])]
+        if want:
+            if have:
+                if lines[have[0]].strip() != want:
+                    lines[have[0]] = want
+                    fixed.append("reason")
+                for i in have[1:][::-1]:
+                    del lines[i]
+            else:
+                e = end()
+                while e > fi + 1 and not lines[e - 1].strip():   # 요약 끝의 빈 줄 앞에
+                    e -= 1
+                lines[e:e] = ["", want]
+                fixed.append("reason+")
+        elif have and any(x["key"] == "head" for x in spec):   # 🟢인데 이유 줄이 있으면 지운다
+            for i in have[::-1]:
+                del lines[i]
+            fixed.append("reason-")
+    return fixed
+
+
 def upsert_log(path, entry):
     lines = []
     try:
@@ -82,6 +135,8 @@ def main():
             sig = json.load(open(opt["signal"], encoding="utf-8"))
         except Exception:
             sig = None
+    if sig and sig.get("stale"):   # 사전 수집이 어젯밤 기록을 못 받음 — 그 색·숫자로 강제하지 않는다
+        sig = None
     script = sig.get("color") if sig else None
 
     fi = next((i for i, l in enumerate(lines) if l.strip()), None)
@@ -107,6 +162,12 @@ def main():
                     lines[fi] = set_color(lines[fi], script)
         elif wrote is None:
             notes.append("no-color")
+        if sig and sig.get("lines") and final:                    # 뼈대 줄을 사전 수집 값 그대로
+            fx = enforce_lines(lines, fi, sig["lines"], final, action == "escalated")
+            if fx:
+                notes.append("fixed=" + "/".join(fx))
+            splits = [i for i, l in enumerate(lines) if SPLIT_RE.match(l)]
+            summary = lines[fi:(splits[0] if splits else len(lines))]
         if len(splits) > 1:                                      # 나눔 표시는 하나만
             for i in splits[1:][::-1]:
                 del lines[i]

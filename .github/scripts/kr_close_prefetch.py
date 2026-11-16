@@ -199,16 +199,22 @@ def summary_material(gas, rows, asof, today, signals_path):
     drags = [x for x in ranked if x[0] <= -0.03][:3]
     lifts = [x for x in reversed(ranked) if x[0] >= 0.03][:2]
     mover = lambda x: f"{x[1]} {pct(x[2])} (포트 {x[0]:+.2f}%p)"
+    kind_by = {n: k for n, c, p, g, k in rows}
+    sn = lambda n: mkt.short_name(n, kind_by.get(n))
     up_day = port is not None and port >= 0
     if up_day:   # 오른 날은 끌어올린 것이 먼저
         ups = [x for x in reversed(ranked) if x[0] >= 0.03][:3]
         mover_lines = ["- 끌어올린 것 (포트에 준 영향이 큰 순): " + (" · ".join(mover(x) for x in ups) if ups else "없음"),
                        "- 발목 잡은 것: " + (" · ".join(mover(x) for x in drags[:2]) if drags else "없음")]
+        fixed_movers = [("*끌어올린 것*", [sn(x[1]) for x in ups]), ("*발목 잡은 것*", [sn(x[1]) for x in drags[:2]])]
     else:
+        least = [n for g, n in sorted(((g, n) for n, c, p, g, k in rows if g is not None), reverse=True)[:2]]
         mover_lines = ["- 끌어내린 것 (포트에 준 영향이 큰 순): " + (" · ".join(mover(x) for x in drags) if drags else "없음"),
                        ("- 받쳐 준 것: " + " · ".join(mover(x) for x in lifts)) if lifts else
                        ("- 덜 빠진 것 (포트를 받쳐 줄 만큼 오른 종목은 없음): "
                         + " · ".join(f"{n} {pct(g)}" for g, n in sorted(((g, n) for n, c, p, g, k in rows if g is not None), reverse=True)[:2]))]
+        fixed_movers = [("*끌어내린 것*", [sn(x[1]) for x in drags]),
+                        ("*받쳐 준 것*", [sn(x[1]) for x in lifts]) if lifts else ("*덜 빠진 것*", [sn(n) for n in least])]
     holiday = asof != today
     # GAS가 "입출금 의심"으로 표시한 날이라도, 보유 종목 등락으로 다시 계산한 값과 0.5%p 안에서 맞으면 시장 움직임이다 — 경고를 붙이지 않는다
     flow_note = ""
@@ -238,9 +244,21 @@ def summary_material(gas, rows, asof, today, signals_path):
         if k == "국내주식":
             L.append(pad(n, 11) + f"{pct(g):>7}" + f"{P(extra[c]['d5'], 1):>7}" + (f"  {extra[c]['streak']}일째↓" if (extra[c]["streak"] or 0) >= 3 else ""))
     L += ["```", ""]
+    # 요약의 뼈대 줄 — 코드가 만든 그대로 들어간다(발송 전 마무리가 다르면 이 값으로 되돌린다)
+    labels = signal_rules.LABEL
+    head = (f"{color} *{labels[color]}* · KR 휴장 — {mkt.kdate(asof)} 기준" if holiday else f"{color} *{labels[color]}* · KR 마감 {mkt.kdate(asof)}")
+    fixed = [{"key": "head", "text": head},
+             {"key": "port", "labels": ["*내 포트*"], "text": f"*내 포트* {P(port)} (주식만 {P(inv)} · 코스피 {P(idx['KOSPI']['pct'])})"}]
+    for key, (lab, names) in zip(("mover1", "mover2"), fixed_movers):
+        fixed.append({"key": key, "labels": ["*끌어내린 것*", "*끌어올린 것*"] if key == "mover1" else ["*받쳐 준 것*", "*덜 빠진 것*", "*발목 잡은 것*"],
+                      "text": f"{lab} " + (" · ".join(names) if names else "없음")})
+    rl = signal_rules.reason_line(color, reasons)
+    if rl:
+        fixed.append({"key": "reason", "text": rl})
+    L += ["### 요약에 그대로 넣을 줄 — 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"] + [x["text"] for x in fixed] + ["```", ""]
     sig = {"type": "kr", "date": asof, "header": mkt.kdate(asof), "color": color, "label": signal_rules.LABEL[color], "reasons": reasons,
            "port": port, "inv": None if inv is None else round(inv, 2), "kospi": None if idx["KOSPI"]["pct"] is None else round(idx["KOSPI"]["pct"], 2),
-           "step": step, "lowStep": low, "portSource": port_src}
+           "step": step, "lowStep": low, "portSource": port_src, "lines": fixed}
     diff = "" if (approx is None or port_src != "gas" or port is None) else f" port_diff={abs(port - approx):.2f}"
     status = f"signal={color} reasons={len(reasons)} port_src={port_src}{diff} idx={idx_ok}/2 fx={'ok' if fx else 'none'} hist={hist_ok}/{len(rows)}"
     return L, sig, extra, status

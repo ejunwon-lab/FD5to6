@@ -150,8 +150,23 @@ def main():
          "- 자산 비중: " + (" · ".join(f"{k} {v}%" for k, v in sorted((gas.get("assetClassWeights") or {}).items(), key=lambda x: -x[1]) if v) or "미수신"),
          "- 미국 (한 주): " + " · ".join(f"{n} {P(idx[n]['week'])}" for n in ("S&P500", "나스닥100", "미국 반도체지수")),
          "- 원/달러: " + (f"{fx['close']:,.2f}원 (한 주 {P(fx['week'])})" if fx else "미수신"),
-         "- " + signal_rules.key_text(),
-         "", "## 날짜별", "", "| 날짜 | 내 포트 | 코스피 | 그날 신호 |", "|---|---|---|---|"]
+         "- " + signal_rules.key_text()]
+    # 요약의 뼈대 줄 — 코드가 만든 그대로 들어간다(발송 전 마무리가 다르면 이 값으로 되돌린다)
+    sn = lambda r: mkt.short_name(r["name"], r["kind"])
+    ups = [sn(r) for r in ranked[::-1][:3] if r["contrib"] >= 0.03]
+    downs = [sn(r) for r in ranked[:3] if r["contrib"] <= -0.03]
+    fixed = [{"key": "head", "text": f"{color} *{signal_rules.LABEL[color]}* · 주간 {header}"},
+             {"key": "port", "labels": ["*내 포트 한 주*", "*내 포트*"], "text": f"*내 포트 한 주* {P(port_week)} (주식만 {P(inv_week)} · 코스피 {P(k_week)})"}]
+    if ups:
+        fixed.append({"key": "up", "labels": ["*끌어올린 것*"], "text": "*끌어올린 것* " + " · ".join(ups)})
+    if downs:
+        fixed.append({"key": "down", "labels": ["*끌어내린 것*"], "text": "*끌어내린 것* " + " · ".join(downs)})
+    if len(kr_week) >= 3:
+        cnt = lambda c: sum(1 for e in kr_week.values() if e.get("color") == c)
+        fixed.append({"key": "tally", "labels": ["*이번 주 신호*"],
+                      "text": f"*이번 주 신호* 🔴 {cnt(signal_rules.RED)}일 · 🟡 {cnt(signal_rules.YELLOW)}일 · 🟢 {cnt(signal_rules.GREEN)}일"})
+    L += ["", "### 요약에 그대로 넣을 줄 — 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"] + [x["text"] for x in fixed] + ["```"]
+    L += ["", "## 날짜별", "", "| 날짜 | 내 포트 | 코스피 | 그날 신호 |", "|---|---|---|---|"]
     for d in week:
         e = daily.get(d)
         flag = "" if not e else (" (입출금 보정)" if e.get("flowAdj") else "")
@@ -175,7 +190,8 @@ def main():
     if opt.get("signal-out"):
         with open(opt["signal-out"], "w", encoding="utf-8") as f:
             json.dump({"type": "weekly", "date": today, "header": header, "color": color, "label": signal_rules.LABEL[color], "reasons": reasons,
-                       "port": None if port_week is None else round(port_week, 2), "kospi": None if k_week is None else round(k_week, 2)}, f, ensure_ascii=False)
+                       "port": None if port_week is None else round(port_week, 2), "kospi": None if k_week is None else round(k_week, 2),
+                       "lines": fixed}, f, ensure_ascii=False)
     print(f"weekly-prefetch: week={week[0]}~{week[-1]} daily={len(have)}/5 holdings={hist}/{len(rows)} idx={sum(1 for v in idx.values() if v.get('week') is not None)}/5"
           f" fx={'ok' if fx else 'none'} kr_signals={len(kr_week)} signal={color}")
 

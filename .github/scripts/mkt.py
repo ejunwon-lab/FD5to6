@@ -134,5 +134,31 @@ def last_day(path, end, n_back=(1, 5)):
     return out
 
 
+def disp_w(t):
+    """화면 칸 수 — 한글·전각은 2칸."""
+    return sum(2 if ord(ch) > 0x1100 else 1 for ch in str(t))
+
+
+def short_name(name, kind=None, width=16):
+    """요약 줄에 넣을 짧은 이름. ETF는 맨 앞의 운용사 상표(영문·숫자로만 된 첫 낱말)와 끝의 상품 꼬리말을 떼고,
+    그래도 길면 width칸에서 자른다. 종목별 규칙은 두지 않는다(새로 산 ETF도 같은 규칙으로 줄어든다)."""
+    n = str(name or "").strip()
+    if kind == "ETF":
+        parts = n.split()
+        if len(parts) > 1 and parts[0].isascii():
+            n = " ".join(parts[1:])
+        for tail in ("타겟커버드콜", "커버드콜", "액티브", "(H)", "(합성)"):
+            if n.endswith(tail) and len(n) - len(tail) >= 4:   # 떼고 나서 이름이 너무 짧아지면 그대로 둔다
+                n = n[: -len(tail)].strip()
+    if disp_w(n) > width:
+        out = ""
+        for ch in n:
+            if disp_w(out + ch) > width - 1:
+                break
+            out += ch
+        n = out.rstrip() + "…"
+    return n
+
+
 def pct(v, digits=2):
     return "—" if v is None else f"{v:+.{digits}f}%"

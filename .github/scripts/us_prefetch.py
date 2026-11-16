@@ -185,6 +185,16 @@ def main():
         v = idx.get(n)
         if v:
             L.append(f"| {n} | {v['close']:,.2f} | {P(v['d1'])} | {P(v['d5'])} |")
+    # 요약의 뼈대 줄 — 어젯밤 기록이 없을 때(휴장 또는 자료 지연)는 만들지 않는다(지시문 Step 5가 처리)
+    fixed = []
+    if not holiday:
+        fixed = [{"key": "head", "text": f"{color} *{signal_rules.LABEL[color]}* · {header}"},
+                 {"key": "us", "labels": ["*미국*"], "text": f"*미국* 나스닥100 {P(ndx)} · 반도체지수 {P(sox)}"}]
+        rl = signal_rules.reason_line(color, reasons)
+        if rl:
+            fixed.append({"key": "reason", "text": rl})
+        i = L.index("## 미국 시장 표")
+        L[i:i] = ["### 요약에 그대로 넣을 줄 — 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"] + [x["text"] for x in fixed] + ["```", ""]
     if nvda:
         L.append(f"| 엔비디아 | {nvda['close']:,.2f} | {P(nvda['d1'])} | {P(nvda['d5'])} |")
     for h in held:
@@ -199,7 +209,8 @@ def main():
     if opt.get("signal-out"):
         with open(opt["signal-out"], "w", encoding="utf-8") as f:
             json.dump({"type": "us", "date": today, "usDate": us_date, "header": header, "color": color, "label": signal_rules.LABEL[color],
-                       "reasons": reasons, "sox": None if sox is None else round(sox, 2), "ndx": None if ndx is None else round(ndx, 2)}, f, ensure_ascii=False)
+                       "reasons": reasons, "sox": None if sox is None else round(sox, 2), "ndx": None if ndx is None else round(ndx, 2),
+                       "stale": holiday, "lines": fixed}, f, ensure_ascii=False)
     print(f"us-prefetch: us_date={us_date} holiday={'yes' if holiday else 'no'} idx={got_idx}/{len(INDEX)} big7={len(big)}/7 sectors={len(sec)}/11"
           f" held={sum(1 for h in held if h['q'])}/{len(held)} fx={'ok' if fx else 'none'} signal={color} reasons={len(reasons)}")
 
