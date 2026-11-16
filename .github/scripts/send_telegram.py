@@ -10,6 +10,9 @@ Telegram Bot API로 시장 리포트 발송.
 - 일시적 실패(연결 끊김·5xx·429)는 2초·5초 뒤 다시 보낸다(2026-11-16 — 첫 실발송에서 한 대상이
   `Connection reset by peer` 한 번에 통째로 빠진 뒤). 400(Markdown 해석 실패)은 재시도 대상이 아니다.
 - `TG_ONLY`(예: "1" 또는 "1,2") — 그 순번의 대상에게만 보낸다. 일부 대상만 못 받았을 때의 재발송용.
+- 글머리표는 `* `(별표+빈칸)다(2026-11-16 사용자 결정 — 하이픈은 마이너스와 헷갈린다). 텔레그램 Markdown에서 `*`는
+  굵은 글씨 표시라서, 줄 맨 앞의 글머리 별표는 보낼 때 역슬래시를 앞에 붙여 글자 그대로 보이게 한다(코드블록 안은 그대로).
+  Markdown 해석이 실패해 일반 글로 다시 보낼 때는 원문을 그대로 보낸다.
 
 환경변수:
   TG_BOT_TOKEN  — 봇 토큰
@@ -56,6 +59,22 @@ SPLIT_RE = re.compile(r"^\s*={3,}\s*근거\s*={3,}\s*$", re.M)
 def split_parts(body):
     """`===근거===` 줄에서 메시지를 나눈다 → [요약, 근거]. 표시가 없으면 [본문]."""
     return [p.strip() for p in SPLIT_RE.split(body) if p.strip()] or [body]
+
+
+BULLET_STAR_RE = re.compile(r"^(\s*)\* (?=\S)")
+
+
+def md_escape_bullets(text):
+    """줄 맨 앞의 글머리 별표(`* `)를 `\\* `로 — Markdown이 굵은 글씨 표시로 읽지 않게. 코드블록 안은 건드리지 않는다."""
+    out, inside = [], False
+    for line in text.split("\n"):
+        fence = line.strip().startswith("```")
+        if not inside and not fence:
+            line = BULLET_STAR_RE.sub(lambda m: m.group(1) + "\\* ", line)
+        if fence:
+            inside = not inside
+        out.append(line)
+    return "\n".join(out)
 
 
 def post(url, payload):
@@ -144,7 +163,7 @@ def main():
             # 1차: Markdown
             status, resp = post_retry(url, {
                 "chat_id": chat_id,
-                "text": chunk,
+                "text": md_escape_bullets(chunk),
                 "parse_mode": "Markdown",
                 "disable_notification": silent,
             })

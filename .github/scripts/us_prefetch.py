@@ -189,12 +189,22 @@ def main():
     fixed = []
     if not holiday:
         fixed = [{"key": "head", "text": f"{color} *{signal_rules.LABEL[color]}* · {header}"},
-                 {"key": "us", "labels": ["*미국*"], "text": f"*미국* 나스닥100 {P(ndx)} · 반도체지수 {P(sox)}"}]
-        rl = signal_rules.reason_line(color, reasons)
-        if rl:
-            fixed.append({"key": "reason", "text": rl})
+                 {"key": "us", "labels": ["*미국*"], "text": f"*미국*\n* 나스닥100 {P(ndx)}\n* 반도체지수 {P(sox)}"}]
+        rb = signal_rules.reason_block(color, reasons)
+        if rb:
+            fixed.append({"key": "reason", "text": rb})
+        blk = ["### 요약에 그대로 넣을 묶음 — 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"]
+        for x in fixed:
+            blk += x["text"].split("\n") + [""]
+        blk[-1] = "```"
+        w = lambda t: t + " " * max(0, 12 - mkt.disp_w(t))
+        blk += ["", "### 근거에 그대로 넣을 묶음 — 복사해서 쓴다", "", "~~~", "*미국 시장*", "```"]
+        for n, short in (("S&P500", "S&P500"), ("나스닥100", "나스닥100"), ("미국 반도체지수", "반도체지수"), ("다우", "다우")):
+            if idx.get(n):
+                blk.append(w(short) + f"{P(idx[n]['d1']):>8}")
+        blk += ["```", "~~~", ""]
         i = L.index("## 미국 시장 표")
-        L[i:i] = ["### 요약에 그대로 넣을 줄 — 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"] + [x["text"] for x in fixed] + ["```", ""]
+        L[i:i] = blk
     if nvda:
         L.append(f"| 엔비디아 | {nvda['close']:,.2f} | {P(nvda['d1'])} | {P(nvda['d5'])} |")
     for h in held:
