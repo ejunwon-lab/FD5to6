@@ -7,10 +7,14 @@ Telegram Bot API로 시장 리포트 발송.
 - 본문에 `===근거===` 한 줄이 있으면 그 줄에서 **두 통으로 나눠** 보낸다(2026-11-16): 1통째 = 요약(알림 울림),
   2통째 = 근거(알림 없이). 표시 줄 자체는 보내지 않는다. 표시가 없으면 예전처럼 한 통.
 - 로그는 공개다 — chat_id를 찍지 않고 순번(chat#1…)만 찍는다.
+- 일시적 실패(연결 끊김·5xx·429)는 2초·5초 뒤 다시 보낸다(2026-11-16 — 첫 실발송에서 한 대상이
+  `Connection reset by peer` 한 번에 통째로 빠진 뒤). 400(Markdown 해석 실패)은 재시도 대상이 아니다.
+- `TG_ONLY`(예: "1" 또는 "1,2") — 그 순번의 대상에게만 보낸다. 일부 대상만 못 받았을 때의 재발송용.
 
 환경변수:
   TG_BOT_TOKEN  — 봇 토큰
   TG_CHAT_IDS   — 콤마 구분 chat_id 리스트 (예: "123,456")
+  TG_ONLY       — (선택) 보낼 대상의 순번, 콤마 구분. 비우면 전원
 
 사용:
   python3 send_telegram.py <report_file_path>
@@ -71,6 +75,26 @@ def post(url, payload):
         return -1, str(e)
 
 
+RETRY_WAITS = (2, 5)   # 일시적 실패 뒤 기다리는 초 — 총 3번까지 시도
+
+
+def post_retry(url, payload):
+    """일시적 실패(연결 오류 -1 · 5xx · 429)는 다시 보낸다. 그 밖의 응답은 그대로 돌려준다."""
+    status, resp = post(url, payload)
+    for wait in RETRY_WAITS:
+        if not (status == -1 or status == 429 or status >= 500):
+            break
+        if status == 429:   # 텔레그램이 알려 준 대기 시간(최대 15초)
+            try:
+                wait = min(15, max(wait, int(json.loads(resp)["parameters"]["retry_after"]) + 1))
+            except Exception:
+                pass
+        print(f"  일시적 실패(HTTP {status}) — {wait}초 뒤 다시 보냄")
+        time.sleep(wait)
+        status, resp = post(url, payload)
+    return status, resp
+
+
 def main():
     if len(sys.argv) < 2:
         print("usage: send_telegram.py <report_file>", file=sys.stderr)
@@ -104,16 +128,21 @@ def main():
     chunks = [(c, pi > 0) for pi, part in enumerate(parts) for c in split_message(part)]
     print(f"본문 {len(body)}자 → 메시지 {len(parts)}통" + (f" (조각 {len(chunks)}개)" if len(chunks) != len(parts) else ""))
 
+    only = {int(x) for x in os.environ.get("TG_ONLY", "").replace(" ", "").split(",") if x.isdigit()}
+    targets = [(n, c) for n, c in enumerate(chat_ids, 1) if not only or n in only]
+    if only:
+        print(f"대상 제한 — {', '.join(f'chat#{n}' for n, _ in targets) or '없음'}에게만 보냄")
+
     sent = 0
     failed = []
-    for n, chat_id in enumerate(chat_ids, 1):
+    for n, chat_id in targets:
         ok = True
         for idx, (chunk, silent) in enumerate(chunks):
             tag = f"chat#{n}" + (f" [{idx+1}/{len(chunks)}]" if len(chunks) > 1 else "")
             if idx:
                 time.sleep(0.6)   # 순서 보장 — 요약이 먼저 도착하게
             # 1차: Markdown
-            status, resp = post(url, {
+            status, resp = post_retry(url, {
                 "chat_id": chat_id,
                 "text": chunk,
                 "parse_mode": "Markdown",
@@ -124,7 +153,7 @@ def main():
                 continue
             # 2차: plain text fallback (Markdown parse 실패 시)
             if status == 400:
-                status2, resp2 = post(url, {
+                status2, resp2 = post_retry(url, {
                     "chat_id": chat_id,
                     "text": chunk,
                     "disable_notification": silent,
@@ -144,7 +173,7 @@ def main():
         if ok:
             sent += 1
 
-    print(f"\nresult: sent={sent}/{len(chat_ids)}")
+    print(f"\nresult: sent={sent}/{len(targets)}")
     if failed:
         print("failures:")
         for f in failed:

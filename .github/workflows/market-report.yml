@@ -54,6 +54,10 @@ on:
         description: '지시문 폴더(docs/reports 아래). 새 지시문 시험: _config/next'
         type: string
         default: '_config'
+      only_chat:
+        description: '보낼 대상 순번(예: 1). 일부만 못 받았을 때 재발송용. 비우면 전원'
+        type: string
+        default: ''
 
 permissions:
   contents: write   # docs/reports/ commit·push 용
@@ -213,6 +217,7 @@ jobs:
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
+          TG_ONLY: ${{ inputs.only_chat }}
         run: |
           python3 .github/scripts/send_telegram.py "${{ steps.path.outputs.report }}"
 
@@ -415,6 +420,7 @@ jobs:
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
+          TG_ONLY: ${{ inputs.only_chat }}
         run: |
           python3 .github/scripts/send_telegram.py "${{ steps.path.outputs.report }}"
 
@@ -617,6 +623,7 @@ jobs:
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_IDS: ${{ secrets.TG_CHAT_IDS }}
+          TG_ONLY: ${{ inputs.only_chat }}
         run: |
           python3 .github/scripts/send_telegram.py "${{ steps.path.outputs.report }}"
 
