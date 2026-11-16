@@ -188,5 +188,8 @@
 - **리포트 보유 목록을 GAS 보유현황 단일 출처로** — 지시문의 손 목록 삭제(16종 → 실제 14종), 사전 수집 표에 구분 칸·캐시·논리 미등록 표시. 17:05 실행에서 확인(`list=gas stocks=4 etf=10`, 본문에 판 종목 없음). 작업 규칙 메모 `feedback_single_source_no_hand_copies`.
 - **US·KR 지시문 등락률 계산식 수정** — 11/16 아침 US 리포트가 5거래일 변화율을 하루 등락으로 적은 원인(`chartPreviousClose`) 제거(비공개 저장소 a2f6779, errors.md).
 - 저녁 실측 — 15:37 정규장 종가 잠금(국내 40/40) · 17:05 KR 리포트 `gas-lock crosscheck=14/14` · 17:29 이메일 잔여 속성 16개 삭제.
-- **리포트 요약 우선(두 통)·신호등 시험본** — 숫자·날짜·신호 색을 코드가 계산(`mkt`·`signal_rules`·`us_prefetch`·`weekly_prefetch`·`kr_close_prefetch` 확장), 발송 전 마무리(`report_finalize`), 두 통 분할 발송, 지시문 3종 재작성. 브랜치 `report-v2` + 비공개 저장소 `_config/next/`. 단위 시험 46건, 과거 10개월 대입, 실환경 dry_run KR·US·주간 통과. **운영 미반영 — 사용자 확인 대기.**
+- **리포트 요약 우선(두 통)·신호등 시험본** — 숫자·날짜·신호 색을 코드가 계산(`mkt`·`signal_rules`·`us_prefetch`·`weekly_prefetch`·`kr_close_prefetch` 확장), 발송 전 마무리(`report_finalize`), 두 통 분할 발송, 지시문 3종 재작성. 브랜치 `report-v2` + 비공개 저장소 `_config/next/`. 단위 시험 46건, 과거 10개월 대입, 실환경 dry_run KR·US·주간 통과. (아래 줄에서 운영 반영)
+- **리포트 요약 우선·신호등 운영 반영** (사용자 "오늘 한국 리포트부터 해봐") — 지시문 3종 교체(비공개 저장소 2c00a91), main 병합 47592a4. 11/16 KR 리포트를 새 형식 두 통으로 실발송.
+- **발송 재시도 보완** — 첫 실발송에서 대상 2곳 중 1곳이 연결 오류로 빠짐 → `send_telegram.py`에 일시적 실패 재시도·대상 제한(`only_chat`) 추가(ff26b67), 못 받은 대상에게만 재발송해 도착·커밋 확인(run 43838770615). 실행 로그의 본문·대상 식별자 출력 제거.
+- 신호 이력 시작 — 비공개 저장소 `_signals.jsonl` 첫 줄(11/16 KR 🟡), `_watch.md`·`_watch_log.md` 생성.
 

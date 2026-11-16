@@ -50,7 +50,7 @@ def ymd(s):
 
 def day_series(path, end, days=70):
     """네이버 일봉 → [(YYYYMMDD, 종가)] 오름차순. path 예: 'domestic/index/KOSPI', 'domestic/item/005930',
-    'foreign/index/.SOX', 'foreign/item/AVGO.O'. end(YYYYMMDD 또는 YYYY-MM-DD)까지 달력 days일."""
+    'foreign/index/.SOX', 'foreign/item/NVDA.O'. end(YYYYMMDD 또는 YYYY-MM-DD)까지 달력 days일."""
     e = ymd(end)
     start = (dt.date(int(e[:4]), int(e[4:6]), int(e[6:8])) - dt.timedelta(days=days)).strftime("%Y%m%d")
     d = get(f"{API}/chart/{path}/day?startDateTime={start}&endDateTime={e}")

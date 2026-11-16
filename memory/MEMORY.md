@@ -48,3 +48,5 @@
 - [구조적으로 정확한 방법을 기본안으로](feedback_correct_by_construction.md) — "먼저 비교·실측해 보고"로 미루지 말 것, 정의상 맞는 방법이 있으면 그게 1안
 - [목록·알림은 거르지 말고 전부](feedback_show_all_no_filtering.md) — 임계값으로 종목을 넣고 빼지 않는다, 변화 없음·실패도 표기
 - [Life OS는 말할 때만](feedback_lifeos_only_when_asked.md) — "리마인드해줘"만으로 Life OS에 넣지 않는다, 사용자가 Life OS를 직접 말했을 때만 기록·조회
+- [원본 있는 데이터를 손으로 적지 않기](feedback_single_source_no_hand_copies.md) — 보유 목록 등은 실행 때 원본에서 읽게 설계, 사본은 기계 캐시만, 어긋나면 사본을 없앤다
+- [리포트는 요약·행동 먼저](feedback_report_summary_first.md) — 두괄식 요약 + "그래서 뭘 할지", 쉬운 말, 🔴은 드물게, 숫자·색은 코드가 계산
