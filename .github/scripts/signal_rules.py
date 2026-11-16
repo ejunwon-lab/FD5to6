@@ -34,12 +34,12 @@ def key_text():
             f"아침(미국): 🟡 반도체지수 {US['SOX_Y']:.0f}%·나스닥100 {US['NDX_Y']:.0f}% 이하, 🔴 {US['SOX_R']:.0f}%·{US['NDX_R']:.0f}% 이하.")
 
 
-def reason_line(color, reasons):
-    """요약 끝의 신호 이유 한 줄 — 괄호 안 부연은 뺀다. 🟢이면 None(줄을 넣지 않는다)."""
+def reason_block(color, reasons):
+    """요약 끝의 신호 이유 묶음 — 이름표 한 줄 + 이유마다 `* ` 한 줄(괄호 안 부연은 뺀다). 🟢이면 None."""
     import re
     if color == GREEN or not reasons:
         return None
-    return f"{color} 이유: " + " · ".join(re.sub(r"\s*\([^)]*\)", "", r).strip() for r in reasons)
+    return "\n".join([f"{color} *이유*"] + ["* " + re.sub(r"\s*\([^)]*\)", "", r).strip() for r in reasons])
 
 
 def worst(*colors):

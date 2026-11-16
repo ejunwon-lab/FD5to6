@@ -247,15 +247,38 @@ def summary_material(gas, rows, asof, today, signals_path):
     # 요약의 뼈대 줄 — 코드가 만든 그대로 들어간다(발송 전 마무리가 다르면 이 값으로 되돌린다)
     labels = signal_rules.LABEL
     head = (f"{color} *{labels[color]}* · KR 휴장 — {mkt.kdate(asof)} 기준" if holiday else f"{color} *{labels[color]}* · KR 마감 {mkt.kdate(asof)}")
+    # 묶음 = 이름표 줄 + 그 아래 `* ` 줄. 글머리표는 `*`(하이픈은 마이너스와 헷갈린다)
     fixed = [{"key": "head", "text": head},
-             {"key": "port", "labels": ["*내 포트*"], "text": f"*내 포트* {P(port)} (주식만 {P(inv)} · 코스피 {P(idx['KOSPI']['pct'])})"}]
+             {"key": "port", "labels": ["*내 포트*"], "text": f"*내 포트*  {P(port)}\n* 주식만 {P(inv)} · 코스피 {P(idx['KOSPI']['pct'])}"}]
     for key, (lab, names) in zip(("mover1", "mover2"), fixed_movers):
         fixed.append({"key": key, "labels": ["*끌어내린 것*", "*끌어올린 것*"] if key == "mover1" else ["*받쳐 준 것*", "*덜 빠진 것*", "*발목 잡은 것*"],
-                      "text": f"{lab} " + (" · ".join(names) if names else "없음")})
-    rl = signal_rules.reason_line(color, reasons)
-    if rl:
-        fixed.append({"key": "reason", "text": rl})
-    L += ["### 요약에 그대로 넣을 줄 — 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"] + [x["text"] for x in fixed] + ["```", ""]
+                      "text": f"{lab}\n* " + (" · ".join(names) if names else "없음")})
+    rb = signal_rules.reason_block(color, reasons)
+    if rb:
+        fixed.append({"key": "reason", "text": rb})
+    L += ["### 요약에 그대로 넣을 묶음 — 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"]
+    for x in fixed:
+        L += x["text"].split("\n") + [""]
+    L[-1] = "```"
+    L.append("")
+    stock_w = sum(v for k, v in (gas.get("assetClassWeights") or {}).items() if "주식" in k or "ETF" in k.upper())
+    cash_w = (gas.get("assetClassWeights") or {}).get("현금성")
+    L += ["### 근거에 그대로 넣을 묶음 — 복사해서 쓴다 (비중 묶음의 '반도체·AI'만 직접 더해 채운다)", "", "~~~",
+          "*흐름*",
+          f"* 5일 {P(pr.get('d5'))} (코스피 {P(idx['KOSPI']['d5'])})",
+          f"* 20일 {P(pr.get('d20'))} · 누적 {P(op)}",
+          "",
+          "*비중*",
+          f"* 주식 {stock_w:.0f}% · 현금 {cash_w:.0f}%" if cash_w is not None else "* 주식 — · 현금 —",
+          "* 반도체·AI 약 {N}%",
+          "",
+          "*시장*",
+          "```"]
+    for label, code in (("코스피", "KOSPI"), ("코스닥", "KOSDAQ")):
+        v = idx[code]
+        L.append(pad(label, 8) + (f"{v['close']:>9,.2f}" if v["close"] else f"{'미수신':>7}") + f"{P(v['pct']):>8}")
+    L.append(pad("원/달러", 8) + (f"{fx['close']:>9,.2f}{fx['diff']:>+8.2f}" if fx and fx.get("diff") is not None else f"{'미수신':>7}"))
+    L += ["```", "~~~", ""]
     sig = {"type": "kr", "date": asof, "header": mkt.kdate(asof), "color": color, "label": signal_rules.LABEL[color], "reasons": reasons,
            "port": port, "inv": None if inv is None else round(inv, 2), "kospi": None if idx["KOSPI"]["pct"] is None else round(idx["KOSPI"]["pct"], 2),
            "step": step, "lowStep": low, "portSource": port_src, "lines": fixed}
