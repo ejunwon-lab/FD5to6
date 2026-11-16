@@ -139,7 +139,7 @@ def disp_w(t):
     return sum(2 if ord(ch) > 0x1100 else 1 for ch in str(t))
 
 
-def short_name(name, kind=None, width=16):
+def short_name(name, kind=None, width=26):
     """요약 줄에 넣을 짧은 이름. ETF는 맨 앞의 운용사 상표(영문·숫자로만 된 첫 낱말)와 끝의 상품 꼬리말을 떼고,
     그래도 길면 width칸에서 자른다. 종목별 규칙은 두지 않는다(새로 산 ETF도 같은 규칙으로 줄어든다)."""
     n = str(name or "").strip()
