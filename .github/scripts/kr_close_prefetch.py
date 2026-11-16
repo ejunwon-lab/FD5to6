@@ -17,13 +17,24 @@
 이 저장소의 실행 로그는 공개다 — 표준 출력에는 개수·상태만 쓰고 종목명·가격은 쓰지 않는다 (표는 러너의 임시 파일로만).
 어떤 실패에도 exit 0: 리포트 에이전트는 표 머리의 상태 문구를 보고 대체 경로를 탄다.
 
+요약 재료 (2026-11-16 — 설계: docs/plans/2026-11-16-리포트-요약우선-신호등.md):
+  요약 메시지에 들어갈 숫자(내 포트·주식 부분·코스피·기여도 순위·5일·환율)와 **신호 색**을 여기서 계산해 표 위에 적는다.
+  AI는 그 숫자와 색을 그대로 옮기고 글만 쓴다. 색 규칙은 signal_rules.py, 시세 도구는 mkt.py.
+  이 부분이 실패해도 아래 보유 종목 표는 그대로 나간다(요약 재료만 "계산 실패"로 표시).
+
 사용: kr_close_prefetch.py <gas_metrics.json> <out.md> <오늘 YYYY-MM-DD> [_kr_holdings.json] [kr-theses.md]
+                          [--signals <_signals.jsonl>] [--signal-out <signal.json>]
 """
 import json
+import os
 import re
 import sys
 import time
 import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import mkt            # noqa: E402
+import signal_rules   # noqa: E402
 
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 SHIFT_MIN = {"2026-11-19": 60}   # 정규장 마감이 늦는 날(분) — GAS MarketClose.js 의 MC.SHIFT_MIN 과 같이 고친다
@@ -112,10 +123,158 @@ def pct(v):
     return "—" if v is None else f"{v:+.2f}%"
 
 
+def disp_w(t):
+    return sum(2 if ord(ch) > 0x1100 else 1 for ch in t)
+
+
+def pad(t, w):
+    return t + " " * max(0, w - disp_w(t))
+
+
+def read_low_step(path, typ="kr"):
+    """신호 기록(_signals.jsonl)에서 지금까지 가장 낮았던 누적 수익률 계단. 기록이 없으면 None."""
+    low = None
+    try:
+        for line in open(path, encoding="utf-8"):
+            try:
+                e = json.loads(line)
+            except Exception:
+                continue
+            if e.get("type") == typ and isinstance(e.get("step"), (int, float)):
+                low = e["step"] if low is None else min(low, e["step"])
+    except Exception:
+        pass
+    return low
+
+
+def summary_material(gas, rows, asof, today, signals_path):
+    """요약 메시지의 재료 — (마크다운 줄들, 신호 dict, 종목별 부가 값 {code: {...}}, 로그용 상태 문자열)."""
+    wsum = {}
+    for h in gas.get("holdings") or []:
+        wsum[norm(h.get("name"))] = wsum.get(norm(h.get("name")), 0.0) + (mkt.num(h.get("weight")) or 0.0)
+    extra, tot_pre, tot_c, hist_ok = {}, 0.0, 0.0, 0
+    for n, c, p, g, k in rows:
+        w = wsum.get(norm(n))
+        e = {"w": w, "contrib": None, "d5": None, "streak": None}
+        if w and g is not None:
+            w_pre = w / (1 + g / 100)
+            e["contrib"] = w_pre * g / 100
+            tot_pre += w_pre
+            tot_c += e["contrib"]
+        ser = mkt.official_series(c, asof, p) if p else []   # 정규장 종가만으로 만든 일별 값(오늘 = 표의 정규장 종가)
+        time.sleep(0.12)
+        if len(ser) >= 6:
+            hist_ok += 1
+            e["d5"] = mkt.chg(ser, 5, asof)
+            e["streak"] = mkt.down_streak(ser)
+        extra[c] = e
+    inv = (tot_c / tot_pre * 100) if tot_pre > 0 else None
+    approx = tot_c if tot_pre > 0 else None
+
+    daily = next((x for x in reversed(gas.get("dailyReturns") or []) if x.get("date") == asof), None)
+    port, port_src = (daily.get("dRatePct"), "gas") if daily and daily.get("dRatePct") is not None else (approx, "approx")
+    op = next((x.get("opRatePct") for x in reversed(gas.get("recentReturns") or []) if x.get("date") == asof), None)
+    pr = gas.get("portfolioReturn") or {}
+
+    idx, idx_ok = {}, 0
+    mk_idx = ((gas.get("marketClose") or {}).get("index") or {}) if (gas.get("marketClose") or {}).get("date") == asof else {}
+    for code in ("KOSPI", "KOSDAQ"):
+        ser = mkt.day_series(f"domestic/index/{code}", asof, 70)
+        v = {"pct": mkt.chg(ser, 1, asof), "d5": mkt.chg(ser, 5, asof), "d20": mkt.chg(ser, 20, asof),
+             "close": ser[-1][1] if ser and ser[-1][0] == mkt.ymd(asof) else None}
+        if v["pct"] is None and (mk_idx.get(code) or {}).get("pct") is not None:   # 일봉을 못 받으면 마감 직후 저장분
+            v["pct"], v["close"] = mk_idx[code]["pct"], mkt.num(mk_idx[code].get("close"))
+        idx_ok += 1 if v["pct"] is not None else 0
+        idx[code] = v
+    fx = mkt.fx_usdkrw()
+
+    low = read_low_step(signals_path) if signals_path else None
+    if low is None:   # 첫 실행 — 최근 기록의 최저 계단에서 출발(첫날부터 "처음 내려감"이 뜨지 않게)
+        past = [signal_rules.loss_step(x.get("opRatePct")) for x in (gas.get("recentReturns") or []) if x.get("opRatePct") is not None]
+        low = min(past) if past else None
+    sig_rows = [{"name": n, "kind": k, "pct": g} for n, c, p, g, k in rows]
+    color, reasons, step = signal_rules.kr_signal(port, inv, idx["KOSPI"]["pct"], sig_rows, op, low)
+
+    ranked = sorted(((extra[c]["contrib"], n, g) for n, c, p, g, k in rows if extra[c]["contrib"] is not None))
+    drags = [x for x in ranked if x[0] <= -0.03][:3]
+    lifts = [x for x in reversed(ranked) if x[0] >= 0.03][:2]
+    mover = lambda x: f"{x[1]} {pct(x[2])} (포트 {x[0]:+.2f}%p)"
+    kind_by = {n: k for n, c, p, g, k in rows}
+    sn = lambda n: mkt.short_name(n, kind_by.get(n))
+    up_day = port is not None and port >= 0
+    if up_day:   # 오른 날은 끌어올린 것이 먼저
+        ups = [x for x in reversed(ranked) if x[0] >= 0.03][:3]
+        mover_lines = ["- 끌어올린 것 (포트에 준 영향이 큰 순): " + (" · ".join(mover(x) for x in ups) if ups else "없음"),
+                       "- 발목 잡은 것: " + (" · ".join(mover(x) for x in drags[:2]) if drags else "없음")]
+        fixed_movers = [("*끌어올린 것*", [sn(x[1]) for x in ups]), ("*발목 잡은 것*", [sn(x[1]) for x in drags[:2]])]
+    else:
+        least = [n for g, n in sorted(((g, n) for n, c, p, g, k in rows if g is not None), reverse=True)[:2]]
+        mover_lines = ["- 끌어내린 것 (포트에 준 영향이 큰 순): " + (" · ".join(mover(x) for x in drags) if drags else "없음"),
+                       ("- 받쳐 준 것: " + " · ".join(mover(x) for x in lifts)) if lifts else
+                       ("- 덜 빠진 것 (포트를 받쳐 줄 만큼 오른 종목은 없음): "
+                        + " · ".join(f"{n} {pct(g)}" for g, n in sorted(((g, n) for n, c, p, g, k in rows if g is not None), reverse=True)[:2]))]
+        fixed_movers = [("*끌어내린 것*", [sn(x[1]) for x in drags]),
+                        ("*받쳐 준 것*", [sn(x[1]) for x in lifts]) if lifts else ("*덜 빠진 것*", [sn(n) for n in least])]
+    holiday = asof != today
+    # GAS가 "입출금 의심"으로 표시한 날이라도, 보유 종목 등락으로 다시 계산한 값과 0.5%p 안에서 맞으면 시장 움직임이다 — 경고를 붙이지 않는다
+    flow_note = ""
+    if daily and daily.get("suspect") and port_src == "gas" and (approx is None or abs(port - approx) > 0.5):
+        flow_note = " · ⚠️ 입출금이 섞였을 수 있음" + ("" if approx is None else f" — 보유 종목 등락만으로 계산하면 {approx:+.2f}%")
+    P = mkt.pct
+    L = ["## 요약 재료 — 코드가 계산한 값 (요약 메시지에 색·숫자·날짜 표기를 **글자 그대로** 쓴다. 다시 계산하지 않는다)", "",
+         f"- 날짜 표기: {mkt.kdate(asof)}" + (f" — 오늘({mkt.kdate(today)})은 새 기록이 없어 직전 거래일 기준" if holiday else ""),
+         f"- 신호: {color} {signal_rules.LABEL[color]}",
+         "- 신호 이유: " + (" / ".join(reasons) if reasons else "없음 (기준에 걸린 것이 없다)"),
+         f"- 내 포트 오늘: {P(port)} (현금까지 포함한 전체" + ("" if port_src == "gas" else " · 보유 종목 등락으로 계산한 근사값")
+         + (flow_note) + (" · 입출금 보정값" if daily and daily.get("flowAdj") else "") + ")",
+         f"- 주식 부분만: {P(inv)} · 코스피 {P(idx['KOSPI']['pct'])} · 코스닥 {P(idx['KOSDAQ']['pct'])}"
+         + ("" if inv is None or idx["KOSPI"]["pct"] is None else
+            f" → 주식 부분이 코스피보다 {abs(inv - idx['KOSPI']['pct']):.1f}%p " + ("덜 빠짐" if inv > idx["KOSPI"]["pct"] and inv < 0 else
+                                                                         "더 빠짐" if inv < idx["KOSPI"]["pct"] and inv < 0 else
+                                                                         "더 오름" if inv > idx["KOSPI"]["pct"] else "덜 오름")),
+         *mover_lines,
+         f"- 최근 5거래일: 내 포트 {P(pr.get('d5'))} · 코스피 {P(idx['KOSPI']['d5'])} · 코스닥 {P(idx['KOSDAQ']['d5'])} (같은 구간)",
+         f"- 최근 20거래일: 내 포트 {P(pr.get('d20'))} · 코스피 {P(idx['KOSPI']['d20'])}",
+         f"- 누적 수익률: {P(op)}",
+         "- 자산 비중: " + " · ".join(f"{k} {v}%" for k, v in sorted((gas.get("assetClassWeights") or {}).items(), key=lambda x: -x[1]) if v),
+         "- 지수: " + " · ".join(f"{c} {idx[c]['close']:,.2f} ({P(idx[c]['pct'])})" if idx[c]["close"] else f"{c} 미수신" for c in ("KOSPI", "KOSDAQ")),
+         "- 원/달러: " + (f"{fx['close']:,.2f}원 ({fx['diff']:+.2f}원, {fx['at']} 고시)" if fx and fx.get("diff") is not None else "미수신"),
+         "", "### 근거 표 초안 — 국내주식 (판단 칸만 채워서 쓴다)", "", "```", pad("종목", 11) + "  오늘    5일"]
+    for n, c, p, g, k in rows:
+        if k == "국내주식":
+            L.append(pad(n, 11) + f"{pct(g):>7}" + f"{P(extra[c]['d5'], 1):>7}" + (f"  {extra[c]['streak']}일째↓" if (extra[c]["streak"] or 0) >= 3 else ""))
+    L += ["```", ""]
+    # 요약의 뼈대 줄 — 코드가 만든 그대로 들어간다(발송 전 마무리가 다르면 이 값으로 되돌린다)
+    labels = signal_rules.LABEL
+    head = (f"{color} *{labels[color]}* · KR 휴장 — {mkt.kdate(asof)} 기준" if holiday else f"{color} *{labels[color]}* · KR 마감 {mkt.kdate(asof)}")
+    fixed = [{"key": "head", "text": head},
+             {"key": "port", "labels": ["*내 포트*"], "text": f"*내 포트* {P(port)} (주식만 {P(inv)} · 코스피 {P(idx['KOSPI']['pct'])})"}]
+    for key, (lab, names) in zip(("mover1", "mover2"), fixed_movers):
+        fixed.append({"key": key, "labels": ["*끌어내린 것*", "*끌어올린 것*"] if key == "mover1" else ["*받쳐 준 것*", "*덜 빠진 것*", "*발목 잡은 것*"],
+                      "text": f"{lab} " + (" · ".join(names) if names else "없음")})
+    rl = signal_rules.reason_line(color, reasons)
+    if rl:
+        fixed.append({"key": "reason", "text": rl})
+    L += ["### 요약에 그대로 넣을 줄 — 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"] + [x["text"] for x in fixed] + ["```", ""]
+    sig = {"type": "kr", "date": asof, "header": mkt.kdate(asof), "color": color, "label": signal_rules.LABEL[color], "reasons": reasons,
+           "port": port, "inv": None if inv is None else round(inv, 2), "kospi": None if idx["KOSPI"]["pct"] is None else round(idx["KOSPI"]["pct"], 2),
+           "step": step, "lowStep": low, "portSource": port_src, "lines": fixed}
+    diff = "" if (approx is None or port_src != "gas" or port is None) else f" port_diff={abs(port - approx):.2f}"
+    status = f"signal={color} reasons={len(reasons)} port_src={port_src}{diff} idx={idx_ok}/2 fx={'ok' if fx else 'none'} hist={hist_ok}/{len(rows)}"
+    return L, sig, extra, status
+
+
 def main():
-    gas_path, out_path, today = sys.argv[1], sys.argv[2], sys.argv[3]
-    cache_path = sys.argv[4] if len(sys.argv) > 4 else None
-    theses_path = sys.argv[5] if len(sys.argv) > 5 else None
+    argv, opt = [], {}
+    it = iter(sys.argv[1:])
+    for a in it:
+        if a.startswith("--"):
+            opt[a[2:]] = next(it, None)
+        else:
+            argv.append(a)
+    gas_path, out_path, today = argv[0], argv[1], argv[2]
+    cache_path = argv[3] if len(argv) > 3 else None
+    theses_path = argv[4] if len(argv) > 4 else None
     try:
         gas = json.load(open(gas_path, encoding="utf-8"))
     except Exception:
@@ -165,6 +324,14 @@ def main():
     no_thesis = [] if theses is None else [n for n, c, _p, _g, _k in rows if c not in theses and norm(n) not in norm(theses)]
 
     got = sum(1 for r in rows if r[2])
+    material, sig, extra, sig_status = [], None, {}, "signal=none"
+    if rows and got:
+        try:
+            material, sig, extra, sig_status = summary_material(gas, rows, asof, today, opt.get("signals"))
+        except Exception as e:   # 요약 재료가 실패해도 표는 나간다
+            material = ["## 요약 재료 — **계산 실패**", "",
+                        "- 요약의 숫자는 아래 표에서 직접 읽고, 신호 색은 지시문의 기준표로 직접 판정한다. 날짜·요일은 Bash `date`로 확인한다.", ""]
+            sig_status = f"signal=error:{type(e).__name__}"
     out = [f"# KR 마감 사전 수집 — {asof} 기준" + ("" if asof == today else f" (오늘 {today}은 새 기록 없음 — 직전 거래일 값)"), ""]
     if rows and got:
         out += [f"- 보유 종목 가격은 **정규장 종가**다(애프터마켓 가격 아님). 출처: {source}.",
@@ -173,8 +340,14 @@ def main():
                 "- 구분이 `국내주식`인 종목만 회사 단위 뉴스·수급 대상이다. `ETF`는 등락만 본다."]
         if list_src == "cache":
             out += [f"- ⚠️ GAS 응답이 없어 **{cache_date or '이전'} 기준 보유 목록 사본**을 썼다 — 그 뒤의 매매는 반영되지 않았을 수 있다고 리포트에 한 줄 밝힌다."]
-        out += ["", "## 보유 종목 (정규장 종가 기준)", "", "| 종목 | 코드 | 구분 | 정규장 종가 | 등락률 |", "|---|---|---|---|---|"]
-        out += [f"| {n} | {c} | {k} | {('%s' % format(round(p), ',')) if p else '—'} | {pct(g)} |" for n, c, p, g, k in rows]
+        out += [""] + material
+        ex = lambda c, key, fmt: "—" if (extra.get(c) or {}).get(key) is None else fmt(extra[c][key])
+        out += ["## 보유 종목 (정규장 종가 기준)", "",
+                "| 종목 | 코드 | 구분 | 정규장 종가 | 등락률 | 비중 | 포트 기여 | 5일 | 연속 하락 |", "|---|---|---|---|---|---|---|---|---|"]
+        out += [f"| {n} | {c} | {k} | {('%s' % format(round(p), ',')) if p else '—'} | {pct(g)} | {ex(c, 'w', lambda v: f'{v:.1f}%')} | "
+                f"{ex(c, 'contrib', lambda v: f'{v:+.2f}%p')} | {ex(c, 'd5', lambda v: f'{v:+.1f}%')} | {ex(c, 'streak', lambda v: f'{v}일' if v else '—')} |"
+                for n, c, p, g, k in rows]
+        out += ["", "비중 = 현금까지 포함한 전체 자산 대비. 포트 기여 = 그 종목이 오늘 내 포트 전체를 몇 %p 움직였나. 5일 = 최근 5거래일 변화율."]
         if no_thesis:
             out += ["", f"**논리 미등록 {len(no_thesis)}종목**: " + " · ".join(no_thesis)
                     + " — 투자 논리 파일에 없다. 리포트의 논리 칸에 `(논리 미등록)`이라고 쓰고, 논리 점검 끝에 \"논리 미등록 n종목 — 투자 논리 파일에 추가 필요\" 한 줄을 넣는다. 논리를 지어내지 않는다."]
@@ -210,10 +383,16 @@ def main():
 
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(out) + "\n")
+    if sig and opt.get("signal-out"):
+        try:
+            with open(opt["signal-out"], "w", encoding="utf-8") as f:
+                json.dump(sig, f, ensure_ascii=False)
+        except Exception:
+            pass
     print(f"prefetch: asof={asof} holdings={len(rows)} priced={got} source={'gas-lock' if use_gas else 'naver-minute'}"
           f" crosscheck={match}/{checked} replaced={replaced} market={mk_state}"
           f" list={list_src} stocks={sum(1 for r in rows if r[4] == '국내주식')} etf={sum(1 for r in rows if r[4] == 'ETF')}"
-          f" no_thesis={len(no_thesis)}")
+          f" no_thesis={len(no_thesis)} {sig_status}")
 
 
 if __name__ == "__main__":
