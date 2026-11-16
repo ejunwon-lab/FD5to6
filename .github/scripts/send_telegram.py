@@ -4,6 +4,9 @@ Telegram Bot API로 시장 리포트 발송.
 - 두 chat_id에 각각 sendMessage
 - 1차 Markdown parse_mode → 400(parse 실패)이면 plain text fallback
 - 결과 stdout 출력 (성공/실패 chat 갯수)
+- 본문에 `===근거===` 한 줄이 있으면 그 줄에서 **두 통으로 나눠** 보낸다(2026-11-16): 1통째 = 요약(알림 울림),
+  2통째 = 근거(알림 없이). 표시 줄 자체는 보내지 않는다. 표시가 없으면 예전처럼 한 통.
+- 로그는 공개다 — chat_id를 찍지 않고 순번(chat#1…)만 찍는다.
 
 환경변수:
   TG_BOT_TOKEN  — 봇 토큰
@@ -14,7 +17,9 @@ Telegram Bot API로 시장 리포트 발송.
 """
 import json
 import os
+import re
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -39,6 +44,14 @@ def split_message(body, limit=4000):
     if cur:
         chunks.append(cur)
     return chunks
+
+
+SPLIT_RE = re.compile(r"^\s*={3,}\s*근거\s*={3,}\s*$", re.M)
+
+
+def split_parts(body):
+    """`===근거===` 줄에서 메시지를 나눈다 → [요약, 근거]. 표시가 없으면 [본문]."""
+    return [p.strip() for p in SPLIT_RE.split(body) if p.strip()] or [body]
 
 
 def post(url, payload):
@@ -86,22 +99,25 @@ def main():
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
 
-    chunks = split_message(body)
-    if len(chunks) > 1:
-        print(f"본문 {len(body)}자 → {len(chunks)}개로 분할 발송")
+    parts = split_parts(body)
+    # (조각, 알림 끔 여부) — 첫 통(요약)만 알림을 울리고 근거는 조용히 보낸다
+    chunks = [(c, pi > 0) for pi, part in enumerate(parts) for c in split_message(part)]
+    print(f"본문 {len(body)}자 → 메시지 {len(parts)}통" + (f" (조각 {len(chunks)}개)" if len(chunks) != len(parts) else ""))
 
     sent = 0
     failed = []
-    for chat_id in chat_ids:
+    for n, chat_id in enumerate(chat_ids, 1):
         ok = True
-        for idx, chunk in enumerate(chunks):
-            tag = f"{chat_id}" + (f" [{idx+1}/{len(chunks)}]" if len(chunks) > 1 else "")
+        for idx, (chunk, silent) in enumerate(chunks):
+            tag = f"chat#{n}" + (f" [{idx+1}/{len(chunks)}]" if len(chunks) > 1 else "")
+            if idx:
+                time.sleep(0.6)   # 순서 보장 — 요약이 먼저 도착하게
             # 1차: Markdown
             status, resp = post(url, {
                 "chat_id": chat_id,
                 "text": chunk,
                 "parse_mode": "Markdown",
-                "disable_notification": False,
+                "disable_notification": silent,
             })
             if status == 200:
                 print(f"[OK Markdown] {tag}")
@@ -111,7 +127,7 @@ def main():
                 status2, resp2 = post(url, {
                     "chat_id": chat_id,
                     "text": chunk,
-                    "disable_notification": False,
+                    "disable_notification": silent,
                 })
                 if status2 == 200:
                     print(f"[OK plain fallback] {tag} (Markdown 400)")
