@@ -301,7 +301,7 @@ KIS 키 갱신 (2026-11-13 v35 배포 — 사용자 리허설 후 확정): **시
   - `kr-prompt.md` — KR 분석 (Naver·뉴스는 **Bash curl 필수** — WebFetch 도구 계층 차단 2026-07-03, iconv euc-kr. 수급/업종/종목뉴스API + 보유종목 그룹별)
   - `weekly-prompt.md` — 주간 리캡 (GAS 지표 pre-fetch 파일 1차, Yahoo curl 429 재시도)
 - `send_telegram.py` — Telegram Bot API 발송 헬퍼 (Markdown→plain text fallback, 두 chat_id 순회)
-- `kr_close_prefetch.py` (2026-11-14) — KR 마감 리포트 사전 수집. `market-report.yml` KR job의 "Pre-fetch close snapshot" 단계가 GAS `portfolioMetrics` 응답을 받아 넘기면, 보유 종목의 **정규장 종가·등락률** 표와 마감 시장 숫자(지수·업종·순위)를 `/tmp/kr/close.md`로 만든다. 잠긴 GAS 기록을 네이버 분봉의 정규장 마감 값과 대조(다르면 분봉 값), 잠금·GAS 응답이 없으면 분봉 값 ÷ 기준가로 계산. 지시문의 보유 목록에만 있는 종목도 같은 방식으로 표에 추가(†, 로그 `prompt_only`·`gas_only`). **로그에는 개수·상태만**(공개 로그) — `prefetch: asof=… source=gas-lock|naver-minute crosscheck=n/m …`. 실패해도 exit 0(에이전트가 지시문의 대체 경로)
+- `kr_close_prefetch.py` (2026-11-14) — KR 마감 리포트 사전 수집. `market-report.yml` KR job의 "Pre-fetch close snapshot" 단계가 GAS `portfolioMetrics` 응답을 받아 넘기면, 보유 종목의 **정규장 종가·등락률** 표와 마감 시장 숫자(지수·업종·순위)를 `/tmp/kr/close.md`로 만든다. 잠긴 GAS 기록을 네이버 분봉의 정규장 마감 값과 대조(다르면 분봉 값), 잠금·GAS 응답이 없으면 분봉 값 ÷ 기준가로 계산. 지시문의 보유 목록에만 있는 종목도 같은 방식으로 표에 추가(†, 로그 `prompt_only`·`gas_only`). **로그에는 개수·상태만**(공개 로그) — `prefetch: asof=… source=gas-lock|naver-minute crosscheck=n/m …`. 실패해도 exit 0(에이전트가 지시문의 대체 경로) **보유 목록 (2026-11-16)**: 목록의 원본은 GAS `krClose.items` 하나 — 지시문에는 종목을 적지 않는다. 표에 `구분`(국내주식/ETF, `holdings[].category`를 종목명으로 대응) 칸, GAS 무응답 때는 직전 성공 때 덮어쓴 캐시 `docs/reports/_kr_holdings.json`(비공개 저장소) 사용 + 표에 경고, 투자 논리 파일에 없는 보유 종목은 "논리 미등록". 인자: `<gas.json> <out.md> <날짜> [캐시] [kr-theses.md]`. 로그 `list=gas|cache|none stocks=n etf=n no_thesis=n`.
 
 ## scripts/ — 로컬 스크립트·git 훅
 
