@@ -1,6 +1,6 @@
 # 기능 현황
 
-last updated: 2026-11-14
+last updated: 2026-11-16
 
 ## ✅ 완료
 
@@ -44,7 +44,8 @@ last updated: 2026-11-14
 - **"반드시 창 안 도착" 보장 (2026-06-06)**: 각 리포트 40분 간격 2회 예약 (US KST 08:02·08:42 / KR 17:02·17:42). 1차 성공 시 파일 commit → 2차는 체크아웃에서 파일 보고 skip(중복 발송 방지). GH cron 한 틱 누락돼도 창 안 도착
 - 구성: `.github/workflows/market-report.yml`, `.github/scripts/{us,kr}-prompt.md`, `.github/scripts/send_telegram.py`
 - secrets: `CLAUDE_CODE_OAUTH_TOKEN` (claude setup-token 발급), `TG_BOT_TOKEN`, `TG_CHAT_IDS`
-- 리포트 형식: 지수 7종 + 섹터 (XLK→테크 등 약자 한국어 풀어쓰기) + M7 + Top Movers + 시장 이슈 + 종합 코멘트 3단락 + 보유 포트 의견(유지/관망/비중확대/비중축소). KR은 수급(외인/기관/개인) + 업종 + 보유종목 그룹별 추가
+- **리포트 형식 (2026-11-16 개편 — 요약 우선·두 통·신호등)**: 1통째 = 요약(신호 🟢평소대로/🟡지켜보기/🔴꼭 확인 · 한 문장 결론 · 내 포트(주식만·코스피) · 왜 · 끌어내린 것 · 지난번 본 것 · 다음 수 최대 3줄), 2통째 = 근거(종목 표·ETF·흐름·비중·시장·새 기회·일정, 알림 없이). US 아침은 "미국 → 왜 → 내 주식에는 → 오늘 한국 장", 주간은 "한 주 → 끌어올린 것·끌어내린 것 → 이번 주 신호 → 다음 주". 숫자·날짜·신호 색은 코드가 계산(AI는 원인·판단·다음 수), 🔴은 드문 경보(과거 10개월 대입 약 월 1회). 설계 `docs/plans/2026-11-16-리포트-요약우선-신호등.md`
+- (옛 형식, ~2026-11-16 17:05) 지수 7종 + 섹터 + M7 + Top Movers + 시장 이슈 + 종합 코멘트 + 보유 포트 의견. KR은 수급 + 업종 + 보유종목 그룹별
 - claude.ai routines 2개는 `enabled: false`로 disable (routine 환경의 outbound allowlist 격리 — TLS Inspection으로 모든 외부 API 차단됨이 errors.md 2026-05-31에 확정)
 - 이력: `docs/reports/` 디렉토리에 매일 영구 보존 (Market Report Bot author)
 - 상세 가이드: `docs/market-report.md` (파이프라인·스케줄·secrets·프롬프트 구조·디버깅 순서)

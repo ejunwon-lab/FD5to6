@@ -1,6 +1,6 @@
 # Code Map
 
-last updated: 2026-07-20
+last updated: 2026-11-16
 
 코드 구조를 파악할 때 **파일을 열기 전에 먼저 읽는 지도**.
 함수명·역할·시트 스키마·데이터 흐름만 기록한다. **줄 번호는 적지 않는다** (가장 빨리 낡음).
@@ -57,6 +57,10 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 | 장 마감 뒤 국내 종목 가격이 안 바뀜(의도된 동작) · 마감 기록이 정규장 종가와 다름 | GAS `MarketClose.js` | `mcApplyCloseLock`(잠금) · `mcCloseCheck`(아침 대조) — 🔍 진단 `krCloseLock`·`closeCheck` |
 | 저녁 애프터마켓 알림이 안 옴/두 번 옴 | GAS `MarketClose.js` | `mcAfterMarketAlert` (5분 신호 응답의 `mc.am`, 속성 `am_alert_date`) |
 | 마감 리포트의 종목 등락·업종·순위가 이상함 | `.github/scripts/kr_close_prefetch.py` + GAS `MarketClose.js` | 실행 로그 `prefetch:` 줄(source·crosscheck) · `mcKrCloseTable` · `mcEnsureMarketSnapshot` |
+| 리포트의 신호 색(🟢🟡🔴)이 이상함 · 기준을 바꾸고 싶음 | `.github/scripts/signal_rules.py`(기준 숫자의 유일한 위치) | `kr_signal`·`us_signal`·`week_signal` · 실행 로그 `signal=`·`finalize:` 줄 · 이력 `docs/reports/_signals.jsonl` |
+| 리포트 요약의 숫자·날짜·요일이 틀림 | 사전 수집 3종 `kr_close_prefetch.py`·`us_prefetch.py`·`weekly_prefetch.py` + `mkt.py` | 표의 "요약 재료"·"요약에 그대로 넣을 줄" · 로그 `prefetch:`/`us-prefetch:`/`weekly-prefetch:` 줄 |
+| 리포트가 한 통으로 옴 · 요약 줄이 바뀌어 옴 | `.github/scripts/send_telegram.py`(나눔) · `report_finalize.py`(뼈대 줄 맞춤) | 본문의 `===근거===` 줄 유무 · 로그 `finalize: … notes=` |
+| 리포트의 "지난번 본 것"·"일정"이 이상함 | 비공개 저장소 상태 파일 | `_watch.md`(조건)·`_watch_log.md`(판정 이력)·`_events.md`(주간이 확인한 일정) |
 
 > 응답 JSON의 필드별 의미·계산 위치는 `docs/api-reference.md` 참조.
 
@@ -292,16 +296,24 @@ KIS 키 갱신 (2026-11-13 v35 배포 — 사용자 리허설 후 확정): **시
   - **창 가드** (2026-10-04): 자동 실행(schedule·auto dispatch)은 `.github/scripts/report_window.sh <us|kr|weekly>` 창 안에서만 생성 — US 평일 08:00~21:59 / KR 평일 17:00~23:59 / weekly 일 13:00~23:59 KST. 창 밖이면 `already=yes`로 skip(지연 cron이 자정 넘겨 전일 데이터로 다음 날짜 파일을 선생성하던 결함 차단). 수동 dispatch는 무관
   - **Alert on generation failure** (2026-07-03): 3개 job 공통 — `found=no`면 텔레그램 경고+`exit 1` (dry_run 시 억제). telegram-push에도 체인 끊김 알림(2026-11-11부터 조건 = 후속 run 예약·보조 dispatch 모두 실패, `steps.next.outcome == 'failure'`). 설계 `docs/plans/2026-07-03-무음실패-알림.md`
   - **telegram-push 후속 run 사전 예약** (2026-11-11): 다음 run을 종료 직전이 아니라 **시작 5분 뒤** dispatch → concurrency pending으로 대기, 현 run이 어떻게 끝나든(실패·취소·러너 유실) 이어받음. 끝 step은 `if: always()` 보조 dispatch(5분 미만 생존이면 폭주 방지로 안 함). poke curl `--max-time 400`. 설계 `docs/plans/2026-11-11-푸시체인-후속run-사전예약.md`
+  - **요약 우선·신호등** (2026-11-16, 설계 `docs/plans/2026-11-16-리포트-요약우선-신호등.md`): 세 job 공통 흐름 = 사전 수집(숫자·날짜·신호 색·요약 뼈대 줄을 코드가 계산) → `claude -p`(원인·판단·다음 수만 작성) → **Finalize**(`report_finalize.py` — 색·뼈대 줄을 계산 값에 맞춤, 신호 기록) → 발송(`===근거===` 줄에서 **두 통**: 요약=알림, 근거=무음) → 커밋. US job에 "Pre-fetch US market" 단계 신설. 리포트 본문은 로그에 찍지 않는다. 입력 `prompt_dir`(기본 `_config`)로 지시문 시험 폴더 지정, `dry_run=true` 결과는 비공개 저장소 `_dryrun/<종류>-<날짜>-<run>/`에 저장(리포트·표·신호·마무리 로그). 새 지시문 시험 절차: 비공개 저장소 `_config/next/`에 시험본 → 브랜치 또는 main에서 `gh workflow run market-report.yml -f type=kr -f dry_run=true -f prompt_dir=_config/next`
   - weekly job: **Pre-fetch GAS portfolio metrics** step이 지표를 파일로 선확보 (에이전트 env 판단 제거, errors.md 2026-07-03). **발송은 텔레그램만** — 세 job 모두 `Send Email (GAS self)` 단계를 2026-11-15 제거
 
 ## GitHub Actions scripts — `.github/scripts/`
 
 - ⚠️ **프롬프트 3종(us·kr·weekly)+`kr-theses.md`는 2026-07-04부터 private repo `FD5to6-reports`의 `_config/`에 있음** (보유 종목 목록·투자 논리 비공개화). 로컬 편집: `docs/reports/_config/*.md` 수정 → `git -C docs/reports push`. 워크플로는 checkout된 그 경로를 cat.
-  - `us-prompt.md` — US 분석 (Yahoo WebFetch 정본 + 인포맥스 RSS·한경 글로벌마켓 보조, WebFetch 실패 시 curl 폴백)
-  - `kr-prompt.md` — KR 분석 (Naver·뉴스는 **Bash curl 필수** — WebFetch 도구 계층 차단 2026-07-03, iconv euc-kr. 수급/업종/종목뉴스API + 보유종목 그룹별)
-  - `weekly-prompt.md` — 주간 리캡 (GAS 지표 pre-fetch 파일 1차, Yahoo curl 429 재시도)
-- `send_telegram.py` — Telegram Bot API 발송 헬퍼 (Markdown→plain text fallback, 두 chat_id 순회)
-- `kr_close_prefetch.py` (2026-11-14) — KR 마감 리포트 사전 수집. `market-report.yml` KR job의 "Pre-fetch close snapshot" 단계가 GAS `portfolioMetrics` 응답을 받아 넘기면, 보유 종목의 **정규장 종가·등락률** 표와 마감 시장 숫자(지수·업종·순위)를 `/tmp/kr/close.md`로 만든다. 잠긴 GAS 기록을 네이버 분봉의 정규장 마감 값과 대조(다르면 분봉 값), 잠금·GAS 응답이 없으면 분봉 값 ÷ 기준가로 계산. 지시문의 보유 목록에만 있는 종목도 같은 방식으로 표에 추가(†, 로그 `prompt_only`·`gas_only`). **로그에는 개수·상태만**(공개 로그) — `prefetch: asof=… source=gas-lock|naver-minute crosscheck=n/m …`. 실패해도 exit 0(에이전트가 지시문의 대체 경로) **보유 목록 (2026-11-16)**: 목록의 원본은 GAS `krClose.items` 하나 — 지시문에는 종목을 적지 않는다. 표에 `구분`(국내주식/ETF, `holdings[].category`를 종목명으로 대응) 칸, GAS 무응답 때는 직전 성공 때 덮어쓴 캐시 `docs/reports/_kr_holdings.json`(비공개 저장소) 사용 + 표에 경고, 투자 논리 파일에 없는 보유 종목은 "논리 미등록". 인자: `<gas.json> <out.md> <날짜> [캐시] [kr-theses.md]`. 로그 `list=gas|cache|none stocks=n etf=n no_thesis=n`.
+  - 공통 (2026-11-16 재작성): 두 통 형식(요약 → `===근거===` → 근거). 숫자·날짜·색은 사전 수집 표의 "요약 재료"·"요약에 그대로 넣을 줄"을 복사, AI는 한 문장 결론·왜·지난번 본 것·다음 수만 쓴다. 쉬운 말·한 줄 숫자 2개·"다음 수"는 지금 정할 것/조건→행동/하지 않을 것 꼴. 보유 목록·기준 숫자는 지시문에 적지 않는다
+  - `us-prompt.md` — 아침(미국 마감). 재료 `/tmp/us/market.md`, 원인은 인포맥스 RSS·한경 글로벌마켓. 어젯밤 기록이 없으면(휴장/자료 지연) Step 5로 가름. 대체 경로만 Yahoo(종가 배열 끝 두 값 — `chartPreviousClose` 금지)
+  - `kr-prompt.md` — 저녁(한국 마감). 재료 `/tmp/kr/close.md`, Naver·뉴스·공시는 **Bash curl**(WebFetch 차단). `_kr_pipeline.md`·`_watch.md`·`_watch_log.md` 갱신
+  - `weekly-prompt.md` — 일요일. 재료 `/tmp/weekly/week.md` + 지난 주 일일 리포트. 다음 주 일정을 확인해 `_events.md`에 씀
+  - 상태·이력 파일(비공개 저장소 루트): `_signals.jsonl`(신호 이력 — 마무리 스크립트가 씀) · `_watch.md`(지켜보는 조건, 덮어쓰기) · `_watch_log.md`(조건 판정 이력, append) · `_events.md`(다가오는 일정, 주 1회) · `_kr_holdings.json`(보유 목록 캐시) · `_kr_pipeline.md`(새 기회 후보)
+- `mkt.py` (2026-11-16) — 시장 숫자 공용 도구(네이버 금융 공개 API, 표준 라이브러리만). `day_series`(일봉) · `chg`(N거래일 변화율 = 마지막 ÷ 뒤에서 N+1번째) · `official_series`(**국내 종목 정규장 종가** — 일봉 종가는 애프터마켓 포함값이라 다음 거래일 기준가로 재구성) · `down_streak` · `fx_usdkrw` · `kdate`(날짜·요일 표기) · `short_name`(요약용 짧은 이름)
+- `signal_rules.py` (2026-11-16) — 신호등 기준 숫자의 **유일한 위치**. `kr_signal`(🔴 국내주식 한 종목의 시장과 무관한 급락·누적 수익률 새 계단 / 🟡 내 포트·한 종목·주식 부분 초과 하락) · `us_signal` · `week_signal` · `loss_step` · `reason_line` · `key_text`(기준 한 줄 — 주간 리포트 끝)
+- `us_prefetch.py` (2026-11-16) — US 리포트 사전 수집 → `/tmp/us/market.md`·`signal.json`. 지수 5종·대형 기술주 7·업종 ETF 11·보유 미국 주식(GAS 분류 `해외주식` → 네이버 검색으로 코드)·환율·금리. 미국 마감일보다 뒤의 값은 버림(개장 전 현재가 응답은 등락 0으로 초기화됨). 어젯밤 기록이 없으면 `stale` 표시(색·줄 강제 안 함). 로그 `us-prefetch: us_date= holiday= idx= big7= sectors= held= signal=`
+- `weekly_prefetch.py` (2026-11-16) — 주간 리포트 사전 수집 → `/tmp/weekly/week.md`·`signal.json`. 지수·종목·내 포트를 같은 구간(직전 주 마지막 거래일 종가 → 이번 주 마지막 거래일 종가)으로 계산, 종목별 포트 기여, 날짜별 표, 그 주 일일 신호 집계. 로그 `weekly-prefetch: week= daily= holdings= idx= kr_signals= signal=`
+- `report_finalize.py` (2026-11-16) — 발송 전 마무리. 첫 줄 색을 계산한 색에 맞춤(AI는 `🔴 이유:`+`근거:` 줄이 있을 때만 🔴로 올릴 수 있음) · 요약 뼈대 줄(`signal.json`의 `lines`)을 글자 그대로 맞춤 · 형식 점검(나눔 표시·요약 길이) · `_signals.jsonl` upsert(`--dry`면 생략). 옛 형식 리포트는 건드리지 않음. 로그 `finalize: type= format= color= script= action= … notes=`
+- `send_telegram.py` — Telegram Bot API 발송 헬퍼 (Markdown→plain text fallback, chat 순회). 2026-11-16: 본문의 `===근거===` 줄에서 **두 통으로 나눠** 발송(2통째는 알림 없이), 로그에는 대상 순번(`chat#1`)만
+- `kr_close_prefetch.py` (2026-11-14) — KR 마감 리포트 사전 수집. `market-report.yml` KR job의 "Pre-fetch close snapshot" 단계가 GAS `portfolioMetrics` 응답을 받아 넘기면, 보유 종목의 **정규장 종가·등락률** 표와 마감 시장 숫자(지수·업종·순위)를 `/tmp/kr/close.md`로 만든다. 잠긴 GAS 기록을 네이버 분봉의 정규장 마감 값과 대조(다르면 분봉 값), 잠금·GAS 응답이 없으면 분봉 값 ÷ 기준가로 계산. 지시문의 보유 목록에만 있는 종목도 같은 방식으로 표에 추가(†, 로그 `prompt_only`·`gas_only`). **로그에는 개수·상태만**(공개 로그) — `prefetch: asof=… source=gas-lock|naver-minute crosscheck=n/m …`. 실패해도 exit 0(에이전트가 지시문의 대체 경로) **보유 목록 (2026-11-16)**: 목록의 원본은 GAS `krClose.items` 하나 — 지시문에는 종목을 적지 않는다. 표에 `구분`(국내주식/ETF, `holdings[].category`를 종목명으로 대응) 칸, GAS 무응답 때는 직전 성공 때 덮어쓴 캐시 `docs/reports/_kr_holdings.json`(비공개 저장소) 사용 + 표에 경고, 투자 논리 파일에 없는 보유 종목은 "논리 미등록". 인자: `<gas.json> <out.md> <날짜> [캐시] [kr-theses.md]`. 로그 `list=gas|cache|none stocks=n etf=n no_thesis=n`. **요약 재료 (2026-11-16)**: 표 위에 요약 메시지의 재료(내 포트·주식 부분·코스피·포트 기여 순위·5일·환율·날짜 표기·신호 색)와 "요약에 그대로 넣을 줄"을 계산해 적고 `signal.json`으로도 넘김. 표에 비중·포트 기여·5일·연속 하락 열. 인자 추가 `--signals <_signals.jsonl> --signal-out <signal.json>`. 로그 끝에 `signal= reasons= port_src= port_diff= idx= fx= hist=`.
 
 ## scripts/ — 로컬 스크립트·git 훅
 

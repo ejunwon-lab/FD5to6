@@ -1,6 +1,8 @@
 # 시장 리포트 자동 발송 — GitHub Actions 가이드
 
-last updated: 2026-06-06
+last updated: 2026-11-16
+
+> ⚠️ **이 가이드의 본문은 2026-06 기준이다.** 그 뒤 바뀐 것: ① 지시문·리포트는 비공개 저장소 `FD5to6-reports`(`docs/reports/_config/*.md`)에 있다(2026-07-04) ② 주간 리포트 추가, 정시 발화는 telegram-push 체인이 dispatch ③ **2026-11-16 형식 개편** — 요약 우선·두 통·신호등, 숫자·날짜·신호 색은 사전 수집 스크립트가 계산. **최신 흐름·파일·시험 절차는 `docs/code-map.md`의 "market-report.yml"·"GitHub Actions scripts" 절과 `docs/plans/2026-11-16-리포트-요약우선-신호등.md`를 본다.** 형식을 바꾸려면: 글의 틀·말투 = 비공개 저장소 지시문, 숫자·요약 뼈대 줄 = 사전 수집 스크립트, 신호 기준 = `signal_rules.py`. 바꾸기 전에 `_config/next/`에 시험본을 두고 `dry_run=true prompt_dir=_config/next`로 시험한다.
 
 매 거래일 KST 08:05(US)·17:05(KR)에 **GitHub Actions cron**이 Claude Code CLI(headless)를 실행해 시장을 분석하고, 리포트 파일을 만들어 **Telegram Bot API로 직접 발송**한다. claude.ai routine 방식은 폐기됐다 (맨 아래 "폐기된 접근" 참조).
 
