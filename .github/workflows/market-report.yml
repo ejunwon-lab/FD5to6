@@ -234,6 +234,9 @@ jobs:
       # 스크립트가 네이버 분봉의 정규장 마감 값과 대조하고, 잠금이 없으면 분봉 값으로 대체한다. 로그에는 개수·상태만(공개 로그).
       # 실패해도 리포트는 계속 — 에이전트가 표 머리의 상태 문구를 보고 지시문의 대체 경로를 탄다.
       # 설계: docs/plans/2026-11-14-정규장종가-마감기록-애프터마켓알림.md
+      # 보유 목록의 원본은 GAS 보유현황 하나(2026-11-16) — 지시문에 종목을 적지 않는다. 표가 목록·구분(국내주식/ETF)을 넘기고,
+      # 성공할 때마다 docs/reports/_kr_holdings.json(비공개 저장소, 기계가 덮어쓰는 캐시)을 갱신해 GAS 무응답 날의 대체 목록으로 쓴다.
+      # 설계: docs/plans/2026-11-16-리포트-보유목록-GAS-단일출처.md
       - name: Pre-fetch close snapshot (정규장 종가·마감 시장 숫자)
         if: steps.guard.outputs.already == 'no'
         env:
@@ -254,7 +257,7 @@ jobs:
             fi
             echo "pre-fetch: HTTP=$code success=$(jq -r '.success' "$OUT") krCloseLocked=$(jq -r '.krClose.locked | tostring' "$OUT") marketCloseAt=$(jq -r '.marketClose.at | tostring' "$OUT")"
           fi
-          python3 .github/scripts/kr_close_prefetch.py "$OUT" /tmp/kr/close.md "$(TZ='Asia/Seoul' date +%Y-%m-%d)" docs/reports/_config/kr-prompt.md || true
+          python3 .github/scripts/kr_close_prefetch.py "$OUT" /tmp/kr/close.md "$(TZ='Asia/Seoul' date +%Y-%m-%d)" docs/reports/_kr_holdings.json docs/reports/_config/kr-theses.md || true
 
       - name: Generate KR report (Claude CLI headless)
         if: steps.guard.outputs.already == 'no'
