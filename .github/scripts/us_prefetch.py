@@ -113,7 +113,7 @@ def main():
     us_date = dates[len(dates) // 2] if dates else None   # 지수들의 마감일(중앙값 — 한 지표만 늦게 갱신돼도 흔들리지 않게)
     out = []
     if not us_date or idx["미국 반도체지수"] is None or idx["나스닥100"] is None:
-        out = ["# US 마감 사전 수집 — 실패", "", "- 미국 시장 숫자를 받지 못했다. 지시문의 대체 경로(1-A)로 직접 받고, 신호 색은 지시문의 기준표로 판정한다."]
+        out = ["# US 마감 사전 수집: 실패", "", "- 미국 시장 숫자를 받지 못했다. 지시문의 대체 경로(1-A)로 직접 받고, 신호 색은 지시문의 기준표로 판정한다."]
         with open(out_path, "w", encoding="utf-8") as f:
             f.write("\n".join(out) + "\n")
         print(f"us-prefetch: failed idx={got_idx}/{len(INDEX)}")
@@ -162,16 +162,16 @@ def main():
     op = (gas.get("recentReturns") or [{}])[-1].get("opRatePct")
     header = f"미국 {mkt.kdate(us_date)} 마감"
 
-    L = [f"# US 마감 사전 수집 — {header} (한국 {mkt.kdate(today)} 아침)", "",
+    L = [f"# US 마감 사전 수집: {header} (한국 {mkt.kdate(today)} 아침)", "",
          "- 아래 숫자는 코드가 받아 계산한 값이다. **하루 등락 = 마지막 종가 ÷ 바로 앞 거래일 종가.** 그대로 쓰고 다시 받거나 계산하지 않는다.", "",
-         "## 요약 재료 — 코드가 계산한 값 (요약 메시지에 색·숫자·날짜 표기를 **글자 그대로** 쓴다)", "",
-         f"- 날짜 표기: {header}" + (f" — ⚠️ 어젯밤(현지 {mkt.kdate(cap)}) 기록이 없다: 미국 휴장이거나 자료가 아직 안 들어온 것. 지시문 Step 5를 따른다" if holiday else ""),
+         "## 요약 재료: 코드가 계산한 값 (요약 메시지에 색·숫자·날짜 표기를 **글자 그대로** 쓴다)", "",
+         f"- 날짜 표기: {header}" + (f" · ⚠️ 어젯밤(현지 {mkt.kdate(cap)}) 기록이 없다: 미국 휴장이거나 자료가 아직 안 들어온 것. 지시문 Step 5를 따른다" if holiday else ""),
          f"- 신호: {color} {signal_rules.LABEL[color]}",
          "- 신호 이유: " + (" / ".join(reasons) if reasons else "없음 (기준에 걸린 것이 없다)"),
          "- 미국 시장 (하루): " + " · ".join(f"{n} {P(idx[n]['d1'])}" for n in ("S&P500", "나스닥100", "미국 반도체지수", "다우") if idx.get(n)),
          "- 엔비디아: " + (P(nvda["d1"]) if nvda else "미수신"),
          "- 보유 미국 주식: " + (" · ".join(f"{h['name']} {P(h['q']['d1']) if h['q'] else '미수신'} (전체 자산의 {h['weight']}%)" for h in held) if held else "없음 또는 목록 미수신"),
-         "- 대형 기술주 7개: " + (f"오른 것 {sum(1 for d, _ in big if d > 0)}개 · 내린 것 {sum(1 for d, _ in big if d < 0)}개 — 가장 ▲ {max(big)[1]} {P(max(big)[0])} · 가장 ▼ {min(big)[1]} {P(min(big)[0])}" if big else "미수신"),
+         "- 대형 기술주 7개: " + (f"오른 것 {sum(1 for d, _ in big if d > 0)}개 · 내린 것 {sum(1 for d, _ in big if d < 0)}개 · 가장 ▲ {max(big)[1]} {P(max(big)[0])} · 가장 ▼ {min(big)[1]} {P(min(big)[0])}" if big else "미수신"),
          "- 업종: " + (f"강한 곳 {' · '.join(f'{n} {P(d, 1)}' for d, n in sec[:3])} / 약한 곳 {' · '.join(f'{n} {P(d, 1)}' for d, n in sec[-3:][::-1])}" if len(sec) >= 6 else "미수신"),
          "- 최근 5거래일 (하루 등락과 혼동 금지): " + " · ".join(f"{n} {P(idx[n]['d5'])}" for n in ("나스닥100", "미국 반도체지수") if idx.get(n)),
          "- 변동성지수(VIX): " + (f"{idx['변동성지수(VIX)']['close']:.2f} ({P(idx['변동성지수(VIX)']['d1'])})" if idx.get("변동성지수(VIX)") else "미수신"),
@@ -195,12 +195,12 @@ def main():
         rb = signal_rules.reason_block(color, reasons)
         if rb:
             fixed.append({"key": "reason", "text": rb})
-        blk = ["### 요약에 그대로 넣을 묶음 — 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"]
+        blk = ["### 요약에 그대로 넣을 묶음: 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"]
         for x in fixed:
             blk += x["text"].split("\n") + [""]
         blk[-1] = "```"
         w = lambda t: t + " " * max(0, 12 - mkt.disp_w(t))
-        blk += ["", "### 근거에 그대로 넣을 묶음 — 복사해서 쓴다", "", "~~~", T("미국 시장"), "```"]
+        blk += ["", "### 근거에 그대로 넣을 묶음: 복사해서 쓴다", "", "~~~", T("미국 시장"), "```"]
         for n, short in (("S&P500", "S&P500"), ("나스닥100", "나스닥100"), ("미국 반도체지수", "반도체지수"), ("다우", "다우")):
             if idx.get(n):
                 blk.append(w(short) + f"{P(idx[n]['d1']):>8}")
@@ -233,7 +233,7 @@ if __name__ == "__main__":
     except Exception as e:
         try:
             with open(sys.argv[2], "w", encoding="utf-8") as f:
-                f.write("# US 마감 사전 수집 — 실패\n\n- 사전 수집 스크립트 오류. 지시문의 대체 경로(1-A)로 직접 받고, 신호 색은 지시문의 기준표로 판정한다.\n")
+                f.write("# US 마감 사전 수집: 실패\n\n- 사전 수집 스크립트 오류. 지시문의 대체 경로(1-A)로 직접 받고, 신호 색은 지시문의 기준표로 판정한다.\n")
         except Exception:
             pass
         print(f"us-prefetch: error {type(e).__name__}")

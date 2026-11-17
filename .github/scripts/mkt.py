@@ -161,4 +161,4 @@ def short_name(name, kind=None, width=26):
 
 
 def pct(v, digits=2):
-    return "—" if v is None else f"{v:+.{digits}f}%"
+    return "미수신" if v is None else f"{v:+.{digits}f}%"

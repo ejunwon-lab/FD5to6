@@ -3,11 +3,13 @@
 
 왜: 색·숫자·날짜는 코드가 정한다(signal_rules.py·사전 수집). AI가 쓴 글이 그것과 다르면 여기서 고친다.
   1) 신호 색 — 첫 줄의 색이 계산한 색과 다르면 계산한 색으로. AI가 올릴 수 있는 것은 🔴 하나뿐이고
-     (보유 이유를 깨는 사건), 그때는 `🔴 *이유*` 묶음 안에 `근거:` 줄이 있어야 한다. 없으면 되돌린다.
+     (보유 이유를 깨는 사건), 그때는 `*[신호가 🔴인 이유]*` 묶음 안에 `근거:` 줄이 있어야 한다. 없으면 되돌린다.
   2) 요약 뼈대 묶음 — 첫 줄, 숫자 묶음(이름표 줄 + 그 아래 `* ` 줄들), 신호 이유 묶음을 사전 수집이 만든 글자 그대로.
   3) 모양 — 글머리표는 `* `(하이픈은 마이너스와 헷갈린다), 구분선은 한 가지, 요약은 세 덩어리(상황 / 다음 수 / 이유)로
      구분선이 들어가게, 날짜 뒤 요일은 달력으로 교정. 제목(이름표)은 `*[미국]*` 꼴(대괄호+굵게, 2026-11-17) —
      옛 모양 `*미국*`, 별표 없는 `[미국]`, `[*미국*]`, `**미국**`를 모두 이 꼴로 맞춘다. 첫 줄과 근거 통 첫 줄은 그대로.
+  4) 이름·글자 (2026-11-17 오후) — 옛 신호 이름(지켜보기 → 주의)·옛 제목(지난번 본 것, `🟡 *[이유]*`)을 지금 것으로,
+     긴 줄표(—)는 마이너스와 헷갈리므로 없앤다: 결론 줄은 `→`, 그 밖의 글은 `:`, 숫자·날짜 사이는 `~`, 빈 칸 자리는 `없음`.
 옛 형식 리포트(첫 줄에 색이 없고 나눔 표시도 없음)는 건드리지 않는다 — 신호 기록만 남긴다.
 
 신호 기록 `_signals.jsonl`(비공개 리포트 저장소)은 **이력**이다(하루·종류당 한 줄, 같은 날 다시 만들면 그 줄을 바꾼다).
@@ -29,14 +31,21 @@ COLORS = (R.GREEN, R.YELLOW, R.RED)
 DIVIDER = "─" * 14
 DIVIDER_RE = re.compile(r"^\s*[─━—–\-=_~·]{5,}\s*$")
 BULLET_RE = re.compile(r"^(\s*)([*\-•∙▪]|·)\s+(?=\S)")
-REASON_RE = re.compile(rf"^\s*(🟢|🟡|🔴)\s*\*?\[?{re.escape(R.REASON_TITLE)}\]?\*?\s*:?")
+_C = "(?:🟢|🟡|🔴)"
+_W = re.escape(R.REASON_TITLE)
+# 신호 이유 묶음의 제목 줄 — 옛 꼴 `🟡 *[이유]*`·`🟡 이유: …` 또는 지금 꼴 `*[신호가 🟡인 이유]*`(앞에 색을 한 번 더 붙여도 알아본다)
+REASON_RE = re.compile(rf"^\s*(?:{_C}\s*\*?\[?{_W}\]?\*?\s*:?|(?:{_C}\s*)?[*\[]*신호가\s*{_C}\s*인\s*{_W}[*\]]*\s*:?\s*$)")
 # 제목(이름표) 줄 — 줄 맨 앞(그림 글자 하나까지 허용)에서 굵은 글씨·대괄호로 시작하는 줄. 글머리 줄(`* `)은 별표 뒤가 빈칸이라 걸리지 않는다
 _LEAD = r"(?:(?:👉|🟢|🟡|🔴|⚠️|📌)\s*)?"
 TITLE_OLD_RE = re.compile(rf"^(\s*{_LEAD})\*(?![\s\[*])([^*\n]*[^\s*])\*(?=$|\s|\()(?!\s*·)")   # *미국* → *[미국]*
 TITLE_SWAP_RE = re.compile(rf"^(\s*{_LEAD})\[\*([^*\[\]\n]+)\*\]")                                # [*미국*] → *[미국]*
 TITLE_BARE_RE = re.compile(rf"^(\s*{_LEAD})\[([^\[\]\n]+)\](?=$|\s)")                              # [미국] → *[미국]*
 DOUBLE_STAR_RE = re.compile(r"\*\*([^*\n]+)\*\*")                                                    # **굵게** → *굵게*
-HEAD_WORDS = set(R.LABEL.values()) | {"근거"}   # 첫 줄·근거 통 첫 줄의 굵은 낱말 — 제목이 아니므로 대괄호를 씌우지 않는다
+HEAD_WORDS = set(R.LABEL.values()) | set(R.OLD_LABELS) | {"근거"}   # 첫 줄·근거 통 첫 줄의 굵은 낱말 — 제목이 아니므로 대괄호를 씌우지 않는다
+# 긴 줄표(— U+2014, ― U+2015) — 구분선 `─`(U+2500)과는 다른 글자다
+DASH_RANGE_RE = re.compile(r"(?<=[\d)])[—―–](?=\d)")                    # 11/10—11/14 → 11/10~11/14 (붙여 쓴 것만)
+DASH_JOIN_RE = re.compile(r"(?<=[^\s|·(])\s*[—―]\s*(?=[^\s|·)])")      # 글 — 글 → 글: 글
+DASH_ANY_RE = re.compile(r"[—―]")                                         # 남은 것은 빈 칸 표시 → 없음
 WEEKDAY_RE = re.compile(r"(?<![\d/])(?:(\d{4})-)?(\d{1,2})([/-])(\d{1,2})\(([월화수목금토일])\)")
 WD = "월화수목금토일"
 SUMMARY_MAX_LINES, SUMMARY_MAX_CHARS = 34, 900
@@ -56,7 +65,7 @@ def set_color(line, color):
     s = line.lstrip()
     old = first_color(s)
     rest = s[len(old):] if old else " " + s
-    for lab in R.LABEL.values():
+    for lab in list(R.LABEL.values()) + list(R.OLD_LABELS):
         if lab in rest:
             rest = rest.replace(lab, R.LABEL[color], 1)
             break
@@ -112,6 +121,59 @@ def bracket_titles(lines):
         m = TITLE_OLD_RE.match(new)
         if m and m.group(2) not in HEAD_WORDS:
             new = m.group(1) + R.title(m.group(2)) + new[m.end():]
+        for old, cur in R.OLD_TITLES.items():                    # 옛 제목 → 지금 제목
+            if new.lstrip().startswith(R.title(old)):
+                new = new.replace(R.title(old), R.title(cur), 1)
+        if new != l:
+            lines[i] = new
+            n += 1
+    return n
+
+
+def fix_names(lines, fi, final):
+    """옛 신호 이름·옛 꼴 이유 제목을 지금 것으로(요약 안). → 고친 줄 수
+
+    첫 줄의 `*지켜보기*` → `*주의*`, 이유 묶음의 제목 `🟡 *[이유]*` → `*[신호가 🟡인 이유]*`(색은 리포트의 최종 색)."""
+    n = 0
+    if final:
+        for old in R.OLD_LABELS:
+            if f"*{old}*" in lines[fi]:
+                lines[fi] = lines[fi].replace(f"*{old}*", f"*{R.LABEL[final]}*", 1)
+                n += 1
+        if final != R.GREEN:
+            want = R.title(R.reason_title(final))
+            for i in range(fi + 1, split_at(lines)):
+                m = REASON_RE.match(lines[i])
+                if m and not lines[i][m.end():].strip() and lines[i].strip() != want:   # 제목만 있는 줄
+                    lines[i] = want
+                    n += 1
+    return n
+
+
+def no_long_dash(lines, fi):
+    """긴 줄표(—)를 없앤다 — 음수 앞의 마이너스와 헷갈린다(2026-11-17 사용자 결정). → 고친 줄 수
+
+    결론 줄(첫 줄 다음의 첫 글 줄)은 ` → `, 그 밖의 글은 `: `, 숫자·날짜 사이에 붙여 쓴 것은 `~`, 빈 칸 자리는 `없음`.
+    코드블록(표) 안의 긴 줄표는 빈 칸 표시뿐이므로 `없음`으로."""
+    n = 0
+    mask = code_mask(lines)
+    stop = split_at(lines)
+    ci = next((i for i in range(fi + 1, stop) if lines[i].strip() and not DIVIDER_RE.match(lines[i])), None)
+    if ci is not None and re.match(r"^\s*(?:[*\[]|\d+\.|👉)", lines[ci]):   # 제목·글머리·번호 줄이면 결론 줄이 아니다
+        ci = None
+    for i, l in enumerate(lines):
+        if not DASH_ANY_RE.search(l) or SPLIT_RE.match(l) or DIVIDER_RE.match(l) or l.strip().startswith("```"):
+            continue
+        if mask[i]:
+            new = DASH_ANY_RE.sub("없음", l)
+        else:
+            new = re.sub(r"^(\s*)[—―]\s+(?=\S)", r"\1* ", l)        # 줄 맨 앞의 긴 줄표는 글머리표로 쓴 것
+            new = DASH_RANGE_RE.sub("~", new)
+            if i == ci:
+                new = DASH_JOIN_RE.sub(" → ", new)
+            else:
+                new = DASH_JOIN_RE.sub(lambda m: " " if m.string[m.start() - 1] in ":?!.,→" else ": ", new)
+            new = DASH_ANY_RE.sub("없음", new)
         if new != l:
             lines[i] = new
             n += 1
@@ -341,7 +403,7 @@ def main():
         nb, nd = normalize_shape(lines)
         nt = bracket_titles(lines)
         summary = lines[fi:split_at(lines)]
-        has_reason = any(l.lstrip().startswith("🔴") and REASON_RE.match(l) for l in summary)
+        has_reason = any("🔴" in l and REASON_RE.match(l) for l in summary)
         has_basis = any(BULLET_RE.sub("", l).strip().startswith("근거:") for l in summary)
         if script:
             if wrote is None:
@@ -367,13 +429,19 @@ def main():
             notes.append("extra-split-removed")
         if not splits:
             notes.append("no-split")
+        nm = fix_names(lines, fi, final)
         div = ensure_dividers(lines, fi)
+        nl = no_long_dash(lines, fi)
         wk = fix_weekdays(lines, ref)
         wf, wl = plain_words(lines)
         if nb or nd or div:
             notes.append(f"shape=bullets:{nb}/dividers:{nd}+{div}")
         if nt:
             notes.append(f"titles-fixed={nt}")
+        if nm:
+            notes.append(f"names-fixed={nm}")
+        if nl:
+            notes.append(f"dash-fixed={nl}")
         if wk:
             notes.append(f"weekday-fixed={wk}")
         if wf or wl:

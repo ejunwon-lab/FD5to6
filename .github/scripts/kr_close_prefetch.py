@@ -98,14 +98,14 @@ def norm(t):
 def kind_of(cat):
     """GAS 분류 → 표의 구분. 회사 단위 뉴스·수급 대상은 '국내주식'뿐."""
     cat = str(cat or "")
-    return "국내주식" if cat == "국내주식" else ("ETF" if "ETF" in cat.upper() else (cat or "—"))
+    return "국내주식" if cat == "국내주식" else ("ETF" if "ETF" in cat.upper() else (cat or "없음"))
 
 
 def load_cache(path):
     """직전 성공 때의 보유 목록 사본 — [(code, name, kind)]. 없거나 깨졌으면 []."""
     try:
         d = json.load(open(path, encoding="utf-8"))
-        return [(str(x["code"]), x.get("name"), x.get("kind") or "—") for x in d.get("items") or [] if x.get("code")], d.get("date")
+        return [(str(x["code"]), x.get("name"), x.get("kind") or "없음") for x in d.get("items") or [] if x.get("code")], d.get("date")
     except Exception:
         return [], None
 
@@ -122,7 +122,7 @@ def save_cache(path, date, rows):
 
 
 def pct(v):
-    return "—" if v is None else f"{v:+.2f}%"
+    return "미수신" if v is None else f"{v:+.2f}%"
 
 
 def disp_w(t):
@@ -221,10 +221,10 @@ def summary_material(gas, rows, asof, today, signals_path):
     # GAS가 "입출금 의심"으로 표시한 날이라도, 보유 종목 등락으로 다시 계산한 값과 0.5%p 안에서 맞으면 시장 움직임이다 — 경고를 붙이지 않는다
     flow_note = ""
     if daily and daily.get("suspect") and port_src == "gas" and (approx is None or abs(port - approx) > 0.5):
-        flow_note = " · ⚠️ 입출금이 섞였을 수 있음" + ("" if approx is None else f" — 보유 종목 등락만으로 계산하면 {approx:+.2f}%")
+        flow_note = " · ⚠️ 입출금이 섞였을 수 있음" + ("" if approx is None else f": 보유 종목 등락만으로 계산하면 {approx:+.2f}%")
     P = mkt.pct
-    L = ["## 요약 재료 — 코드가 계산한 값 (요약 메시지에 색·숫자·날짜 표기를 **글자 그대로** 쓴다. 다시 계산하지 않는다)", "",
-         f"- 날짜 표기: {mkt.kdate(asof)}" + (f" — 오늘({mkt.kdate(today)})은 새 기록이 없어 직전 거래일 기준" if holiday else ""),
+    L = ["## 요약 재료: 코드가 계산한 값 (요약 메시지에 색·숫자·날짜 표기를 **글자 그대로** 쓴다. 다시 계산하지 않는다)", "",
+         f"- 날짜 표기: {mkt.kdate(asof)}" + (f" · 오늘({mkt.kdate(today)})은 새 기록이 없어 직전 거래일 기준" if holiday else ""),
          f"- 신호: {color} {signal_rules.LABEL[color]}",
          "- 신호 이유: " + (" / ".join(reasons) if reasons else "없음 (기준에 걸린 것이 없다)"),
          f"- 내 포트 오늘: {P(port)} (현금까지 포함한 전체" + ("" if port_src == "gas" else " · 보유 종목 등락으로 계산한 근사값")
@@ -241,14 +241,14 @@ def summary_material(gas, rows, asof, today, signals_path):
          "- 자산 비중: " + " · ".join(f"{k} {v}%" for k, v in sorted((gas.get("assetClassWeights") or {}).items(), key=lambda x: -x[1]) if v),
          "- 지수: " + " · ".join(f"{c} {idx[c]['close']:,.2f} ({P(idx[c]['pct'])})" if idx[c]["close"] else f"{c} 미수신" for c in ("KOSPI", "KOSDAQ")),
          "- 원/달러: " + (f"{fx['close']:,.2f}원 ({fx['diff']:+.2f}원, {fx['at']} 고시)" if fx and fx.get("diff") is not None else "미수신"),
-         "", "### 근거 표 초안 — 국내주식 (판단 칸만 채워서 쓴다)", "", "```", pad("종목", 11) + "  오늘    5일"]
+         "", "### 근거 표 초안: 국내주식 (판단 칸만 채워서 쓴다)", "", "```", pad("종목", 11) + "  오늘    5일"]
     for n, c, p, g, k in rows:
         if k == "국내주식":
             L.append(pad(n, 11) + f"{pct(g):>7}" + f"{P(extra[c]['d5'], 1):>7}" + (f"  {extra[c]['streak']}일째↓" if (extra[c]["streak"] or 0) >= 3 else ""))
     L += ["```", ""]
     # 요약의 뼈대 줄 — 코드가 만든 그대로 들어간다(발송 전 마무리가 다르면 이 값으로 되돌린다)
     labels = signal_rules.LABEL
-    head = (f"{color} *{labels[color]}* · KR 휴장 — {mkt.kdate(asof)} 기준" if holiday else f"{color} *{labels[color]}* · KR 마감 {mkt.kdate(asof)}")
+    head = (f"{color} *{labels[color]}* · KR 휴장 · {mkt.kdate(asof)} 기준" if holiday else f"{color} *{labels[color]}* · KR 마감 {mkt.kdate(asof)}")
     # 묶음 = 이름표 줄 + 그 아래 `* ` 줄. 글머리표는 `*`(하이픈은 마이너스와 헷갈린다). 이름표는 `*[내 포트]*` 꼴(signal_rules.title)
     fixed = [{"key": "head", "text": head},
              {"key": "port", "labels": [T("내 포트")], "text": f"{T('내 포트')}  {P(port)}\n* 주식만 {P(inv)} · 코스피 {P(idx['KOSPI']['pct'])}"}]
@@ -258,20 +258,20 @@ def summary_material(gas, rows, asof, today, signals_path):
     rb = signal_rules.reason_block(color, reasons)
     if rb:
         fixed.append({"key": "reason", "text": rb})
-    L += ["### 요약에 그대로 넣을 묶음 — 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"]
+    L += ["### 요약에 그대로 넣을 묶음: 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"]
     for x in fixed:
         L += x["text"].split("\n") + [""]
     L[-1] = "```"
     L.append("")
     stock_w = sum(v for k, v in (gas.get("assetClassWeights") or {}).items() if "주식" in k or "ETF" in k.upper())
     cash_w = (gas.get("assetClassWeights") or {}).get("현금성")
-    L += ["### 근거에 그대로 넣을 묶음 — 복사해서 쓴다 (비중 묶음의 '반도체·AI'만 직접 더해 채운다)", "", "~~~",
+    L += ["### 근거에 그대로 넣을 묶음: 복사해서 쓴다 (비중 묶음의 '반도체·AI'만 직접 더해 채운다)", "", "~~~",
           T("흐름"),
           f"* 5일 {P(pr.get('d5'))} (코스피 {P(idx['KOSPI']['d5'])})",
           f"* 20일 {P(pr.get('d20'))} · 누적 {P(op)}",
           "",
           T("비중"),
-          f"* 주식 {stock_w:.0f}% · 현금 {cash_w:.0f}%" if cash_w is not None else "* 주식 — · 현금 —",
+          f"* 주식 {stock_w:.0f}% · 현금 {cash_w:.0f}%" if cash_w is not None else "* 주식 미수신 · 현금 미수신",
           "* 반도체·AI 약 {N}%",
           "",
           T("시장"),
@@ -318,7 +318,7 @@ def main():
 
     rows, match, checked, replaced = [], 0, 0, 0
     if use_gas:
-        source = "GAS 잠금 기록(정규장 마감 직후) — 네이버 분봉과 대조"
+        source = "GAS 잠금 기록(정규장 마감 직후), 네이버 분봉과 대조"
         for x in items:
             close, chg = num(x.get("close")), x.get("changePct")
             mc = minute_close(x["code"], asof, cmin)
@@ -354,34 +354,34 @@ def main():
         try:
             material, sig, extra, sig_status = summary_material(gas, rows, asof, today, opt.get("signals"))
         except Exception as e:   # 요약 재료가 실패해도 표는 나간다
-            material = ["## 요약 재료 — **계산 실패**", "",
+            material = ["## 요약 재료: **계산 실패**", "",
                         "- 요약의 숫자는 아래 표에서 직접 읽고, 신호 색은 지시문의 기준표로 직접 판정한다. 날짜·요일은 Bash `date`로 확인한다.", ""]
             sig_status = f"signal=error:{type(e).__name__}"
-    out = [f"# KR 마감 사전 수집 — {asof} 기준" + ("" if asof == today else f" (오늘 {today}은 새 기록 없음 — 직전 거래일 값)"), ""]
+    out = [f"# KR 마감 사전 수집: {asof} 기준" + ("" if asof == today else f" (오늘 {today}은 새 기록 없음, 직전 거래일 값)"), ""]
     if rows and got:
         out += [f"- 보유 종목 가격은 **정규장 종가**다(애프터마켓 가격 아님). 출처: {source}.",
                 "- 아래 표의 종가·등락률을 **그대로** 쓴다. 이 시각에 네이버 `/basic`을 다시 부르면 애프터마켓 진행가가 나오므로 부르지 않는다.", "",
                 "- **이 표가 보유 종목 목록의 유일한 기준이다** (GAS 보유현황에서 온 것). 표에 없는 종목은 보유가 아니다.",
                 "- 구분이 `국내주식`인 종목만 회사 단위 뉴스·수급 대상이다. `ETF`는 등락만 본다."]
         if list_src == "cache":
-            out += [f"- ⚠️ GAS 응답이 없어 **{cache_date or '이전'} 기준 보유 목록 사본**을 썼다 — 그 뒤의 매매는 반영되지 않았을 수 있다고 리포트에 한 줄 밝힌다."]
+            out += [f"- ⚠️ GAS 응답이 없어 **{cache_date or '이전'} 기준 보유 목록 사본**을 썼다. 그 뒤의 매매는 반영되지 않았을 수 있다고 리포트에 한 줄 밝힌다."]
         out += [""] + material
-        ex = lambda c, key, fmt: "—" if (extra.get(c) or {}).get(key) is None else fmt(extra[c][key])
+        ex = lambda c, key, fmt: "미수신" if (extra.get(c) or {}).get(key) is None else fmt(extra[c][key])
         out += ["## 보유 종목 (정규장 종가 기준)", "",
                 "| 종목 | 코드 | 구분 | 정규장 종가 | 등락률 | 비중 | 포트 기여 | 5일 | 연속 하락 |", "|---|---|---|---|---|---|---|---|---|"]
-        out += [f"| {n} | {c} | {k} | {('%s' % format(round(p), ',')) if p else '—'} | {pct(g)} | {ex(c, 'w', lambda v: f'{v:.1f}%')} | "
-                f"{ex(c, 'contrib', lambda v: f'{v:+.2f}%p')} | {ex(c, 'd5', lambda v: f'{v:+.1f}%')} | {ex(c, 'streak', lambda v: f'{v}일' if v else '—')} |"
+        out += [f"| {n} | {c} | {k} | {('%s' % format(round(p), ',')) if p else '미수신'} | {pct(g)} | {ex(c, 'w', lambda v: f'{v:.1f}%')} | "
+                f"{ex(c, 'contrib', lambda v: f'{v:+.2f}%p')} | {ex(c, 'd5', lambda v: f'{v:+.1f}%')} | {ex(c, 'streak', lambda v: f'{v}일' if v else '없음')} |"
                 for n, c, p, g, k in rows]
         out += ["", "비중 = 현금까지 포함한 전체 자산 대비. 포트 기여 = 그 종목이 오늘 내 포트 전체를 몇 %p 움직였나. 5일 = 최근 5거래일 변화율."]
         if no_thesis:
             out += ["", f"**논리 미등록 {len(no_thesis)}종목**: " + " · ".join(no_thesis)
-                    + " — 투자 논리 파일에 없다. 리포트의 논리 칸에 `(논리 미등록)`이라고 쓰고, 논리 점검 끝에 \"논리 미등록 n종목 — 투자 논리 파일에 추가 필요\" 한 줄을 넣는다. 논리를 지어내지 않는다."]
+                    + ": 투자 논리 파일에 없다. 리포트의 논리 칸에 `(논리 미등록)`이라고 쓰고, 논리 점검 끝에 \"논리 미등록 n종목: 투자 논리 파일에 추가 필요\" 한 줄을 넣는다. 논리를 지어내지 않는다."]
     else:
-        out += ["- **보유 종목 사전 수집 실패**" + (" (보유 목록도 받지 못함 — 가장 최근 `docs/reports/KR-*.md`의 포트 표에 나온 종목을 보유 목록으로 쓰고, 리포트에 \"보유 목록은 직전 리포트 기준\"이라고 밝힌다)" if not rows else "")
-                + " — 지시문의 대체 경로(1-B)로 가격을 받는다. 16시 이후의 네이버 표시가는 애프터마켓 가격이므로, "
+        out += ["- **보유 종목 사전 수집 실패**" + (" (보유 목록도 받지 못함: 가장 최근 `docs/reports/KR-*.md`의 포트 표에 나온 종목을 보유 목록으로 쓰고, 리포트에 \"보유 목록은 직전 리포트 기준\"이라고 밝힌다)" if not rows else "")
+                + ": 지시문의 대체 경로(1-B)로 가격을 받는다. 16시 이후의 네이버 표시가는 애프터마켓 가격이므로, "
                 "분봉 API의 정규장 마감 값을 쓰거나 리포트에 \"애프터마켓 반영가\"라고 밝힌다."]
         if rows:   # 가격은 못 받았어도 보유 목록은 넘긴다
-            out += ["", "## 보유 종목 (가격 없음 — 목록만)", "", "| 종목 | 코드 | 구분 |", "|---|---|---|"]
+            out += ["", "## 보유 종목 (가격 없음, 목록만)", "", "| 종목 | 코드 | 구분 |", "|---|---|---|"]
             out += [f"| {n} | {c} | {k} |" for n, c, _p, _g, k in rows]
     if list_src == "gas" and rows and cache_path:
         save_cache(cache_path, asof, rows)
@@ -390,19 +390,19 @@ def main():
     mk_state = "없음"
     if mk.get("date") == asof and mk.get("sectors"):
         mk_state = f"{mk.get('at')} 수집" + (" (늦음)" if mk.get("late") else "")
-        out += ["", "## 시장 숫자 — " + (f"{mk.get('at')}에 받아 둔 값" + (" ⚠️ 애프터마켓 시작 뒤에 받은 값 — 리포트에 \"업종·순위는 장 마감 뒤 값\"이라고 밝힌다"
+        out += ["", "## 시장 숫자: " + (f"{mk.get('at')}에 받아 둔 값" + (" ⚠️ 애프터마켓 시작 뒤에 받은 값. 리포트에 \"업종·순위는 장 마감 뒤 값\"이라고 밝힌다"
                                                                 if mk.get("late") else " (정규장 마감 직후)")), ""]
         idx = mk.get("index") or {}
         out += ["| 지수 | 종가 | 등락률 | 거래대금 |", "|---|---|---|---|"]
         for k in ("KOSPI", "KOSDAQ"):
             v = idx.get(k) or {}
-            out.append(f"| {k} | {v.get('close', '—')} | {pct(v.get('pct'))} | {v.get('value') or '—'} |")
+            out.append(f"| {k} | {v.get('close', '미수신')} | {pct(v.get('pct'))} | {v.get('value') or '미수신'} |")
         sec = mk["sectors"]
         out += ["", f"### 업종 등락 (전체 {len(sec)}개, 높은 순)", "", " · ".join(f"{n} {r:+.2f}%" for n, r in sec)]
         for title, key in (("급등 상위", "up"), ("급락 상위", "down")):
             out += ["", f"### {title}", "", " · ".join(f"{n}({c}) {r:+.2f}%" for n, c, r in (mk.get(key) or []))]
     else:
-        out += ["", "## 시장 숫자 — **사전 수집분 없음**", "",
+        out += ["", "## 시장 숫자: **사전 수집분 없음**", "",
                 "- 지수·업종·순위는 지시문의 주소(1-A·1-D)로 받는다. 지수는 정규장 마감 뒤 움직이지 않는다. "
                 "업종 등락·급등락 순위는 16시 이후 값에 애프터마켓이 섞일 수 있으니 리포트에 \"장 마감 뒤 값\"이라고 밝힌다."]
 
@@ -426,7 +426,7 @@ if __name__ == "__main__":
     except Exception as e:   # 리포트 생성은 계속 — 에이전트가 대체 경로를 탄다
         try:
             with open(sys.argv[2], "w", encoding="utf-8") as f:
-                f.write("# KR 마감 사전 수집 — 실패\n\n- 사전 수집 스크립트 오류. 지시문의 대체 경로로 수집한다. "
+                f.write("# KR 마감 사전 수집: 실패\n\n- 사전 수집 스크립트 오류. 지시문의 대체 경로로 수집한다. "
                         "16시 이후의 네이버 표시가는 애프터마켓 가격이다.\n")
         except Exception:
             pass

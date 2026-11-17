@@ -29,7 +29,7 @@ def norm(t):
 
 def kind_of(cat):
     cat = str(cat or "")
-    return "국내주식" if cat == "국내주식" else ("ETF" if "ETF" in cat.upper() else (cat or "—"))
+    return "국내주식" if cat == "국내주식" else ("ETF" if "ETF" in cat.upper() else (cat or "없음"))
 
 
 def read_signals(path):
@@ -71,7 +71,7 @@ def main():
     kospi = mkt.day_series("domestic/index/KOSPI", today, 70)
     if len(kospi) < 7:
         with open(out_path, "w", encoding="utf-8") as f:
-            f.write("# 주간 사전 수집 — 실패\n\n- 지수 일봉을 받지 못했다. 지시문의 대체 경로로 직접 받는다.\n")
+            f.write("# 주간 사전 수집: 실패\n\n- 지수 일봉을 받지 못했다. 지시문의 대체 경로로 직접 받는다.\n")
         print("weekly-prefetch: failed (kospi series)")
         return
     week = [d for d, _ in kospi[-5:]]                  # 이번 주(가장 최근 5거래일)
@@ -124,20 +124,20 @@ def main():
     approx_week = sum(r["contrib"] for r in ranked) if ranked else None
     gap_note = ""
     if approx_week is not None and port_week is not None and abs(approx_week - port_week) > 1.0:
-        gap_note = (f" · ⚠️ 종목별 기여를 다 더하면 {approx_week:+.2f}%로 차이가 크다 — 기록이 빠진 날이 구간에 끼었거나 주중 매매가 있었을 수 있다."
+        gap_note = (f" · ⚠️ 종목별 기여를 다 더하면 {approx_week:+.2f}%로 차이가 크다. 기록이 빠진 날이 구간에 끼었거나 주중 매매가 있었을 수 있다."
                     " 두 숫자를 섞어 쓰지 말고 이 사실을 근거에 한 줄 밝힌다")
     # 신호 기록
     sigs = read_signals(opt.get("signals")) if opt.get("signals") else []
     kr_week = {mkt.ymd(e.get("date")): e for e in sigs if e.get("type") == "kr" and mkt.ymd(e.get("date")) in week}
     us_week = [e for e in sigs if e.get("type") == "us" and base < mkt.ymd(e.get("date")) <= mkt.ymd(today)]
     color, reasons = signal_rules.week_signal([e.get("color") for e in kr_week.values()], port_week)
-    reds = [f"{e.get('header')} — " + " / ".join(e.get("reasons") or []) for e in kr_week.values() if e.get("color") == signal_rules.RED]
+    reds = [f"{e.get('header')}: " + " / ".join(str(x).replace(" — ", ": ") for x in (e.get("reasons") or [])) for e in kr_week.values() if e.get("color") == signal_rules.RED]
 
     header = f"{mkt.kdate(week[0])}~{mkt.kdate(week[-1])}"
     k_week = idx["코스피"]["week"]
-    L = [f"# 주간 사전 수집 — {header} (기준일 {mkt.kdate(base)} 종가 대비)", "",
+    L = [f"# 주간 사전 수집: {header} (기준일 {mkt.kdate(base)} 종가 대비)", "",
          "- 아래 숫자는 코드가 받아 계산한 값이다. 지수·종목·내 포트 모두 **같은 구간**(기준일 종가 → 이번 주 마지막 거래일 종가)이다. 그대로 쓴다.", "",
-         "## 요약 재료 — 코드가 계산한 값 (요약 메시지에 색·숫자·날짜 표기를 **글자 그대로** 쓴다)", "",
+         "## 요약 재료: 코드가 계산한 값 (요약 메시지에 색·숫자·날짜 표기를 **글자 그대로** 쓴다)", "",
          f"- 날짜 표기: {header}",
          f"- 신호: {color} {signal_rules.LABEL[color]}",
          "- 신호 이유: " + (" / ".join(reasons) if reasons else "없음"),
@@ -167,17 +167,17 @@ def main():
         cnt = lambda c: sum(1 for e in kr_week.values() if e.get("color") == c)
         fixed.append({"key": "tally", "labels": [T("이번 주 신호")],
                       "text": f"{T('이번 주 신호')}\n* 🔴 {cnt(signal_rules.RED)}일 · 🟡 {cnt(signal_rules.YELLOW)}일 · 🟢 {cnt(signal_rules.GREEN)}일"})
-    L += ["", "### 요약에 그대로 넣을 묶음 — 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"]
+    L += ["", "### 요약에 그대로 넣을 묶음: 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"]
     for x in fixed:
         L += x["text"].split("\n") + [""]
     L[-1] = "```"
     # 근거의 표 — 휴대폰 폭(한 줄 28칸 안)으로 미리 짠다
     w = lambda t, n: t + " " * max(0, n - mkt.disp_w(t))
-    L += ["", "### 근거에 그대로 넣을 묶음 — 복사해서 쓴다", "", "~~~", T("날짜별"), "```", "요일  내 포트  코스피  신호"]
+    L += ["", "### 근거에 그대로 넣을 묶음: 복사해서 쓴다", "", "~~~", T("날짜별"), "```", "요일  내 포트  코스피  신호"]
     for d in week:
         e = daily.get(d)
         sg = kr_week.get(d)
-        L.append(f"{mkt.kdate(d)[-2]}   {P(e.get('dRatePct')) if e else '기록없음':>7} {P(kday.get(d)):>7}  {sg.get('color') if sg else '—'}")
+        L.append(f"{mkt.kdate(d)[-2]}   {P(e.get('dRatePct')) if e else '기록없음':>7} {P(kday.get(d)):>7}  {sg.get('color') if sg else '없음'}")
     L += ["```", "", T("종목별 한 주") + " (포트에 준 영향 큰 순)", "```"]
     top, bottom = ranked[::-1][:3], [r for r in ranked[:3] if r not in ranked[::-1][:3]][::-1]
     for r in top + bottom:
@@ -191,18 +191,18 @@ def main():
         e = daily.get(d)
         flag = "" if not e else (" (입출금 보정)" if e.get("flowAdj") else "")
         s = kr_week.get(d)
-        L.append(f"| {mkt.kdate(d)} | {P(e.get('dRatePct')) + flag if e else '기록 없음'} | {P(kday.get(d))} | {(s.get('color') + ' ' + '; '.join(s.get('reasons') or [])[:60]) if s else '—'} |")
+        L.append(f"| {mkt.kdate(d)} | {P(e.get('dRatePct')) + flag if e else '기록 없음'} | {P(kday.get(d))} | {(s.get('color') + ' ' + '; '.join(str(x).replace(' — ', ': ') for x in (s.get('reasons') or []))[:60]) if s else '없음'} |")
     L += ["", "## 종목별 (한 주 등락 × 비중 → 포트 기여, 기여 낮은 순)", "", "| 종목 | 구분 | 한 주 | 비중 | 포트 기여 |", "|---|---|---|---|---|"]
     for r in ranked:
         L.append(f"| {r['name']} | {r['kind']} | {P(r['week'], 1)} | {r['w']:.1f}% | {r['contrib']:+.2f}%p |")
     for r in rows:
         if r["contrib"] is None:
-            L.append(f"| {r['name']} | {r['kind']} | {P(r['week'], 1)} | {('%.1f%%' % r['w']) if r['w'] else '—'} | — |")
-    L += ["", "포트 기여 = 그 종목이 한 주 동안 내 포트 전체를 몇 %p 움직였나(지금 비중 기준 근사 — 주중 매매는 반영되지 않는다).",
+            L.append(f"| {r['name']} | {r['kind']} | {P(r['week'], 1)} | {('%.1f%%' % r['w']) if r['w'] else '없음'} | 없음 |")
+    L += ["", "포트 기여 = 그 종목이 한 주 동안 내 포트 전체를 몇 %p 움직였나(지금 비중 기준 근사. 주중 매매는 반영되지 않는다).",
           "", "## 지수 (한 주)", "", "| 지표 | 종가 | 한 주 | 20거래일 |", "|---|---|---|---|"]
     for n in ("코스피", "코스닥", "S&P500", "나스닥100", "미국 반도체지수"):
         v = idx[n]
-        L.append(f"| {n} | {v['close']:,.2f} | {P(v['week'])} | {P(v['d20'])} |" if v.get("close") else f"| {n} | 미수신 | — | — |")
+        L.append(f"| {n} | {v['close']:,.2f} | {P(v['week'])} | {P(v['d20'])} |" if v.get("close") else f"| {n} | 미수신 | 미수신 | 미수신 |")
     if us_week:
         L += ["", "이번 주 미국 아침 신호: " + " · ".join(f"{e.get('header', e.get('date'))} {e.get('color')}" for e in us_week)]
     with open(out_path, "w", encoding="utf-8") as f:
@@ -222,7 +222,7 @@ if __name__ == "__main__":
     except Exception as e:
         try:
             with open(sys.argv[2], "w", encoding="utf-8") as f:
-                f.write("# 주간 사전 수집 — 실패\n\n- 사전 수집 스크립트 오류. 지시문의 대체 경로로 직접 받는다.\n")
+                f.write("# 주간 사전 수집: 실패\n\n- 사전 수집 스크립트 오류. 지시문의 대체 경로로 직접 받는다.\n")
         except Exception:
             pass
         print(f"weekly-prefetch: error {type(e).__name__}")
