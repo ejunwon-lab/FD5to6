@@ -177,7 +177,7 @@ def main():
     for d in week:
         e = daily.get(d)
         sg = kr_week.get(d)
-        L.append(f"{mkt.kdate(d)[-2]}   {P(e.get('dRatePct')) if e else '기록없음':>7} {P(kday.get(d)):>7}  {sg.get('color') if sg else '없음'}")
+        L.append(f"{mkt.kdate(d)[-2]}   {P(e.get('dRatePct')) if e else '기록없음':>7} {P(kday.get(d)):>7}  {sg.get('color') if sg else '기록없음'}")
     L += ["```", "", T("종목별 한 주") + " (포트에 준 영향 큰 순)", "```"]
     top, bottom = ranked[::-1][:3], [r for r in ranked[:3] if r not in ranked[::-1][:3]][::-1]
     for r in top + bottom:
