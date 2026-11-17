@@ -36,6 +36,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mkt            # noqa: E402
 import signal_rules   # noqa: E402
 
+T = signal_rules.title   # 제목(이름표) 모양 — `*[내 포트]*`
+
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 SHIFT_MIN = {"2026-11-19": 60}   # 정규장 마감이 늦는 날(분) — GAS MarketClose.js 의 MC.SHIFT_MIN 과 같이 고친다
 
@@ -206,15 +208,15 @@ def summary_material(gas, rows, asof, today, signals_path):
         ups = [x for x in reversed(ranked) if x[0] >= 0.03][:3]
         mover_lines = ["- 끌어올린 것 (포트에 준 영향이 큰 순): " + (" · ".join(mover(x) for x in ups) if ups else "없음"),
                        "- 발목 잡은 것: " + (" · ".join(mover(x) for x in drags[:2]) if drags else "없음")]
-        fixed_movers = [("*끌어올린 것*", [sn(x[1]) for x in ups]), ("*발목 잡은 것*", [sn(x[1]) for x in drags[:2]])]
+        fixed_movers = [(T("끌어올린 것"), [sn(x[1]) for x in ups]), (T("발목 잡은 것"), [sn(x[1]) for x in drags[:2]])]
     else:
         least = [n for g, n in sorted(((g, n) for n, c, p, g, k in rows if g is not None), reverse=True)[:2]]
         mover_lines = ["- 끌어내린 것 (포트에 준 영향이 큰 순): " + (" · ".join(mover(x) for x in drags) if drags else "없음"),
                        ("- 받쳐 준 것: " + " · ".join(mover(x) for x in lifts)) if lifts else
                        ("- 덜 빠진 것 (포트를 받쳐 줄 만큼 오른 종목은 없음): "
                         + " · ".join(f"{n} {pct(g)}" for g, n in sorted(((g, n) for n, c, p, g, k in rows if g is not None), reverse=True)[:2]))]
-        fixed_movers = [("*끌어내린 것*", [sn(x[1]) for x in drags]),
-                        ("*받쳐 준 것*", [sn(x[1]) for x in lifts]) if lifts else ("*덜 빠진 것*", [sn(n) for n in least])]
+        fixed_movers = [(T("끌어내린 것"), [sn(x[1]) for x in drags]),
+                        (T("받쳐 준 것"), [sn(x[1]) for x in lifts]) if lifts else (T("덜 빠진 것"), [sn(n) for n in least])]
     holiday = asof != today
     # GAS가 "입출금 의심"으로 표시한 날이라도, 보유 종목 등락으로 다시 계산한 값과 0.5%p 안에서 맞으면 시장 움직임이다 — 경고를 붙이지 않는다
     flow_note = ""
@@ -247,11 +249,11 @@ def summary_material(gas, rows, asof, today, signals_path):
     # 요약의 뼈대 줄 — 코드가 만든 그대로 들어간다(발송 전 마무리가 다르면 이 값으로 되돌린다)
     labels = signal_rules.LABEL
     head = (f"{color} *{labels[color]}* · KR 휴장 — {mkt.kdate(asof)} 기준" if holiday else f"{color} *{labels[color]}* · KR 마감 {mkt.kdate(asof)}")
-    # 묶음 = 이름표 줄 + 그 아래 `* ` 줄. 글머리표는 `*`(하이픈은 마이너스와 헷갈린다)
+    # 묶음 = 이름표 줄 + 그 아래 `* ` 줄. 글머리표는 `*`(하이픈은 마이너스와 헷갈린다). 이름표는 `*[내 포트]*` 꼴(signal_rules.title)
     fixed = [{"key": "head", "text": head},
-             {"key": "port", "labels": ["*내 포트*"], "text": f"*내 포트*  {P(port)}\n* 주식만 {P(inv)} · 코스피 {P(idx['KOSPI']['pct'])}"}]
+             {"key": "port", "labels": [T("내 포트")], "text": f"{T('내 포트')}  {P(port)}\n* 주식만 {P(inv)} · 코스피 {P(idx['KOSPI']['pct'])}"}]
     for key, (lab, names) in zip(("mover1", "mover2"), fixed_movers):
-        fixed.append({"key": key, "labels": ["*끌어내린 것*", "*끌어올린 것*"] if key == "mover1" else ["*받쳐 준 것*", "*덜 빠진 것*", "*발목 잡은 것*"],
+        fixed.append({"key": key, "labels": [T("끌어내린 것"), T("끌어올린 것")] if key == "mover1" else [T("받쳐 준 것"), T("덜 빠진 것"), T("발목 잡은 것")],
                       "text": f"{lab}\n* " + (" · ".join(names) if names else "없음")})
     rb = signal_rules.reason_block(color, reasons)
     if rb:
@@ -264,15 +266,15 @@ def summary_material(gas, rows, asof, today, signals_path):
     stock_w = sum(v for k, v in (gas.get("assetClassWeights") or {}).items() if "주식" in k or "ETF" in k.upper())
     cash_w = (gas.get("assetClassWeights") or {}).get("현금성")
     L += ["### 근거에 그대로 넣을 묶음 — 복사해서 쓴다 (비중 묶음의 '반도체·AI'만 직접 더해 채운다)", "", "~~~",
-          "*흐름*",
+          T("흐름"),
           f"* 5일 {P(pr.get('d5'))} (코스피 {P(idx['KOSPI']['d5'])})",
           f"* 20일 {P(pr.get('d20'))} · 누적 {P(op)}",
           "",
-          "*비중*",
+          T("비중"),
           f"* 주식 {stock_w:.0f}% · 현금 {cash_w:.0f}%" if cash_w is not None else "* 주식 — · 현금 —",
           "* 반도체·AI 약 {N}%",
           "",
-          "*시장*",
+          T("시장"),
           "```"]
     for label, code in (("코스피", "KOSPI"), ("코스닥", "KOSDAQ")):
         v = idx[code]

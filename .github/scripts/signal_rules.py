@@ -34,12 +34,24 @@ def key_text():
             f"아침(미국): 🟡 반도체지수 {US['SOX_Y']:.0f}%·나스닥100 {US['NDX_Y']:.0f}% 이하, 🔴 {US['SOX_R']:.0f}%·{US['NDX_R']:.0f}% 이하.")
 
 
+REASON_TITLE = "이유"   # 신호 이유 묶음의 제목 낱말 — 마무리(report_finalize)가 이 낱말로 묶음을 찾는다
+
+
+def title(name):
+    """제목(이름표) 모양 — 대괄호 + 굵게: `*[미국]*` (2026-11-17 사용자 결정). 제목 모양은 이 함수 한 곳에서만 만든다.
+
+    텔레그램 옛 Markdown은 굵게 표시(`*…*`) 안의 글자를 그대로 보여 주므로 대괄호가 보인다.
+    별표 없이 `[미국]`만 쓰면 링크 문법으로 읽혀 대괄호가 사라진다 — 반드시 별표 안에 둔다.
+    근거: docs/plans/2026-11-17-리포트-제목대괄호-일정날짜.md"""
+    return f"*[{name}]*"
+
+
 def reason_block(color, reasons):
     """요약 끝의 신호 이유 묶음 — 이름표 한 줄 + 이유마다 `* ` 한 줄(괄호 안 부연은 뺀다). 🟢이면 None."""
     import re
     if color == GREEN or not reasons:
         return None
-    return "\n".join([f"{color} *이유*"] + ["* " + re.sub(r"\s*\([^)]*\)", "", r).strip() for r in reasons])
+    return "\n".join([f"{color} {title(REASON_TITLE)}"] + ["* " + re.sub(r"\s*\([^)]*\)", "", r).strip() for r in reasons])
 
 
 def worst(*colors):

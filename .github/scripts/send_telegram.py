@@ -13,6 +13,9 @@ Telegram Bot API로 시장 리포트 발송.
 - 글머리표는 `* `(별표+빈칸)다(2026-11-16 사용자 결정 — 하이픈은 마이너스와 헷갈린다). 텔레그램 Markdown에서 `*`는
   굵은 글씨 표시라서, 줄 맨 앞의 글머리 별표는 보낼 때 역슬래시를 앞에 붙여 글자 그대로 보이게 한다(코드블록 안은 그대로).
   Markdown 해석이 실패해 일반 글로 다시 보낼 때는 원문을 그대로 보낸다.
+- 제목(이름표)은 `*[미국]*` 꼴이다(2026-11-17 사용자 결정). 옛 Markdown은 굵게 표시 **안**의 대괄호는 그대로 보여 주지만,
+  표시 **밖**의 `[글자]`는 링크 문법으로 읽어 대괄호를 조용히 지운다(오류도 안 난다). 그래서 보낼 때 표시 밖의 `[` 앞에
+  역슬래시를 붙인다(실제 링크 `[글자](https://…)`는 그대로). 근거: docs/plans/2026-11-17-리포트-제목대괄호-일정날짜.md
 
 환경변수:
   TG_BOT_TOKEN  — 봇 토큰
@@ -75,6 +78,46 @@ def md_escape_bullets(text):
             inside = not inside
         out.append(line)
     return "\n".join(out)
+
+
+LINK_RE = re.compile(r"\[[^\]\n]*\]\((?:https?://|tg://)[^)\s]*\)")
+
+
+def md_escape_brackets(text):
+    """굵게·기울임·코드 표시 밖의 `[` 를 `\\[` 로 — 옛 Markdown이 링크로 읽어 대괄호를 지우지 않게. 실제 링크는 그대로 둔다.
+
+    텔레그램 해석기와 같은 순서로 훑는다: `\\` 뒤의 특수 글자는 건너뛰고, `*`·`_`·`` ` ``는 짝이 되는 닫는 표시까지를
+    한 덩어리로 넘긴다(그 안의 대괄호는 글자 그대로 보이므로 손대지 않는다). 짝이 없으면 나머지를 그대로 둔다
+    (그 경우 텔레그램이 400을 돌려주고 일반 글 대체 발송으로 간다 — 예전과 같다)."""
+    out, i, n = [], 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == "\\" and i + 1 < n and text[i + 1] in "_*`[":
+            out.append(text[i:i + 2])
+            i += 2
+        elif c in "_*`":
+            fence = c == "`" and text.startswith("```", i)
+            j = text.find("```", i + 3) if fence else text.find(c, i + 1)
+            end = n if j < 0 else j + (3 if fence else 1)
+            out.append(text[i:end])
+            i = end
+        elif c == "[":
+            m = LINK_RE.match(text, i)
+            if m:
+                out.append(m.group(0))
+                i = m.end()
+            else:
+                out.append("\\[")
+                i += 1
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
+def md_prepare(text):
+    """Markdown으로 보내기 전의 변환 — 글머리 별표와 표시 밖 대괄호를 글자 그대로 보이게."""
+    return md_escape_brackets(md_escape_bullets(text))
 
 
 def post(url, payload):
@@ -163,7 +206,7 @@ def main():
             # 1차: Markdown
             status, resp = post_retry(url, {
                 "chat_id": chat_id,
-                "text": md_escape_bullets(chunk),
+                "text": md_prepare(chunk),
                 "parse_mode": "Markdown",
                 "disable_notification": silent,
             })

@@ -20,6 +20,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mkt            # noqa: E402
 import signal_rules   # noqa: E402
 
+T = signal_rules.title   # 제목(이름표) 모양 — `*[내 포트]*`
+
 INDEX = [("S&P500", ".INX"), ("나스닥100", ".NDX"), ("미국 반도체지수", ".SOX"), ("다우", ".DJI"), ("변동성지수(VIX)", ".VIX")]
 BIG7 = [("애플", "AAPL.O"), ("마이크로소프트", "MSFT.O"), ("알파벳", "GOOGL.O"), ("아마존", "AMZN.O"), ("메타", "META.O"), ("엔비디아", "NVDA.O"), ("테슬라", "TSLA.O")]
 SECTOR = [("기술", "XLK"), ("금융", "XLF"), ("에너지", "XLE"), ("헬스케어", "XLV"), ("임의소비재", "XLY"), ("필수소비재", "XLP"),
@@ -189,7 +191,7 @@ def main():
     fixed = []
     if not holiday:
         fixed = [{"key": "head", "text": f"{color} *{signal_rules.LABEL[color]}* · {header}"},
-                 {"key": "us", "labels": ["*미국*"], "text": f"*미국*\n* 나스닥100 {P(ndx)}\n* 반도체지수 {P(sox)}"}]
+                 {"key": "us", "labels": [T("미국")], "text": f"{T('미국')}\n* 나스닥100 {P(ndx)}\n* 반도체지수 {P(sox)}"}]
         rb = signal_rules.reason_block(color, reasons)
         if rb:
             fixed.append({"key": "reason", "text": rb})
@@ -198,7 +200,7 @@ def main():
             blk += x["text"].split("\n") + [""]
         blk[-1] = "```"
         w = lambda t: t + " " * max(0, 12 - mkt.disp_w(t))
-        blk += ["", "### 근거에 그대로 넣을 묶음 — 복사해서 쓴다", "", "~~~", "*미국 시장*", "```"]
+        blk += ["", "### 근거에 그대로 넣을 묶음 — 복사해서 쓴다", "", "~~~", T("미국 시장"), "```"]
         for n, short in (("S&P500", "S&P500"), ("나스닥100", "나스닥100"), ("미국 반도체지수", "반도체지수"), ("다우", "다우")):
             if idx.get(n):
                 blk.append(w(short) + f"{P(idx[n]['d1']):>8}")

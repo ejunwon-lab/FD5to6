@@ -6,7 +6,8 @@
      (보유 이유를 깨는 사건), 그때는 `🔴 *이유*` 묶음 안에 `근거:` 줄이 있어야 한다. 없으면 되돌린다.
   2) 요약 뼈대 묶음 — 첫 줄, 숫자 묶음(이름표 줄 + 그 아래 `* ` 줄들), 신호 이유 묶음을 사전 수집이 만든 글자 그대로.
   3) 모양 — 글머리표는 `* `(하이픈은 마이너스와 헷갈린다), 구분선은 한 가지, 요약은 세 덩어리(상황 / 다음 수 / 이유)로
-     구분선이 들어가게, 날짜 뒤 요일은 달력으로 교정.
+     구분선이 들어가게, 날짜 뒤 요일은 달력으로 교정. 제목(이름표)은 `*[미국]*` 꼴(대괄호+굵게, 2026-11-17) —
+     옛 모양 `*미국*`, 별표 없는 `[미국]`, `[*미국*]`, `**미국**`를 모두 이 꼴로 맞춘다. 첫 줄과 근거 통 첫 줄은 그대로.
 옛 형식 리포트(첫 줄에 색이 없고 나눔 표시도 없음)는 건드리지 않는다 — 신호 기록만 남긴다.
 
 신호 기록 `_signals.jsonl`(비공개 리포트 저장소)은 **이력**이다(하루·종류당 한 줄, 같은 날 다시 만들면 그 줄을 바꾼다).
@@ -28,7 +29,14 @@ COLORS = (R.GREEN, R.YELLOW, R.RED)
 DIVIDER = "─" * 14
 DIVIDER_RE = re.compile(r"^\s*[─━—–\-=_~·]{5,}\s*$")
 BULLET_RE = re.compile(r"^(\s*)([*\-•∙▪]|·)\s+(?=\S)")
-REASON_RE = re.compile(r"^\s*(🟢|🟡|🔴)\s*\*?이유\*?\s*:?")
+REASON_RE = re.compile(rf"^\s*(🟢|🟡|🔴)\s*\*?\[?{re.escape(R.REASON_TITLE)}\]?\*?\s*:?")
+# 제목(이름표) 줄 — 줄 맨 앞(그림 글자 하나까지 허용)에서 굵은 글씨·대괄호로 시작하는 줄. 글머리 줄(`* `)은 별표 뒤가 빈칸이라 걸리지 않는다
+_LEAD = r"(?:(?:👉|🟢|🟡|🔴|⚠️|📌)\s*)?"
+TITLE_OLD_RE = re.compile(rf"^(\s*{_LEAD})\*(?![\s\[*])([^*\n]*[^\s*])\*(?=$|\s|\()(?!\s*·)")   # *미국* → *[미국]*
+TITLE_SWAP_RE = re.compile(rf"^(\s*{_LEAD})\[\*([^*\[\]\n]+)\*\]")                                # [*미국*] → *[미국]*
+TITLE_BARE_RE = re.compile(rf"^(\s*{_LEAD})\[([^\[\]\n]+)\](?=$|\s)")                              # [미국] → *[미국]*
+DOUBLE_STAR_RE = re.compile(r"\*\*([^*\n]+)\*\*")                                                    # **굵게** → *굵게*
+HEAD_WORDS = set(R.LABEL.values()) | {"근거"}   # 첫 줄·근거 통 첫 줄의 굵은 낱말 — 제목이 아니므로 대괄호를 씌우지 않는다
 WEEKDAY_RE = re.compile(r"(?<![\d/])(?:(\d{4})-)?(\d{1,2})([/-])(\d{1,2})\(([월화수목금토일])\)")
 WD = "월화수목금토일"
 SUMMARY_MAX_LINES, SUMMARY_MAX_CHARS = 34, 900
@@ -87,6 +95,27 @@ def normalize_shape(lines):
             lines[i] = m.group(1) + "* " + l[m.end():]
             nb += 1
     return nb, nd
+
+
+def bracket_titles(lines):
+    """제목(이름표)을 `*[미국]*` 꼴로 맞춘다(코드블록 밖). → 고친 줄 수
+
+    텔레그램 옛 Markdown은 굵게 표시 밖의 `[글자]`를 링크로 읽어 대괄호를 지운다 — 제목의 대괄호는 반드시 별표 안에 있어야 한다."""
+    n = 0
+    mask = code_mask(lines)
+    for i, l in enumerate(lines):
+        if mask[i] or SPLIT_RE.match(l) or not l.strip():
+            continue
+        new = DOUBLE_STAR_RE.sub(r"*\1*", l)
+        new = TITLE_SWAP_RE.sub(r"\1*[\2]*", new)
+        new = TITLE_BARE_RE.sub(r"\1*[\2]*", new)
+        m = TITLE_OLD_RE.match(new)
+        if m and m.group(2) not in HEAD_WORDS:
+            new = m.group(1) + R.title(m.group(2)) + new[m.end():]
+        if new != l:
+            lines[i] = new
+            n += 1
+    return n
 
 
 def fix_weekdays(lines, ref):
@@ -310,6 +339,7 @@ def main():
 
     if v2 and fi is not None:
         nb, nd = normalize_shape(lines)
+        nt = bracket_titles(lines)
         summary = lines[fi:split_at(lines)]
         has_reason = any(l.lstrip().startswith("🔴") and REASON_RE.match(l) for l in summary)
         has_basis = any(BULLET_RE.sub("", l).strip().startswith("근거:") for l in summary)
@@ -342,6 +372,8 @@ def main():
         wf, wl = plain_words(lines)
         if nb or nd or div:
             notes.append(f"shape=bullets:{nb}/dividers:{nd}+{div}")
+        if nt:
+            notes.append(f"titles-fixed={nt}")
         if wk:
             notes.append(f"weekday-fixed={wk}")
         if wf or wl:

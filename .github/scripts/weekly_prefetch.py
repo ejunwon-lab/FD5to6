@@ -20,6 +20,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mkt            # noqa: E402
 import signal_rules   # noqa: E402
 
+T = signal_rules.title   # 제목(이름표) 모양 — `*[내 포트]*`
+
 
 def norm(t):
     return re.sub(r"\s+", "", str(t or "")).upper()
@@ -156,34 +158,34 @@ def main():
     ups = [sn(r) for r in ranked[::-1][:3] if r["contrib"] >= 0.03]
     downs = [sn(r) for r in ranked[:3] if r["contrib"] <= -0.03]
     fixed = [{"key": "head", "text": f"{color} *{signal_rules.LABEL[color]}* · 주간 {header}"},
-             {"key": "port", "labels": ["*내 포트 한 주*", "*내 포트*"], "text": f"*내 포트 한 주*  {P(port_week)}\n* 주식만 {P(inv_week)} · 코스피 {P(k_week)}"}]
+             {"key": "port", "labels": [T("내 포트 한 주"), T("내 포트")], "text": f"{T('내 포트 한 주')}  {P(port_week)}\n* 주식만 {P(inv_week)} · 코스피 {P(k_week)}"}]
     if ups:
-        fixed.append({"key": "up", "labels": ["*끌어올린 것*"], "text": "*끌어올린 것*\n* " + " · ".join(ups)})
+        fixed.append({"key": "up", "labels": [T("끌어올린 것")], "text": T("끌어올린 것") + "\n* " + " · ".join(ups)})
     if downs:
-        fixed.append({"key": "down", "labels": ["*끌어내린 것*"], "text": "*끌어내린 것*\n* " + " · ".join(downs)})
+        fixed.append({"key": "down", "labels": [T("끌어내린 것")], "text": T("끌어내린 것") + "\n* " + " · ".join(downs)})
     if len(kr_week) >= 3:
         cnt = lambda c: sum(1 for e in kr_week.values() if e.get("color") == c)
-        fixed.append({"key": "tally", "labels": ["*이번 주 신호*"],
-                      "text": f"*이번 주 신호*\n* 🔴 {cnt(signal_rules.RED)}일 · 🟡 {cnt(signal_rules.YELLOW)}일 · 🟢 {cnt(signal_rules.GREEN)}일"})
+        fixed.append({"key": "tally", "labels": [T("이번 주 신호")],
+                      "text": f"{T('이번 주 신호')}\n* 🔴 {cnt(signal_rules.RED)}일 · 🟡 {cnt(signal_rules.YELLOW)}일 · 🟢 {cnt(signal_rules.GREEN)}일"})
     L += ["", "### 요약에 그대로 넣을 묶음 — 복사해서 쓴다 (한 글자도 고치지 않는다. 다르면 발송 단계가 이 값으로 되돌린다)", "", "```"]
     for x in fixed:
         L += x["text"].split("\n") + [""]
     L[-1] = "```"
     # 근거의 표 — 휴대폰 폭(한 줄 28칸 안)으로 미리 짠다
     w = lambda t, n: t + " " * max(0, n - mkt.disp_w(t))
-    L += ["", "### 근거에 그대로 넣을 묶음 — 복사해서 쓴다", "", "~~~", "*날짜별*", "```", "요일  내 포트  코스피  신호"]
+    L += ["", "### 근거에 그대로 넣을 묶음 — 복사해서 쓴다", "", "~~~", T("날짜별"), "```", "요일  내 포트  코스피  신호"]
     for d in week:
         e = daily.get(d)
         sg = kr_week.get(d)
         L.append(f"{mkt.kdate(d)[-2]}   {P(e.get('dRatePct')) if e else '기록없음':>7} {P(kday.get(d)):>7}  {sg.get('color') if sg else '—'}")
-    L += ["```", "", "*종목별 한 주* (포트에 준 영향 큰 순)", "```"]
+    L += ["```", "", T("종목별 한 주") + " (포트에 준 영향 큰 순)", "```"]
     top, bottom = ranked[::-1][:3], [r for r in ranked[:3] if r not in ranked[::-1][:3]][::-1]
     for r in top + bottom:
         L.append(w(sn(r)[:14] if mkt.disp_w(sn(r)) <= 14 else mkt.short_name(r["name"], r["kind"], 14), 15) + f"{P(r['week'], 1):>7} {r['contrib']:>+6.2f}%p")
-    L += ["```", "", "*시장 한 주*", "```"]
+    L += ["```", "", T("시장 한 주"), "```"]
     for n, short in (("코스피", "코스피"), ("코스닥", "코스닥"), ("나스닥100", "나스닥100"), ("미국 반도체지수", "반도체지수")):
         L.append(w(short, 12) + f"{P(idx[n]['week']):>8}")
-    L += ["```", "", "*흐름*", f"* 20일 {P(pr.get('d20'))} (코스피 {P(idx['코스피']['d20'])})", f"* 누적 {P(op)}", "~~~"]
+    L += ["```", "", T("흐름"), f"* 20일 {P(pr.get('d20'))} (코스피 {P(idx['코스피']['d20'])})", f"* 누적 {P(op)}", "~~~"]
     L += ["", "## 날짜별", "", "| 날짜 | 내 포트 | 코스피 | 그날 신호 |", "|---|---|---|---|"]
     for d in week:
         e = daily.get(d)
