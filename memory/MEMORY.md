@@ -50,3 +50,5 @@
 - [Life OS는 말할 때만](feedback_lifeos_only_when_asked.md) — "리마인드해줘"만으로 Life OS에 넣지 않는다, 사용자가 Life OS를 직접 말했을 때만 기록·조회
 - [원본 있는 데이터를 손으로 적지 않기](feedback_single_source_no_hand_copies.md) — 보유 목록 등은 실행 때 원본에서 읽게 설계, 사본은 기계 캐시만, 어긋나면 사본을 없앤다
 - [리포트는 요약·행동 먼저](feedback_report_summary_first.md) — 두괄식 요약 + "그래서 뭘 할지", 쉬운 말, 제목은 [제목] 굵게, 이름표는 그 말만 보고 뜻이 통하게, 하이픈 글머리·긴 줄표(—) 금지, 🔴은 드물게, 숫자·색은 코드가 계산
+- [고치기 전 약점은 비공개에](feedback_weakness_notes_private.md) — 보안 점검 결과·약점 세부는 공개 저장소에 적지 않고 비공개 워크스페이스 docs/plans 에, 공개 쪽엔 포인터만
+- [GAS 로그 읽기](reference_gas_logs_reading.md) — Cloud Logging entries:list 로 GAS 로그·실행 시간 실측(시트를 못 읽는 맥에서도), 배포 식별자는 출력 금지
