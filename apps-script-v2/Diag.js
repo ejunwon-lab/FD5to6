@@ -93,6 +93,7 @@ function _buildDiag() {
       : ck.date + ' 일치 ' + ck.match + '/' + ck.total + (ck.fixed ? ' 보정 ' + ck.fixed : ''));
     out.marketClose = mk ? (mk.date + ' ' + mk.at + (mk.late ? ' 늦음' : '')) : null;
     out.amAlertDate = PropertiesService.getScriptProperties().getProperty(MC.PROP_AM_ALERT) || null;
+    out.closeBackfill = _cbfSummary(_mcReadJson(CBF.STATE_KEY));   // 과거 마감 기록 소급 보정 결과 (CloseBackfill.js)
   } catch (e) {
     out.krCloseLock = 'error: ' + e.message;
   }

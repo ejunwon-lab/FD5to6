@@ -202,6 +202,8 @@ function scheduledHourlyUpdate() {
   const fb = tgChainFallback();
   // 0-1. 마감 기록 잠금·마감 시장 숫자·애프터마켓 알림 — GitHub 5분 신호가 끊겨도 이 30분 시계가 받친다 (MarketClose.js, 단계별 자체 격리)
   try { mcTick(); } catch (e) { Logger.log('mcTick 오류: ' + e.message); }
+  // 0-2. 과거 마감 기록 소급 보정 — 일회성(상태 속성이 생기면 바로 돌아 나온다). CloseBackfill.js
+  try { cbfTick(); } catch (e) { Logger.log('cbfTick 오류: ' + e.message); }
   if (fb === 'fallback:sent') return;   // 방금 전체 갱신+발송 완료 — 아래 갱신 중복 불필요
   // 1. 거래일이 아니면 skip
   if (!_mIsTradingDay()) {

@@ -127,7 +127,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `updateAllNew` — 전체 업데이트: 가격→보유현황→대시보드 (`menuUpdateAll` alias)
 - `menuUpdatePricesOnly` — 현재가만
 - `scheduledDailyUpdate` / `setupDailyTrigger` / `deleteDailyTrigger` — 17:30 자동 트리거 (장 마감 후 정리). 갱신 뒤 `_cleanupLegacyEmailProps()` — 제거된 이메일 채널이 남긴 속성(`email_count`·`email_count_<날짜>`·`email_last_*`·`email_disabled`)을 지움, 다 지우면 대상 없음(2026-11-15)
-- `scheduledHourlyUpdate` / `setupHourlyTrigger` / `deleteHourlyTrigger` — 장중 매시 :30 트리거 (거래일 09:30~16:30, `everyMinutes(30)` + 핸들러 분 체크 / LockService로 tgPushPnL·사용자 갱신과 충돌 방지). 매 틱 앞머리에서 `tgChainFallback()` — `fallback:sent`면 갱신 중복 없이 return (2026-11-12)
+- `scheduledHourlyUpdate` / `setupHourlyTrigger` / `deleteHourlyTrigger` — 장중 매시 :30 트리거 (거래일 09:30~16:30, `everyMinutes(30)` + 핸들러 분 체크 / LockService로 tgPushPnL·사용자 갱신과 충돌 방지). 매 틱 앞머리에서 `tgChainFallback()` — `fallback:sent`면 갱신 중복 없이 return (2026-11-12) 이어서 `cbfTick()`(과거 마감 기록 소급 보정 — 일회성, 2026-11-21)
 - `_handleCashReserveTimestamp(e)` — onEdit 분기. *설정* C7:C12(대기자금) 편집 시 같은 행 E열에 yyyy-MM-dd HH:mm 자동 스탬프 (빈 값으로 지우면 스탬프도 지움)
 
 ### Holidays.js — 증시 휴장일 단일 소스
@@ -197,7 +197,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 
 ### Diag.js — 사용자 트리거 진단 (유지보수 메뉴)
 - `runDiag` — `🛠️ 유지보수 → 🔍 진단` 메뉴 핸들러. 최소 진단 JSON 팝업으로 표시 (복사용)
-- `_buildDiag` — 날짜·참거짓·개수·지표충족도·상태만 (금액·종목명·계좌 절대 미포함). KIS 키 출처 `kisKeySource`·토큰 일치 `kisTokenMatchesKey`·스크립트 속성 개수 `propCount`(속성 화면 수동 편집 한도 50개 감시) 포함
+- `_buildDiag` — 날짜·참거짓·개수·지표충족도·상태만 (금액·종목명·계좌 절대 미포함). KIS 키 출처 `kisKeySource`·토큰 일치 `kisTokenMatchesKey`·스크립트 속성 개수 `propCount`(속성 화면 수동 편집 한도 50개 감시) 포함 · `closeBackfill`(소급 보정 결과 한 줄, 2026-11-21)
 - 공개 엔드포인트 없음. 사용자가 메뉴로만 트리거
 
 ### Trend.js — `logToTrendSheet(ss)` *추이 기록* 갱신 + 헬퍼
@@ -255,6 +255,12 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `mcAfterMarketAlert` / `_mcFormatAmAlert` — 거래일 20:03~21:00에 하루 1통(`am_alert_date`): 보유 원화 종목 **전부**의 변화율(정규장 종가 → 네이버 `/basic` 20시 이후 값 = 애프터마켓 종료가). 크기로 거르지 않고, 조회 실패 종목도 "실패"로 표기
 - `_mcNaverRegularCloses`(분봉의 정규장 마감 값 — 실행 시각 무관) / `_mcNaverBasicPrices` / `_mcFetchJsonAll` — 네이버 공개 API
 - 다른 파일의 접점: `NewSystem.js updateNewPriceHistory`(잠금·대조 호출, 실패 시 새 값 그대로) · `KIS_API.getKisPricesBatch`(기준가 `stck_sdpr`를 `KIS_API._baseMap`에) · `Telegram.js _tgHandlePushPost` · `Main.js scheduledHourlyUpdate` · `MobileAPI.js getPortfolioMetrics`(`krClose`·`marketClose`) · `Diag.js`(`krCloseLock`·`closeCheck`·`marketClose`·`amAlertDate`)
+
+### CloseBackfill.js — 과거 마감 기록 소급 보정 (일회성, 2026-11-21)
+*현재가_이력*의 2026-09-14~2026-11-12 거래일 행에서 국내 종목 칸을 그날 정규장 종가로 고친다(그 기간 기록은 17:30 값이라 애프터마켓 진행가가 섞임). 설계 `docs/plans/2026-11-21-과거종가-소급보정.md`. 끝난 뒤에는 파일과 호출 한 줄을 지워도 된다.
+- `cbfTick` — `scheduledHourlyUpdate` 앞머리에서 호출. 상태 속성 `kr_close_backfill_v1`이 없을 때 한 번만 실행(거래일 08:00~20:30에는 미룸, 스크립트 락). 반환 `have`·`wait`·`skip-lock`·`done`·`aborted`·`error`. 로그 `backfill:` 한 줄
+- `cbfRun(opts)` — 본체(`opts.dry`면 계산만). ① 출처 두 개를 받는다 ② 정규장 종가로 확인된 날(11/13~)의 시트 값과 대조해 검증(네이버 쪽 일치율 98%·100칸 미만이면 중단, 종목별로 한 칸이라도 어긋나면 그 종목 제외) ③ KIS 쪽도 맞으면 두 출처가 같은 값일 때만, 아니면 네이버 값만(지금 값과 10% 넘게 다르면 건너뜀) ④ 바꿀 칸이 있으면 숨긴 백업 시트 `*현재가_이력*_보정전_2026-11-21`을 만들고 대상 구간을 한 번에 쓴다
+- `_cbfNaverDerived(codes)` — 네이버 일별 시세로 되찾은 정규장 종가(= 다음 거래일의 기준가). `_cbfKisDailyCloses(codes, from, to)` — KIS 기간별 시세 일봉 종가(원주가). `_cbfSummary(res)` — 결과 한 줄(🔍 진단 `closeBackfill`)
 
 ### Secret.js — KIS appkey/secret. **원격(Google)에만 존재. 절대 건드리지 않음.**
 배포는 반드시 `python3 apps-script-v2/push_safe.py` (clasp push 금지).
@@ -321,6 +327,7 @@ KIS 키 갱신 (2026-11-13 v35 배포 — 사용자 리허설 후 확정): **시
 
 ## scripts/ — 로컬 스크립트·git 훅
 
+- `gas-tests/` (2026-11-21) — **GAS 스텁 시험**. `harness.js`(가짜 시계·시트·속성·락·UrlFetch 위에서 `apps-script-v2`의 실제 코드를 돌림) · `test_close_backfill.js`(소급 보정 34건) · `test_wiring.js`(전 파일 로드·30분 트리거의 단계 순서와 격리 5건). 실행 `node scripts/gas-tests/<파일> [-v]`. `apps-script-v2` 밖이라 원격에 올라가지 않는다. 종목·가격은 전부 가짜
 - `run.sh` — 실행@ 기계 단계 (히스토리 재정렬 자기복구·pull·리포트 clone/pull·memory 복원·전역 CLAUDE.md/skill 동기화·pre-commit 훅 활성화)
 - `save.sh` — 저장! 기계 단계 (memory 미러 + add/commit/push + 인덱스 누락 hint)
 - `check_stale.sh` — 인덱스 vs 코드 정합 검사 (GAS public 함수·desk 컴포넌트 등재 여부 + last updated 경과)
