@@ -14,24 +14,19 @@ FD5to6/
 │   └── src/           # App·components·utils·models
 ├── ios2/              # SwiftUI iOS (XcodeGen, NewFD7)
 │   └── Sources/       # App·Core·Models·Shared·Features
-├── scripts/           # save.sh·run.sh (저장!·실행@ 자동화)
+├── scripts/           # 배포·백업·점검 도구, gas-tests/(GAS 스텁 시험). save.sh·run.sh 는 예비용
 ├── memory/            # Claude 메모리 백업 (GitHub 동기화용)
-├── docs/              # code-map·api-reference·errors·decisions·pending·features·sessions/
-└── config/            # global-claude.md
+└── docs/              # code-map·api-reference·errors·decisions·pending·features·sessions/
 ```
 > 레거시 `apps-script/`·`ios/`는 2026-05-19 제거. git 히스토리에 보존.
 
 ## 새 컴퓨터 세팅
-클론 후 아래 순서대로 실행:
+전역 규칙·스킬·세션 절차의 원본은 **워크스페이스 repo(`claude-2026`)의 `harness/`** 다. 이 repo 안에는 사본을 두지 않는다.
 ```bash
-# 1. Claude 메모리 복원
-mkdir -p ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6/memory
-cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6/memory/
-
-# 2. 전역 Claude 설정 (저장!/실행@ 자동 적용)
-mkdir -p ~/.claude
-cp config/global-claude.md ~/.claude/CLAUDE.md
+git clone https://github.com/ejunwon-lab/claude-2026.git && cd claude-2026
+bash harness/bootstrap.sh      # 전역 규칙·설정·스킬 연결 + 프로젝트(이 repo 포함) 동기화 + 메모리 복원
 ```
+> ⚠️ `~/.claude/CLAUDE.md` 는 `harness/global-CLAUDE.md` 의 심볼릭 링크다. 그 위에 파일을 복사하지 말 것(원본이 덮어써진다, 2026-11-21 점검).
 
 ## 코드 탐색
 
@@ -203,13 +198,10 @@ walk-through 자체가 "내가 정말 그 로직을 이해했나"의 시험. 과
 
 ## 세션 키워드
 
+`실행@`·`저장!`·`중간 저장해`·`동기화해` 는 **전역 키워드**다(전역 CLAUDE.md, `/start`·`/save` 스킬, 기계 절차는 `harness/session.sh`). 이 프로젝트에만 있는 것:
+
 | 키워드 | 동작 |
 |---|---|
-| `새 세션 시작해` | `docs/pending.md`, `docs/features.md` 읽고 현황 한 문단 요약 |
-| `중간 저장해` | 현재까지 작업 내용을 세션 문서에 저장 |
-| `동기화해` | 세션 문서 작성 + memory 복사 + git add/commit/push |
-| `저장!` | `중간 저장해` + `동기화해` 합쳐서 한 번에 실행 |
-| `실행@` | git pull + memory 복원 (`FD5to6/memory/` → `~/.claude/.../memory/`) + `docs/pending.md` 읽고 현황 요약 |
 | `매매기록!` / `매매기록하자!` | 증권사 체결 카톡 붙여넣기 → 매수/매도 원장 자동 기록 프로세스 실행. 절차·주의점은 memory [[feedback_trade_record_command]] + `docs/plans/2026-06-11-카톡매매-원장자동기록.md` |
 
 ## 매매기록! (카톡 체결 → 원장 자동 기록)
@@ -228,25 +220,13 @@ walk-through 자체가 "내가 정말 그 로직을 이해했나"의 시험. 과
 ## 인덱스 정합 검증 (stale 방지)
 
 - `bash scripts/check_stale.sh` — 인덱스 vs 코드 전수 정합 검사. 작업 마무리·`저장!` 직전에 실행. GAS public 함수·web-desk 컴포넌트가 `code-map.md`에 등재됐는지 + `last updated` 30일+ 경과 검사.
-- `scripts/save.sh`는 commit 직전 변경 파일 패턴 보고 누락 인덱스 자동 hint (차단 X, 경고만). Claude는 hint 보고 같은 turn에 추가 갱신할지 판단.
 - 두 도구 false positive 가능 (alias 등 등재 불필요한 경우). 의도된 누락이면 무시.
 
-## 저장! 절차
+## 저장!·실행@ 때 이 프로젝트에서 더 하는 일
 
-`저장!` 입력 시:
-
-1. 세션 문서(`docs/sessions/YYYY-MM-DD-주제.md`) 작성/갱신, 필요 시 `pending.md`·`errors.md` 갱신
-2. `bash scripts/save.sh "<커밋 메시지>"` 실행 — memory 미러 + git add/commit/push 를 한 번에 (기계적 단계는 스크립트가 보장)
-
-## 실행@ 절차
-
-`실행@` 입력 시:
-
-1. `bash scripts/run.sh` 실행 — git pull + memory 복원 + 전역 CLAUDE.md 복사 를 한 번에
-2. `docs/pending.md`, `docs/features.md` 읽고 현황 한 문단 요약
-
-> 기계적 단계(파일 복사·git 명령)는 `scripts/save.sh`·`scripts/run.sh`에 박혀 있어 누락되지 않는다.
-> 판단이 필요한 단계(세션 문서 작성, 현황 요약, 커밋 메시지 작성)만 Claude가 수행한다.
+- **저장 전**: 세션 문서(`docs/sessions/YYYY-MM-DD-주제.md`) 작성·갱신, 필요 시 `pending.md`·`errors.md`·`changelog.md` 갱신, `bash scripts/check_stale.sh`. 커밋·푸시는 `/save` 스킬(`harness/session.sh save` — 저장 직전 검사 포함)이 한다.
+- **실행@ 뒤**: `bash scripts/check_pending_due.sh` 로 ⏰ 만기 항목을 보고, 만기 항목은 로그로 직접 실측해 보고한다. `docs/pending.md` 맨 위 `🔔 리마인드` 를 할 일로 먼저 말한다.
+- `scripts/save.sh`·`scripts/run.sh` 는 하네스 없이 이 repo 만 다룰 때 쓰는 예비용이다(전역 파일은 건드리지 않는다).
 
 ## 문서 관리 규칙
 

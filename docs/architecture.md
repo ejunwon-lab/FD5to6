@@ -1,6 +1,6 @@
 # 시스템 아키텍처 — FD5to6
 
-last updated: 2026-11-14
+last updated: 2026-11-21
 
 JUN & SOO 주식 포트폴리오 시스템의 전체 그림.
 **작업 시작 전 이 문서를 먼저 본다** — 코드 위치는 `code-map.md`, 기능 체크리스트는 `features.md`, API 응답 필드는 `api-reference.md`, 설계 결정 이유는 `decisions.md`.
@@ -310,7 +310,7 @@ cd FD5to6
 mkdir -p ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6/memory
 cp memory/* ~/.claude/projects/-Users-$(whoami)-Documents-Claude-2026-FD5to6/memory/
 # 2. 전역 CLAUDE.md
-mkdir -p ~/.claude && cp config/global-claude.md ~/.claude/CLAUDE.md
+# 전역 규칙·스킬은 워크스페이스 repo(claude-2026)의 harness 가 원본 — 그 repo 에서: bash harness/bootstrap.sh
 # 3. 데스크 dev
 cd web-desk && npm install && npm run dev
 # 4. GAS clasp 인증 (사용자 직접) — clasp login + Secret.js는 GAS 웹 에디터에서 직접 입력 (push 금지)

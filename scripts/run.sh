@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# 실행@ 의 기계적 단계 — git pull + memory 복원 + 전역 CLAUDE.md
+# 예비용 — 평소 `실행@` 은 전역 하네스(harness/session.sh start)가 한다. 이 스크립트는 하네스 없이 이 repo 만 맞출 때 쓴다.
+# git pull + 리포트 저장소 pull + memory 복원 + pre-commit 훅 켜기 + pending 만기 확인
 # 사용:  bash scripts/run.sh
 # (docs/pending.md 요약은 Claude가 이 스크립트 실행 후 수행한다)
 set -uo pipefail
@@ -43,31 +44,14 @@ MEM_DST="$HOME/.claude/projects/$(printf '%s' "$ROOT" | sed 's/[^a-zA-Z0-9]/-/g'
 mkdir -p "$MEM_DST"
 cp memory/*.md "$MEM_DST"/ 2>/dev/null && echo "✓ memory 복원 완료" || echo "⚠ memory 파일 없음 — 건너뜀"
 
-# 3. 전역 CLAUDE.md 동기화 (repo config = 단일 원본 SSOT, 항상 갱신)
-GLOBAL_DST="$HOME/.claude/CLAUDE.md"
-mkdir -p "$HOME/.claude"
-if [ -f config/global-claude.md ]; then
-  # 첫 동기화에서 머신 고유 내용 손실 방지: .bak이 없고 기존과 다르면 1회 백업
-  if [ -f "$GLOBAL_DST" ] && [ ! -f "$GLOBAL_DST.bak" ] \
-     && ! diff -q config/global-claude.md "$GLOBAL_DST" >/dev/null 2>&1; then
-    cp "$GLOBAL_DST" "$GLOBAL_DST.bak"
-    echo "✓ 기존 전역 CLAUDE.md → CLAUDE.md.bak 백업 (1회, 손실 방지)"
-  fi
-  cp config/global-claude.md "$GLOBAL_DST" && echo "✓ 전역 CLAUDE.md 동기화"
-else
-  echo "⚠ config/global-claude.md 없음"
-fi
+# 3. (삭제 2026-11-21) 전역 CLAUDE.md 복사 — 전역 규칙의 원본은 워크스페이스 repo 의 harness/global-CLAUDE.md 이고
+#    ~/.claude/CLAUDE.md 는 그 파일의 심볼릭 링크다. 여기서 옛 사본을 복사하면 원본을 덮어쓴다.
 
 # 3b. pre-commit 스캐너 활성화 — 금액·시크릿 커밋 차단 (scripts/git-hooks/pre-commit, 2026-07-19)
 chmod +x scripts/git-hooks/* 2>/dev/null || true
 git config core.hooksPath scripts/git-hooks && echo "✓ pre-commit 스캐너 활성화"
 
-# 4. 전역 skill 동기화 (config/skills/* → ~/.claude/skills/)
-if [ -d config/skills ]; then
-  mkdir -p "$HOME/.claude/skills"
-  cp -R config/skills/. "$HOME/.claude/skills/" 2>/dev/null \
-    && echo "✓ 전역 skill 동기화" || echo "⚠ 전역 skill 복사 실패"
-fi
+# 4. (삭제 2026-11-21) 전역 skill 복사 — 스킬도 harness/skills 가 원본(심볼릭 링크)
 
 # 5. pending 만기 확인 (⏰YYYY-MM-DD 태그, 2026-07-20) — 확인 예정일 지난 항목 표시
 bash scripts/check_pending_due.sh || true

@@ -60,7 +60,7 @@ on:
         default: ''
 
 permissions:
-  contents: write   # docs/reports/ commit·push 용
+  contents: read   # 이 워크플로는 공개 저장소에 쓰지 않는다. 리포트는 비공개 저장소에 배포 키로 push (2026-11-21)
 
 jobs:
   us-report:
@@ -68,6 +68,7 @@ jobs:
       (github.event_name == 'schedule' && (github.event.schedule == '2 23 * * 0-4' || github.event.schedule == '42 23 * * 0-4')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.type == 'us' || inputs.type == 'both'))
     runs-on: ubuntu-latest
+    timeout-minutes: 45   # 생성이 멈추면 기본 6시간을 쓰고 다음 실행을 막는다 (주간이 약 21분)
     # 중복 dispatch 수렴(멱등): 1 running + 1 pending, pending은 가드로 skip
     concurrency:
       group: market-report-us
@@ -75,6 +76,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false   # 뒤 단계(외부 글을 읽는 AI)가 토큰을 읽지 못하게
 
       # 리포트는 private repo(FD5to6-reports)를 docs/reports 경로에 checkout — 기존 경로 참조(프롬프트·가드·weekly) 전부 무수정.
       # 설계: docs/plans/2026-07-04-리포트-private-분리.md
@@ -84,6 +87,7 @@ jobs:
           repository: ejunwon-lab/FD5to6-reports
           ssh-key: ${{ secrets.REPORTS_DEPLOY_KEY }}
           path: docs/reports
+          persist-credentials: false   # push 는 커밋 단계에서만 키를 다시 받아 한다 (reports_git_auth.sh)
 
       - name: Skip if already sent today (schedule·auto dispatch)
         id: guard
@@ -147,9 +151,7 @@ jobs:
         env:
           PROMPT_DIR_IN: ${{ inputs.prompt_dir }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # 내 포트 지표(익스포저·최근추세) — 미국→한국 반도체 선행 연결용. public 프롬프트 미노출(env로만).
-          GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
-          TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
+          # 웹앱 주소·공유 비밀값은 이 단계에 주지 않는다 — 외부 글을 읽고 명령을 실행하는 단계다. 필요한 값은 앞의 사전 수집 단계가 파일로 넘긴다 (2026-11-21)
         run: |
           # 파일명 결정론화 + 권한 bypass — 첫 시도 실패 수리 (docs/plans/2026-07-16-US리포트-첫시도실패-수리.md)
           DATE_KST=$(TZ='Asia/Seoul' date +%Y-%m-%d)
@@ -223,10 +225,19 @@ jobs:
 
       - name: Commit report (이력 보존)
         if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
+        env:
+          REPORTS_DEPLOY_KEY: ${{ secrets.REPORTS_DEPLOY_KEY }}
         run: |
+          source .github/scripts/reports_git_auth.sh || exit 1
           cd docs/reports
           git config user.email 'actions@github.com'
           git config user.name 'Market Report Bot'
+          # 지시문 폴더는 이 실행이 고칠 수 없다 — AI 단계가 건드렸으면 버린다 (다음 실행 오염 방지)
+          if [ -n "$(git status --porcelain -- _config)" ]; then
+            echo "::warning::_config 변경을 버림 ($(git status --porcelain -- _config | wc -l | tr -d ' ')건)"
+            git checkout -q -- _config 2>/dev/null || true
+            git clean -fdq -- _config
+          fi
           git add -A
           if git diff --cached --quiet; then
             echo "no changes to commit"
@@ -238,7 +249,10 @@ jobs:
       # 시험 실행(dry_run) 결과는 공개 로그 대신 비공개 저장소의 _dryrun/ 폴더에 남긴다. 시험이 건드린 다른 파일은 버린다.
       - name: Save dry-run output (private repo _dryrun/)
         if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+        env:
+          REPORTS_DEPLOY_KEY: ${{ secrets.REPORTS_DEPLOY_KEY }}
         run: |
+          source .github/scripts/reports_git_auth.sh || exit 1
           OUT=/tmp/dryrun_out; mkdir -p "$OUT"
           cp "${{ steps.path.outputs.report }}" "$OUT/report.md"
           for f in /tmp/us/market.md /tmp/us/signal.json /tmp/us/finalize.txt docs/reports/_watch.md docs/reports/_events.md; do
@@ -266,12 +280,15 @@ jobs:
       (github.event_name == 'schedule' && (github.event.schedule == '2 8 * * 1-5' || github.event.schedule == '42 8 * * 1-5')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.type == 'kr' || inputs.type == 'both'))
     runs-on: ubuntu-latest
+    timeout-minutes: 45   # 생성이 멈추면 기본 6시간을 쓰고 다음 실행을 막는다 (주간이 약 21분)
     concurrency:
       group: market-report-kr
       cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false   # 뒤 단계(외부 글을 읽는 AI)가 토큰을 읽지 못하게
 
       # 리포트는 private repo(FD5to6-reports)를 docs/reports 경로에 checkout — 기존 경로 참조(프롬프트·가드·weekly) 전부 무수정.
       # 설계: docs/plans/2026-07-04-리포트-private-분리.md
@@ -281,6 +298,7 @@ jobs:
           repository: ejunwon-lab/FD5to6-reports
           ssh-key: ${{ secrets.REPORTS_DEPLOY_KEY }}
           path: docs/reports
+          persist-credentials: false   # push 는 커밋 단계에서만 키를 다시 받아 한다 (reports_git_auth.sh)
 
       - name: Skip if already sent today (schedule·auto dispatch)
         id: guard
@@ -349,10 +367,7 @@ jobs:
         env:
           PROMPT_DIR_IN: ${{ inputs.prompt_dir }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # 포트폴리오 지표(익스포저%·MDD)용 — 에이전트가 Bash로 $env 써서 GAS fetch.
-          # public 프롬프트엔 URL·시크릿 안 박음(여기 env로만 주입).
-          GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
-          TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
+          # 웹앱 주소·공유 비밀값은 이 단계에 주지 않는다 — 외부 글을 읽고 명령을 실행하는 단계다. 필요한 값은 앞의 사전 수집 단계가 파일로 넘긴다 (2026-11-21)
         run: |
           # 파일명 결정론화 + 권한 bypass — US 첫 시도 실패와 동일 부류 예방 (docs/plans/2026-07-16-US리포트-첫시도실패-수리.md)
           DATE_KST=$(TZ='Asia/Seoul' date +%Y-%m-%d)
@@ -426,10 +441,19 @@ jobs:
 
       - name: Commit report
         if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
+        env:
+          REPORTS_DEPLOY_KEY: ${{ secrets.REPORTS_DEPLOY_KEY }}
         run: |
+          source .github/scripts/reports_git_auth.sh || exit 1
           cd docs/reports
           git config user.email 'actions@github.com'
           git config user.name 'Market Report Bot'
+          # 지시문 폴더는 이 실행이 고칠 수 없다 — AI 단계가 건드렸으면 버린다 (다음 실행 오염 방지)
+          if [ -n "$(git status --porcelain -- _config)" ]; then
+            echo "::warning::_config 변경을 버림 ($(git status --porcelain -- _config | wc -l | tr -d ' ')건)"
+            git checkout -q -- _config 2>/dev/null || true
+            git clean -fdq -- _config
+          fi
           git add -A
           if git diff --cached --quiet; then
             echo "no changes to commit"
@@ -441,7 +465,10 @@ jobs:
       # 시험 실행(dry_run) 결과는 공개 로그 대신 비공개 저장소의 _dryrun/ 폴더에 남긴다. 시험이 건드린 다른 파일은 버린다.
       - name: Save dry-run output (private repo _dryrun/)
         if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+        env:
+          REPORTS_DEPLOY_KEY: ${{ secrets.REPORTS_DEPLOY_KEY }}
         run: |
+          source .github/scripts/reports_git_auth.sh || exit 1
           OUT=/tmp/dryrun_out; mkdir -p "$OUT"
           cp "${{ steps.path.outputs.report }}" "$OUT/report.md"
           for f in /tmp/kr/close.md /tmp/kr/signal.json /tmp/kr/finalize.txt docs/reports/_watch.md docs/reports/_events.md; do
@@ -475,12 +502,15 @@ jobs:
       (github.event_name == 'schedule' && (github.event.schedule == '2 4 * * 0' || github.event.schedule == '42 4 * * 0')) ||
       (github.event_name == 'workflow_dispatch' && inputs.type == 'weekly')
     runs-on: ubuntu-latest
+    timeout-minutes: 45   # 생성이 멈추면 기본 6시간을 쓰고 다음 실행을 막는다 (주간이 약 21분)
     concurrency:
       group: market-report-weekly
       cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false   # 뒤 단계(외부 글을 읽는 AI)가 토큰을 읽지 못하게
 
       # 리포트는 private repo(FD5to6-reports)를 docs/reports 경로에 checkout — 기존 경로 참조(프롬프트·가드·weekly) 전부 무수정.
       # 설계: docs/plans/2026-07-04-리포트-private-분리.md
@@ -490,6 +520,7 @@ jobs:
           repository: ejunwon-lab/FD5to6-reports
           ssh-key: ${{ secrets.REPORTS_DEPLOY_KEY }}
           path: docs/reports
+          persist-credentials: false   # push 는 커밋 단계에서만 키를 다시 받아 한다 (reports_git_auth.sh)
 
       - name: Skip if already sent today (schedule·auto dispatch)
         id: guard
@@ -553,9 +584,7 @@ jobs:
         env:
           PROMPT_DIR_IN: ${{ inputs.prompt_dir }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # 폴백용 — 1차는 위 pre-fetch 파일(/tmp/weekly/gas_metrics.json)을 에이전트가 Read.
-          GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
-          TG_WEBHOOK_SECRET: ${{ secrets.TG_WEBHOOK_SECRET }}
+          # 웹앱 주소·공유 비밀값은 이 단계에 주지 않는다 — 외부 글을 읽고 명령을 실행하는 단계다. 필요한 값은 앞의 사전 수집 단계가 파일로 넘긴다 (2026-11-21)
         run: |
           # 파일명 결정론화 + 권한 bypass (docs/plans/2026-07-16-US리포트-첫시도실패-수리.md)
           DATE_KST=$(TZ='Asia/Seoul' date +%Y-%m-%d)
@@ -629,10 +658,19 @@ jobs:
 
       - name: Commit report
         if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
+        env:
+          REPORTS_DEPLOY_KEY: ${{ secrets.REPORTS_DEPLOY_KEY }}
         run: |
+          source .github/scripts/reports_git_auth.sh || exit 1
           cd docs/reports
           git config user.email 'actions@github.com'
           git config user.name 'Market Report Bot'
+          # 지시문 폴더는 이 실행이 고칠 수 없다 — AI 단계가 건드렸으면 버린다 (다음 실행 오염 방지)
+          if [ -n "$(git status --porcelain -- _config)" ]; then
+            echo "::warning::_config 변경을 버림 ($(git status --porcelain -- _config | wc -l | tr -d ' ')건)"
+            git checkout -q -- _config 2>/dev/null || true
+            git clean -fdq -- _config
+          fi
           git add -A
           if git diff --cached --quiet; then
             echo "no changes to commit"
@@ -644,7 +682,10 @@ jobs:
       # 시험 실행(dry_run) 결과는 공개 로그 대신 비공개 저장소의 _dryrun/ 폴더에 남긴다. 시험이 건드린 다른 파일은 버린다.
       - name: Save dry-run output (private repo _dryrun/)
         if: steps.guard.outputs.already == 'no' && steps.path.outputs.found == 'yes' && github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+        env:
+          REPORTS_DEPLOY_KEY: ${{ secrets.REPORTS_DEPLOY_KEY }}
         run: |
+          source .github/scripts/reports_git_auth.sh || exit 1
           OUT=/tmp/dryrun_out; mkdir -p "$OUT"
           cp "${{ steps.path.outputs.report }}" "$OUT/report.md"
           for f in /tmp/weekly/week.md /tmp/weekly/signal.json /tmp/weekly/finalize.txt docs/reports/_watch.md docs/reports/_events.md; do
