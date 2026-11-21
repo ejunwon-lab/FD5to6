@@ -55,6 +55,9 @@ JARGON = ("로테이션", "리스크 오프", "리스크오프", "경기방어",
           "밸류에이션", "HBM", "순매도", "순매수", "수급", "트리거", "MDD", "SOX", "컨센서스")
 
 
+WATCH_NO_RE = re.compile(r"미\s?발동(?![가-힣])")          # 조건 판정의 옛 낱말 → "해당 없음"
+WATCH_YES_RE = re.compile(r"(?<!미)(?<!미 )발동(?![가-힣])")  # → "해당" (뒤에 한글이 붙은 "발동하면" 등은 그대로)
+
 def first_color(line):
     s = line.lstrip()
     return next((c for c in COLORS if s.startswith(c)), None)
@@ -147,6 +150,29 @@ def fix_names(lines, fi, final):
                 if m and not lines[i][m.end():].strip() and lines[i].strip() != want:   # 제목만 있는 줄
                     lines[i] = want
                     n += 1
+    return n
+
+
+def fix_watch_words(lines, fi):
+    """`[지난 리포트의 조건 → 결과]` 묶음에서 결과를 `발동`·`미발동`으로 쓴 것을 `해당`·`해당 없음`으로. → 고친 줄 수
+
+    판정 기록 파일(`_watch_log.md`)의 낱말을 AI가 리포트에 그대로 옮겨 쓰는 경우가 있다(2026-11-18 KR).
+    줄의 마지막 화살표 뒤(결과 자리)만 바꾼다 — 조건 문장 안의 `발동`(예: "서킷브레이커 발동하면")은 그대로."""
+    n = 0
+    stop = split_at(lines)
+    want = R.title(R.WATCH_TITLE)
+    for i in range(fi + 1, stop):
+        if lines[i].strip() != want:
+            continue
+        for j in range(i + 1, block_end(lines, i, stop)):
+            head, arrow, tail = lines[j].rpartition("→")
+            if not arrow:
+                continue
+            new = WATCH_NO_RE.sub("해당 없음", tail)
+            new = WATCH_YES_RE.sub("해당", new)
+            if new != tail:
+                lines[j] = head + arrow + new
+                n += 1
     return n
 
 
@@ -430,6 +456,7 @@ def main():
         if not splits:
             notes.append("no-split")
         nm = fix_names(lines, fi, final)
+        nw = fix_watch_words(lines, fi)
         div = ensure_dividers(lines, fi)
         nl = no_long_dash(lines, fi)
         wk = fix_weekdays(lines, ref)
@@ -440,6 +467,8 @@ def main():
             notes.append(f"titles-fixed={nt}")
         if nm:
             notes.append(f"names-fixed={nm}")
+        if nw:
+            notes.append(f"watch-fixed={nw}")
         if nl:
             notes.append(f"dash-fixed={nl}")
         if wk:

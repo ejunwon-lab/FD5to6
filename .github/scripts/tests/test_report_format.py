@@ -291,5 +291,19 @@ try:
 except ValueError:
     chk("(함정) 글머리 별표를 그대로 보내면 400", True)
 
+# ── 5) 조건 묶음의 결과 말 (2026-11-21) ─────────────────────────────
+W_OK = "* 가나전자가 -3% 넘게 내리면 보유 이유를 다시 본다 → 해당 (-7.9%)"
+o, t = run("watch1", GOOD.replace(W_OK, "* 가나전자가 -3% 넘게 내리면 보유 이유를 다시 본다 → 발동 (-7.9%)"))
+chk("조건 결과 '발동' → '해당'", t == GOOD and "watch-fixed=1" in o, o + "\n" + t)
+o, t = run("watch2", GOOD.replace(W_OK, "* 가나전자·다라설비 +5% 넘으면 하루 미룬다 → 가나전자 발동 (+7.4%) · 다라설비 미발동 (+1.2%)"))
+chk("한 줄에 둘 — '미발동' → '해당 없음', '발동' → '해당'",
+    "→ 가나전자 해당 (+7.4%) · 다라설비 해당 없음 (+1.2%)" in t and "발동" not in t and "watch-fixed=1" in o, o + "\n" + t)
+o, t = run("watch3", GOOD.replace(W_OK, "* 서킷브레이커 발동하면 매수를 미룬다 → 해당 없음 (코스피 -3.6%)"))
+chk("조건 문장 안의 '발동하면'은 그대로", "서킷브레이커 발동하면 매수를 미룬다 → 해당 없음" in t and "watch-fixed" not in o, o + "\n" + t)
+o, t = run("watch4", GOOD.replace("* 반도체업종 -6.15% (전 업종 중 가장 약함)", "* 사이드카 발동 → 장중 급락"))
+chk("다른 묶음의 '발동'은 그대로", "* 사이드카 발동 → 장중 급락" in t and "watch-fixed" not in o, o + "\n" + t)
+ls = [HEAD, T(R.WATCH_TITLE), "* 조건 A → 미 발동 (+0.1%)", "* 조건 B → 발동했다", "===근거===", T(R.WATCH_TITLE), "* 조건 C → 발동"]
+chk("띄어 쓴 '미 발동'도, 요약 밖(근거)은 그대로", F.fix_watch_words(ls, 0) == 1 and ls[2] == "* 조건 A → 해당 없음 (+0.1%)" and ls[3] == "* 조건 B → 발동했다" and ls[6] == "* 조건 C → 발동", ls)
+
 print(f"\n{ok} passed, {bad} failed")
 sys.exit(1 if bad else 0)
