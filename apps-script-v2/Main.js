@@ -84,9 +84,6 @@ function doPost(e) {
         action = j.action;
       } catch (_) { /* form-encoded이면 무시 */ }
     }
-    if (action === 'addMarketReport') {
-      return _tgHandleMarketReportPost(e);
-    }
     if (action === 'pushPnL') {
       return _tgHandlePushPost(e);   // GitHub Actions cron → 장중 텔레그램 푸시 (GAS 트리거 대체)
     }
@@ -113,20 +110,40 @@ function doPost(e) {
 /**
  * 전체 업데이트: KIS 가격 → *현재가_이력* → *보유현황* → *대시보드*
  */
+/** 직전 updateAllNew 의 실패 사유(성공이면 '') — 같은 실행 안에서 푸시가 읽어 경고 줄을 붙인다 */
+let _lastUpdateError = '';
+
+/**
+ * @return {boolean} 성공 여부. 실패해도 예외를 던지지 않는다(대시보드 2행·로그에 기록) — 부르는 쪽이 반환값을 본다.
+ */
 function updateAllNew() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ss.toast('환율 + 현재가 업데이트 중...', '🔄 전체 업데이트', 60);
+  const t0 = Date.now(), took = [];
+  let step = '';
+  const run = (name, fn) => {
+    step = name;
+    const st = Date.now();
+    fn();
+    took.push(name + ' ' + ((Date.now() - st) / 1000).toFixed(1) + 's');
+  };
   try {
-    updateFxRates(ss);
-    updateNewPriceHistory(ss);
-    updatePositionFromLedger();
-    logToTrendSheet(ss);
-    buildDashboard();
+    run('환율', () => updateFxRates(ss));
+    run('가격', () => updateNewPriceHistory(ss));
+    run('보유현황', () => updatePositionFromLedger({ skipDashboard: true }));   // 대시보드는 아래에서 한 번만 그린다
+    run('추이', () => logToTrendSheet(ss));
+    run('대시보드', () => buildDashboard());
+    _lastUpdateError = '';
+    // 단계별 소요 시간 — 6분 한도에 가까운 실행이 어디서 시간을 쓰는지 로그로 본다
+    Logger.log('updateAllNew 소요: ' + took.join(' · ') + ' · 합계 ' + ((Date.now() - t0) / 1000).toFixed(1) + 's');
     ss.toast('전체 업데이트 완료', '✅', 4);
+    return true;
   } catch (e) {
+    _lastUpdateError = String((e && e.message) || e);
     ss.toast('오류: ' + e.message, '❌', 5);
-    Logger.log('updateAllNew 오류: ' + e);
+    Logger.log('updateAllNew 오류: ' + e + ' [' + step + ' 단계 · 그 전까지 ' + (took.join(' · ') || '없음') + ']');
     _writeDashboardStatus(ss, false, e.message);   // 대시보드 2행에 실패 기록 (트리거 실행 시 가시성)
+    return false;
   }
 }
 
@@ -151,7 +168,13 @@ function menuUpdatePricesOnly() {
 
 /** 매일 17:30 자동 업데이트 트리거 (장 마감 후) */
 function scheduledDailyUpdate() {
-  updateAllNew();
+  // 다른 갱신(푸시·수동 갱신)과 겹쳐 시트를 번갈아 쓰지 않게 같은 락을 잡는다. 30초 안에 못 잡으면 그 갱신이 같은 일을 하고 있으므로 넘어간다.
+  const lock = LockService.getScriptLock();
+  if (lock.tryLock(30000)) {
+    try { updateAllNew(); } finally { lock.releaseLock(); }
+  } else {
+    Logger.log('scheduledDailyUpdate: 다른 갱신 처리 중 — 건너뜀');
+  }
   // 리포트 이메일 채널 제거(2026-11-15)로 남은 속성 정리 — 실패해도 갱신 결과와 무관
   try { _cleanupLegacyEmailProps(); } catch (e) { Logger.log('이메일 잔여 속성 정리 오류: ' + e.message); }
 }

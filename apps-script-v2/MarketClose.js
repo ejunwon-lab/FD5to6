@@ -321,7 +321,7 @@ function _mcFormatAmAlert(table, am) {
 
 /**
  * 애프터마켓 종료 뒤 하루 1통 — 보유 원화 종목 전부의 변화율. 크기로 거르지 않고, 조회 실패 종목도 빼지 않는다.
- * @return {string} 'n/a' | 'done' | 'sent' | 'no-holdings' | 'no-close' | 'fail' | 'skip-lock'
+ * @return {string} 'n/a' | 'done' | 'sent' | 'send-fail' | 'no-holdings' | 'no-close' | 'fail' | 'skip-lock'
  */
 function mcAfterMarketAlert() {
   const t = _mcNow();
@@ -339,7 +339,11 @@ function mcAfterMarketAlert() {
     const am = _mcNaverBasicPrices(table.items.map(x => x.code));
     if (!table.items.some(x => am[x.code] > 0 && x.close > 0)) return 'fail';   // 전부 실패 — 다음 신호에서 재시도
     props.setProperty(MC.PROP_AM_ALERT, t.date);         // 발송 전에 선점 — 5분 신호·30분 시계 중복 발송 방지
-    tgSendMessage(_mcFormatAmAlert(table, am));
+    if (!_tgAnySent(tgSendMessage(_mcFormatAmAlert(table, am)))) {
+      props.deleteProperty(MC.PROP_AM_ALERT);            // 한 곳에도 도착하지 않았으면 다음 신호에서 다시 보낸다
+      Logger.log('amAlert: ' + t.date + ' ' + t.hhmm + ' 발송 실패 — 다음 신호에서 다시');
+      return 'send-fail';
+    }
     Logger.log('amAlert: ' + t.date + ' ' + t.hhmm + ' 발송 (' + table.items.length + '종목)');
     return 'sent';
   } finally {

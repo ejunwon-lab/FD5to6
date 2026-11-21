@@ -226,6 +226,9 @@ function updateFxRates(ss) {
   const usdCell = sheet.getRange(2, 2);
   const gbpCell = sheet.getRange(3, 2);
 
+  // 조회가 제때 안 끝나면 직전 값을 그대로 쓴다 — 고정값(1400·1700)으로 덮어쓰면 해외 종목의 원화 가격이 틀어진 채 기록된다
+  const prevUsd = Number(usdCell.getValue()), prevGbp = Number(gbpCell.getValue());
+
   usdCell.setFormula('=GOOGLEFINANCE("CURRENCY:USDKRW")');
   gbpCell.setFormula('=GOOGLEFINANCE("CURRENCY:GBPKRW")');
   SpreadsheetApp.flush();
@@ -233,8 +236,10 @@ function updateFxRates(ss) {
 
   let usd = usdCell.getValue();
   let gbp = gbpCell.getValue();
-  if (typeof usd !== 'number' || isNaN(usd) || usd <= 0) usd = 1400;
-  if (typeof gbp !== 'number' || isNaN(gbp) || gbp <= 0) gbp = 1700;
+  const kept = [];
+  if (typeof usd !== 'number' || isNaN(usd) || usd <= 0) { usd = prevUsd > 0 ? prevUsd : 1400; kept.push('USD'); }
+  if (typeof gbp !== 'number' || isNaN(gbp) || gbp <= 0) { gbp = prevGbp > 0 ? prevGbp : 1700; kept.push('GBP'); }
+  if (kept.length) Logger.log('환율 조회 실패(' + kept.join('·') + ') — 직전 값 유지');
 
   usdCell.setValue(usd);
   gbpCell.setValue(gbp);
@@ -366,10 +371,14 @@ function _appendTradeRow(t) {
     if (broker.indexOf('미래') !== -1)      broker = '미래에셋투자증권';
     else if (broker.indexOf('삼성') !== -1) broker = '삼성증권';
 
+    // 시트에서 수식으로 읽히지 않게 — 밖에서 온 글자가 = + - @ 로 시작하면 앞에 ' 를 붙여 글자로 넣는다
+    const safeText = v => (/^[=+\-@]/.test(v) ? "'" + v : v);
+
     let dateStr;
     if (t.date) {
       const d = (t.date instanceof Date) ? t.date : new Date(t.date);
-      dateStr = Utilities.formatDate(isNaN(d.getTime()) ? new Date() : d, 'Asia/Seoul', 'yyyy-MM-dd');
+      if (isNaN(d.getTime())) return { success: false, error: 'bad_date', detail: String(t.date).slice(0, 30) };   // 틀린 날짜를 오늘로 바꿔 적지 않는다
+      dateStr = Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd');
     } else {
       dateStr = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd');
     }
@@ -398,7 +407,7 @@ function _appendTradeRow(t) {
         }
       }
       const flowRowNum = ledger.getLastRow() + 1;
-      const flowRow = [dateStr, type, '', '', '', broker, account, '', '', flowAmt, 0, String(t.memo || '').trim()];
+      const flowRow = [dateStr, type, '', '', '', broker, account, '', '', flowAmt, 0, safeText(String(t.memo || '').trim())];
       ledger.getRange(flowRowNum, 1, 1, 12).setValues([flowRow])
         .setBackground(flowRowNum % 2 === 0 ? NS.ROW_EVEN : NS.ROW_ODD);
       ledger.getRange(flowRowNum, 10, 1, 1).setNumberFormat('#,##0');
@@ -412,6 +421,8 @@ function _appendTradeRow(t) {
     if (!NS.ACCOUNTS[broker] || NS.ACCOUNTS[broker].indexOf(account) === -1)
       return { success: false, error: 'bad_account', detail: broker + ' / ' + account };
     if (!code || !name || qty <= 0 || price <= 0) return { success: false, error: 'missing_required' };
+    // 종목코드는 이 시스템이 시세를 조회할 수 있는 꼴만: 국내 6자리(숫자·영문) 또는 영문자만으로 된 해외 티커. 그 밖의 글자열(수식 등)은 받지 않는다
+    if (!/^[0-9A-Z]{6}$/.test(code) && !/^[A-Z]{1,6}$/.test(code)) return { success: false, error: 'bad_code', detail: code.slice(0, 20) };
 
     const amount = (Number(t.amount) > 0) ? Number(t.amount) : qty * price;
 
@@ -449,11 +460,12 @@ function _appendTradeRow(t) {
       }
     }
     if (!category) return { success: false, error: 'category_required', detail: code + ' ' + name };
+    if (NS.CATEGORIES.indexOf(category) === -1) return { success: false, error: 'bad_category', detail: category.slice(0, 20) };
 
     // --- append (addTransactionFromForm과 동일 포맷) ---
     const memo = (orderNo ? '주문번호:' + orderNo : '') + (t.memo ? (orderNo ? ' / ' : '') + String(t.memo).trim() : '');
     const newRowNum = ledger.getLastRow() + 1;
-    const newRow = [dateStr, type, code, name, category, broker, account, qty, price, amount, fee, memo];
+    const newRow = [dateStr, type, code, safeText(name), category, broker, account, qty, price, amount, fee, safeText(memo)];
     ledger.getRange(newRowNum, 1, 1, 12).setValues([newRow])
       .setBackground(newRowNum % 2 === 0 ? NS.ROW_EVEN : NS.ROW_ODD);
     ledger.getRange(newRowNum, 8, 1, 4).setNumberFormat('#,##0');
@@ -506,7 +518,11 @@ function _refreshFormPreview(ss, form, ledger) {
 //  보유현황 계산
 // ═══════════════════════════════════════════════════
 
-function updatePositionFromLedger() {
+/**
+ * @param {{skipDashboard: boolean}=} opts  skipDashboard: true 면 끝에서 대시보드를 그리지 않는다
+ *   (updateAllNew 가 추이 기록 뒤에 한 번 그리므로 — 한 갱신에 두 번 그리던 것을 없앰, 2026-11-21).
+ */
+function updatePositionFromLedger(opts) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ledger   = ss.getSheetByName(NS.LEDGER);
   const posSheet = ss.getSheetByName(NS.POSITION);
@@ -718,7 +734,7 @@ function updatePositionFromLedger() {
 
   computeStockMetrics();   // 보유현황 갱신 후 *종목지표* 재계산 (모든 갱신 경로가 여기 통과)
   buildSoldTracker();      // 매도 종목 What-if 스냅샷 재계산 (SoldTracker.js)
-  buildDashboard();
+  if (!(opts && opts.skipDashboard === true)) buildDashboard();
 }
 
 function _holdingPeriod(dateStr) {

@@ -78,18 +78,24 @@ function tgSendMessage(text, opts) {
   const results = [];
   for (const chatId of ids) {
     try {
-      const res = UrlFetchApp.fetch(TG.API + token + '/sendMessage', {
-        method: 'post',
-        contentType: 'application/json',
-        payload: JSON.stringify({
-          chat_id: chatId,
-          text: text,
-          parse_mode: 'Markdown',
-          disable_notification: false,
-        }),
-        muteHttpExceptions: true,
-      });
-      const code = res.getResponseCode();
+      const post = (withMarkdown) => {
+        const body = { chat_id: chatId, text: text, disable_notification: false };
+        if (withMarkdown) body.parse_mode = 'Markdown';
+        return UrlFetchApp.fetch(TG.API + token + '/sendMessage', {
+          method: 'post',
+          contentType: 'application/json',
+          payload: JSON.stringify(body),
+          muteHttpExceptions: true,
+        });
+      };
+      let res = post(true);
+      let code = res.getResponseCode();
+      if (code === 400) {
+        // 서식(Markdown) 해석 실패가 대부분 — 서식 없이 한 번 더 보낸다 (글자는 그대로 도착)
+        Logger.log('sendMessage to ' + chatId + ' HTTP 400 — 서식 없이 다시 보냄: ' + res.getContentText().slice(0, 200));
+        res = post(false);
+        code = res.getResponseCode();
+      }
       if (code !== 200) {
         Logger.log('sendMessage to ' + chatId + ' HTTP ' + code + ': ' + res.getContentText().slice(0, 300));
       }
@@ -102,8 +108,16 @@ function tgSendMessage(text, opts) {
   return JSON.stringify(results);
 }
 
-/** 손익 메시지 포맷 (대시보드 동일 수치) */
-function _tgFormatPnL() {
+/** tgSendMessage 의 결과에서 한 곳이라도 실제로 도착했는지 (HTTP 200). 토큰·대상 미설정(null)이면 false. */
+function _tgAnySent(resultJson) {
+  try { return JSON.parse(resultJson || '[]').some(r => r && r.status === 200); } catch (e) { return false; }
+}
+
+/**
+ * 손익 메시지 포맷 (대시보드 동일 수치)
+ * @param {?string} updateError 방금 전체 갱신이 실패했으면 그 사유 — 맨 위에 경고 줄을 붙인다(아래 숫자는 직전 값)
+ */
+function _tgFormatPnL(updateError) {
   const json = newMobileGetPortfolio();
   const data = JSON.parse(json);
   if (!data || !data.success) {
@@ -139,12 +153,16 @@ function _tgFormatPnL() {
     }
   } catch (e) { /* 단서 실패는 본 메시지에 영향 없음 */ }
 
-  const lines = [
-    '💼 *포트폴리오 손익*',
+  const lines = ['💼 *포트폴리오 손익*'];
+  if (updateError) {
+    // 사유 글자에 서식 기호가 있으면 메시지 전체의 서식이 깨지므로 뺀다
+    lines.push('⚠️ *갱신 실패*: 아래 숫자는 직전 값 (' + String(updateError).replace(/[_*`\[\]]/g, ' ').slice(0, 80) + ')');
+  }
+  lines.push(
     '',
     '*합계*: ' + fmtAmt(total) + '  (' + fmtPct(totalRate) + ')',
-    '*오늘*: ' + fmtAmt(today)  + '  (' + todayPctStr + ')',
-  ];
+    '*오늘*: ' + fmtAmt(today)  + '  (' + todayPctStr + ')'
+  );
   if (staleNote) lines.push('', staleNote);
   lines.push('', '_기준일: ' + asOf + '_');
   return lines.join('\n');
@@ -195,9 +213,11 @@ function tgPushPnL() {
       props.setProperty('tg_lastPushEpoch', String(Date.now()));   // 슬롯 선점(발송 전)
       // 부분 갱신(가격+보유)만 하면 추이기록 AD2(=합계 손익)·환율이 stale → 합계가 0/직전값으로 표시됨
       // (6/10 +0원 버그). 시간 트리거·⚡버튼과 동일한 전체 갱신으로 추이기록 AD2·FX까지 신선하게.
-      updateAllNew();   // FX·가격·보유현황·종목지표·추이기록(logToTrendSheet)·대시보드 전체 (2026-06-10 수정)
-      tgSendMessage(_tgFormatPnL());
-      return 'sent';
+      const ok = updateAllNew();   // FX·가격·보유현황·종목지표·추이기록(logToTrendSheet)·대시보드 전체 (2026-06-10 수정)
+      // 갱신이 실패했으면 옛 숫자를 평소처럼 보내지 않는다 — 경고 줄을 붙이고 결과도 구분한다 (2026-11-21)
+      const delivered = _tgAnySent(tgSendMessage(_tgFormatPnL(ok ? null : (_lastUpdateError || '원인 미상'))));
+      if (!delivered) return 'error:send';
+      return ok ? 'sent' : 'sent-stale';
     } finally {
       lock.releaseLock();
     }
@@ -245,7 +265,7 @@ function tgChainFallback() {
     Logger.log('tgChainFallback: 직전 발송 ' + elapsedMin.toFixed(1) + '분 전 — GitHub 신호 끊김 판단, GAS가 직접 발송');
     const result = tgPushPnL();
     Logger.log('tgChainFallback: 백업 발송 결과 = ' + result);
-    if (result === 'sent') {
+    if (result === 'sent' || result === 'sent-stale') {
       const today = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
       if (props.getProperty(TG.PROP_FALLBACK_ALERT) !== today) {
         props.setProperty(TG.PROP_FALLBACK_ALERT, today);
@@ -263,8 +283,8 @@ function tgChainFallback() {
 /** 수동 트리거(ㄱㄱ) — 전체 갱신 후 푸시. 합계 손익(추이기록 AD2)까지 신선해야 정확 (6/10 수정) */
 function tgRefreshAndPush() {
   try {
-    updateAllNew();   // 부분 갱신이면 합계 손익(추이기록 AD2)·환율 stale → 전체 갱신으로 통일
-    tgSendMessage(_tgFormatPnL());
+    const ok = updateAllNew();   // 부분 갱신이면 합계 손익(추이기록 AD2)·환율 stale → 전체 갱신으로 통일
+    tgSendMessage(_tgFormatPnL(ok ? null : (_lastUpdateError || '원인 미상')));
     _tgProps().setProperty('tg_lastPushEpoch', String(Date.now()));   // 수동 발송도 슬롯 갱신 → 직후 자동 poke 중복 방지
   } catch (e) {
     Logger.log('tgRefreshAndPush 오류: ' + e.message);
@@ -654,69 +674,7 @@ function _tgEnsureReportQueueSheet() {
   return sh;
 }
 
-/**
- * Web App POST 핸들러 — Routine이 분석한 리포트를 큐에 적재.
- * 입력 (form-encoded 또는 JSON):
- *   secret    — TG_WEBHOOK_SECRET와 일치해야 함
- *   action    — 'addMarketReport'
- *   type      — 'US' | 'KR'
- *   title     — 짧은 헤드라인 (1줄)
- *   body      — Telegram 발송용 Markdown 본문
- *   asOfDate  — (선택) 대상 날짜 yyyy-MM-dd
- */
-function _tgHandleMarketReportPost(e) {
-  try {
-    // 1. secret 검증 (param 우선, postData JSON fallback)
-    const expectedSecret = _tgSecret();
-    let secret = e && e.parameter && e.parameter.secret;
-    let type = e && e.parameter && e.parameter.type;
-    let title = e && e.parameter && e.parameter.title;
-    let body = e && e.parameter && e.parameter.body;
-    let asOfDate = e && e.parameter && e.parameter.asOfDate;
-    // JSON 본문 fallback (Routine이 contentType: application/json으로 보낼 때)
-    if (!body && e && e.postData && e.postData.contents) {
-      try {
-        const j = JSON.parse(e.postData.contents);
-        secret = secret || j.secret;
-        type = type || j.type;
-        title = title || j.title;
-        body = body || j.body;
-        asOfDate = asOfDate || j.asOfDate;
-      } catch (_) { /* form-encoded이면 무시 */ }
-    }
-    if (!expectedSecret || secret !== expectedSecret) {
-      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'forbidden' }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-    if (type !== 'US' && type !== 'KR') {
-      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'invalid type (US|KR)' }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-    if (!body || typeof body !== 'string') {
-      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'body required' }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-    const tz = 'Asia/Seoul';
-    const now = new Date();
-    const sh = _tgEnsureReportQueueSheet();
-    sh.appendRow([
-      Utilities.formatDate(now, tz, 'yyyy-MM-dd HH:mm:ss'),
-      type,
-      asOfDate || '',
-      String(title || '').slice(0, 200),
-      body,
-      TG_REPORT.STATUS_WAIT,
-      '',
-      '',
-    ]);
-    return ContentService.createTextOutput(JSON.stringify({ success: true }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    Logger.log('_tgHandleMarketReportPost 오류: ' + err.message);
-    return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(err) }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
+// (삭제 2026-11-21) _tgHandleMarketReportPost — 리포트를 큐에 넣던 웹앱 입구(action=addMarketReport). 리포트는 GitHub Actions 가 직접 보내므로 부르는 곳이 없었다.
 
 /**
  * 장중 텔레그램 푸시 — GitHub Actions cron 전용 엔드포인트 (action=pushPnL).
@@ -776,6 +734,9 @@ function tgFlushReportQueue() {
       // tgSendMessage가 null이면 (token/chatId 미설정) 실패 처리
       if (res === null) {
         sh.getRange(rowIdx, 6, 1, 3).setValues([[TG_REPORT.STATUS_FAIL, stamp, '봇 토큰 또는 chat_id 미설정']]);
+        failed++;
+      } else if (!_tgAnySent(res)) {
+        sh.getRange(rowIdx, 6, 1, 3).setValues([[TG_REPORT.STATUS_FAIL, stamp, '텔레그램이 받지 않음(HTTP 오류) — 실행 로그 확인']]);
         failed++;
       } else {
         sh.getRange(rowIdx, 6, 1, 3).setValues([[TG_REPORT.STATUS_DONE, stamp, '']]);

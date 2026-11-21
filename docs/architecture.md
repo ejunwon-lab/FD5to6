@@ -136,7 +136,7 @@ iOS / web / web-desk
 
 | 파일 | 역할 |
 |---|---|
-| `Main.js` | onOpen 메뉴(📊 뉴시스템 / 🛠️ 유지보수) · updateAllNew · 트리거 setup/delete (`scheduledDailyUpdate` / `scheduledHourlyUpdate`) · doPost(`action=addMarketReport`면 시장 리포트 큐, 아니면 Telegram webhook) |
+| `Main.js` | onOpen 메뉴(📊 뉴시스템 / 🛠️ 유지보수) · updateAllNew · 트리거 setup/delete (`scheduledDailyUpdate` / `scheduledHourlyUpdate`) · doPost(`action`으로 분기: `pushPnL`·`portfolioMetrics`·`addTrade`·`backupData`, 그 밖은 Telegram webhook) |
 | `MobileAPI.js` | 모든 클라이언트 API: `newMobileGetPortfolio`·`Indicators`·`ProfitHistory`·`StockDetail`·`MonthlyRealized`·`UpdateAll`. `_mIsTradingDay`·`_isTradingDateStr`·`_mFindPrevDayProfitChange` 헬퍼 |
 | `NewSystem.js` | `updatePositionFromLedger`(거래원장→보유현황), `updateFxRates`(환율), `updateNewPriceHistory`(KIS 가격→현재가_이력), `addTransactionFromForm` |
 | `StockMetrics.js` | `computeStockMetrics` — 보유현황+현재가_이력+거래원장으로 종목지표 시트 한 번에 계산 (당일/1주/1달/1M/3M/6M/1Y/52주). 모든 갱신 경로가 끝에 통과 |

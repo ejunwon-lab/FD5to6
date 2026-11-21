@@ -122,11 +122,11 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `onOpen` — **📊 뉴시스템**(데이터 작업) + **🛠️ 유지보수**(진단·트리거) 두 메뉴 생성
   - 뉴시스템: 전체/현재가/보유현황/대시보드 갱신 + 휴장일 동기화
   - 유지보수: 🔍 진단(`runDiag`) / 🔑 KIS 키 교체(`kisRotateKey`, KIS_API.js) / ⏰ 17:30 트리거 / 🕐 장중 매시 :30 트리거 / 📱 Telegram 푸시 / 📊 시장 리포트 큐 트리거(`tgSetupReportQueueTrigger`)·수동 발송(`tgFlushReportQueueNow`)
-- `doPost(e)` — action 라우팅: `addMarketReport`→`_tgHandleMarketReportPost` / `pushPnL`→`_tgHandlePushPost`(GitHub Actions 장중 텔레그램 푸시) / 그 외→`handleTelegramWebhook` (모두 Telegram.js)
+- `doPost(e)` — action 라우팅: `pushPnL`→`_tgHandlePushPost`(GitHub Actions 장중 텔레그램 푸시) / 그 외→`handleTelegramWebhook` (모두 Telegram.js) (`addMarketReport` 입구는 2026-11-21 삭제 — 부르는 곳이 없었음. 그 요청은 기본 분기에서 거절된다)
 - `onEdit` — 입력폼 제출·대시보드 정렬 드롭다운 분기
-- `updateAllNew` — 전체 업데이트: 가격→보유현황→대시보드 (`menuUpdateAll` alias)
+- `updateAllNew` — 전체 업데이트: 환율→가격→보유현황(종목지표·매도추적 포함)→추이→대시보드 (`menuUpdateAll` alias). **성공 여부를 돌려준다**(실패해도 예외를 던지지 않고 대시보드 2행·로그에 기록, 사유는 `_lastUpdateError`). 대시보드는 끝에서 한 번만 그린다(2026-11-21 — 그전에는 보유현황 끝과 여기서 두 번). 로그 `updateAllNew 소요: 환율 …s · 가격 …s · 보유현황 …s · 추이 …s · 대시보드 …s · 합계 …s`, 실패 시 `updateAllNew 오류: … [○○ 단계 · 그 전까지 …]`
 - `menuUpdatePricesOnly` — 현재가만
-- `scheduledDailyUpdate` / `setupDailyTrigger` / `deleteDailyTrigger` — 17:30 자동 트리거 (장 마감 후 정리). 갱신 뒤 `_cleanupLegacyEmailProps()` — 제거된 이메일 채널이 남긴 속성(`email_count`·`email_count_<날짜>`·`email_last_*`·`email_disabled`)을 지움, 다 지우면 대상 없음(2026-11-15)
+- `scheduledDailyUpdate` / `setupDailyTrigger` / `deleteDailyTrigger` — 17:30 자동 트리거 (장 마감 후 정리). 갱신 뒤 `_cleanupLegacyEmailProps()` — 제거된 이메일 채널이 남긴 속성(`email_count`·`email_count_<날짜>`·`email_last_*`·`email_disabled`)을 지움, 다 지우면 대상 없음(2026-11-15) 갱신은 스크립트 락을 잡고 한다(30초 안에 못 잡으면 건너뜀 — 다른 갱신이 같은 일을 하는 중)
 - `scheduledHourlyUpdate` / `setupHourlyTrigger` / `deleteHourlyTrigger` — 장중 매시 :30 트리거 (거래일 09:30~16:30, `everyMinutes(30)` + 핸들러 분 체크 / LockService로 tgPushPnL·사용자 갱신과 충돌 방지). 매 틱 앞머리에서 `tgChainFallback()` — `fallback:sent`면 갱신 중복 없이 return (2026-11-12) 이어서 `cbfTick()`(과거 마감 기록 소급 보정 — 일회성, 2026-11-21)
 - `_handleCashReserveTimestamp(e)` — onEdit 분기. *설정* C7:C12(대기자금) 편집 시 같은 행 E열에 yyyy-MM-dd HH:mm 자동 스탬프 (빈 값으로 지우면 스탬프도 지움)
 
@@ -147,10 +147,10 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `addTransactionFromForm` — 입력폼 → *거래_원장* 1행 추가
 - `_mLastUpdateAt(ss)` (MobileAPI.js) — *대시보드* 2행("🕐 마지막 갱신 …") 정규식 파싱 → 저장된 갱신시각(yyyy-MM-dd HH:mm). `newMobileGetPortfolio`의 `updatedAt`이 이걸 사용 → 갱신=now 재기록, 단순읽기=직전 갱신시각. 셀 없으면 now() 폴백
 - `_handleAddTradePost(e)` — doPost `action=addTrade` 분기. secret(TG_WEBHOOK_SECRET) 검증 → `_appendTradeRow`. 카톡 매매 자동기록 전용 (`scripts/post_trade.py`가 호출)
-- `_appendTradeRow(t)` — 카톡 매매 payload → *거래_원장* 1행. 정규화(증권사 별칭·코드 A제거·날짜 기본 오늘·금액 검산) + **멱등**(주문번호+동일 fill, 분류 룩업보다 먼저) + 매도 분류 *보유현황* 룩업(코드+증권사+계좌) + append + `updatePositionFromLedger` → `{beforeQty,afterQty}`. 설계: `docs/plans/2026-06-11-카톡매매-원장자동기록.md`. **`type=입금/출금`(`NS.FLOW_TYPES`)이면 현금흐름 행 분기**: 종목 필드 없이 금액만 기록(멱등 키=날짜+구분+증권사+계좌+금액), 재계산 연쇄 없이 반환 `{flow:true}` — TWR 보정용 (`docs/plans/2026-07-16-TWR-입금왜곡보정.md`)
-- `updatePositionFromLedger` — *거래_원장* → *보유현황* 재계산 (구분이 매수/매도 아닌 행, 예: 입금/출금은 명시 skip). 끝에 `computeStockMetrics`·`buildSoldTracker`·`buildDashboard` 호출. KIS_SKIP(예금·펀드·보험) 행은 값·수식 보존, **단 평가금액 빈칸+현재단가>0이면 자가치유**(평가=현재단가×수량·손익=평가−매입 재계산·잘못된 집계 수식 제거, errors.md 2026-07-15)
+- `_appendTradeRow(t)` — 카톡 매매 payload → *거래_원장* 1행. 정규화(증권사 별칭·코드 A제거·날짜 기본 오늘·금액 검산) + **멱등**(주문번호+동일 fill, 분류 룩업보다 먼저) + 매도 분류 *보유현황* 룩업(코드+증권사+계좌) + append + `updatePositionFromLedger` → `{beforeQty,afterQty}`. 설계: `docs/plans/2026-06-11-카톡매매-원장자동기록.md`. **`type=입금/출금`(`NS.FLOW_TYPES`)이면 현금흐름 행 분기**: 종목 필드 없이 금액만 기록(멱등 키=날짜+구분+증권사+계좌+금액), 재계산 연쇄 없이 반환 `{flow:true}` — TWR 보정용 (`docs/plans/2026-07-16-TWR-입금왜곡보정.md`) **입력 검증(2026-11-21)**: 종목코드는 국내 6자리(숫자·영문) 또는 영문자만의 해외 티커(`bad_code`), 틀린 날짜는 오늘로 바꾸지 않고 거부(`bad_date`), 분류는 `NS.CATEGORIES` 안에서만(`bad_category`), 이름·메모가 `= + - @`로 시작하면 앞에 `'`를 붙여 글자로 넣음(시트가 수식으로 읽지 않게)
+- `updatePositionFromLedger` — *거래_원장* → *보유현황* 재계산 (구분이 매수/매도 아닌 행, 예: 입금/출금은 명시 skip). 끝에 `computeStockMetrics`·`buildSoldTracker`·`buildDashboard` 호출. KIS_SKIP(예금·펀드·보험) 행은 값·수식 보존, **단 평가금액 빈칸+현재단가>0이면 자가치유**(평가=현재단가×수량·손익=평가−매입 재계산·잘못된 집계 수식 제거, errors.md 2026-07-15). `updatePositionFromLedger({skipDashboard:true})`면 끝의 대시보드 그리기를 건너뜀(`updateAllNew` 전용)
 - `updateNewPriceHistory(ss)` — KIS 시세 → *현재가_이력* 행 upsert (**비거래일엔 미기록**. KIS 실패 종목은 직전가 carry-forward + toast)
-- `updateFxRates` — 환율 → *설정*
+- `updateFxRates` — 환율 → *설정*. 조회가 제때 안 끝나면 **직전 값 유지**(로그 `환율 조회 실패(…) — 직전 값 유지`), 직전 값도 없을 때만 고정값
 - `_fetchPricesFromKIS(codes)` — KIS 가격 일괄 조회 (실패 종목 1회 재시도)
 - `_normCode(c)` — 종목코드 정규화 (6자리 패딩, 영숫자 `0047A0`·해외 `AAPL` 허용)
 - `_holdingPeriod(dateStr)` — 보유기간 문자열 ("11개월 26일")
@@ -207,13 +207,13 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 
 ### Telegram.js — Telegram 봇 연동 (텔레그램 손익 푸시 + webhook)
 - `TG` — Properties 키·API base·트리거 핸들러·명령어 키워드 상수
-- `tgSendMessage(text)` — Telegram sendMessage API 호출 (Markdown)
-- `_tgFormatPnL` — `newMobileGetPortfolio()` → `summary.trendTotalProfit/totalProfitRate/dayChangAmount/dayChangePct/priceAsOfDate` 추출 → 메시지 포맷
-- `tgPushPnL` — 장중 텔레그램 푸시 (**GitHub Actions가 5분마다 `action=pushPnL` poke** — F 구조 "단일 신뢰 시작 + 자체 루프", 2026-06-09). **거래일 + 09:00~16:00 + 락 + 18분 dedup(`tg_lastPushEpoch` 슬롯 선점)** 자체 게이트 → **`updateAllNew()` 전체 갱신**(FX·가격·보유현황·종목지표·추이기록 AD2·대시보드) + 발송, 그 외 silent skip. (2026-06-10: 부분갱신→전체. 부분갱신은 추이기록 AD2=합계손익이 stale→+0/직전값 버그) dedup이 카덴스의 단일 권위(겹치는 잡·중복 poke 무해화 → ~20분 간격)
+- `tgSendMessage(text)` — Telegram sendMessage API 호출 (Markdown). 400(서식 해석 실패)이면 서식 없이 한 번 더 보낸다. 반환은 대상별 결과 JSON — **도착 여부는 `_tgAnySent(결과)`로 확인**(한 곳이라도 200이면 true)
+- `_tgFormatPnL` — `newMobileGetPortfolio()` → `summary.trendTotalProfit/totalProfitRate/dayChangAmount/dayChangePct/priceAsOfDate` 추출 → 메시지 포맷. `_tgFormatPnL(updateError)`: 방금 갱신이 실패했으면 맨 위에 `⚠️ 갱신 실패: 아래 숫자는 직전 값 (사유)` 줄
+- `tgPushPnL` — 장중 텔레그램 푸시 (**GitHub Actions가 5분마다 `action=pushPnL` poke** — F 구조 "단일 신뢰 시작 + 자체 루프", 2026-06-09). **거래일 + 09:00~16:00 + 락 + 18분 dedup(`tg_lastPushEpoch` 슬롯 선점)** 자체 게이트 → **`updateAllNew()` 전체 갱신**(FX·가격·보유현황·종목지표·추이기록 AD2·대시보드) + 발송, 그 외 silent skip. (2026-06-10: 부분갱신→전체. 부분갱신은 추이기록 AD2=합계손익이 stale→+0/직전값 버그) dedup이 카덴스의 단일 권위(겹치는 잡·중복 poke 무해화 → ~20분 간격) **결과 코드(2026-11-21)**: `sent` · `sent-stale`(갱신 실패 — 경고 줄을 붙여 보냄) · `error:send`(한 곳에도 도착 못 함) · 기존 `skip-*`. 감시는 `"result":"sent"`만 세므로 갱신 실패 날은 발송 수가 줄어 보인다(의도)
 - `tgChainFallback` / `_tgFallbackDue` (2026-11-12) — **GAS 백업 발송**. `scheduledHourlyUpdate`(30분 트리거, HEAD) 앞머리에서 호출. 거래일·09:10~16:00·직전 발송(`tg_lastPushEpoch`) 후 27분 이상이면 GitHub 체인 끊김으로 보고 `tgPushPnL()` 직접 호출, 성공 시 하루 1회 끊김 알림(`tg_chainFallbackAlertDate`). 반환 `n/a`·`ok`·`fallback:<결과>`. 백업 모드는 30분 간격. 체인 재시작은 안 함. 설계 `docs/plans/2026-11-12-푸시-GAS-백업발송.md`
 - `_tgHandlePushPost(e)` — doPost `action=pushPnL` 분기. secret(`TG_WEBHOOK_SECRET`) 검증 → `tgPushPnL()` 호출 → `{success:true}`. GitHub Actions `telegram-push.yml` 전용 엔드포인트
 - `tgRefreshAndPush` — 수동 갱신 (가격 + 보유현황 재계산 후 푸시 → `tg_lastPushEpoch` 갱신해 직후 자동 poke 중복 방지). 대시보드·추이 렌더 생략 (응답 시간 단축)
-- `doPost`/`handleTelegramWebhook(e)` — Telegram webhook 진입점 (Main.js의 doPost가 `action` 보고 위임. `action=addMarketReport`면 `_tgHandleMarketReportPost`, 아니면 webhook으로)
+- `doPost`/`handleTelegramWebhook(e)` — Telegram webhook 진입점 (Main.js의 doPost가 `action` 보고 위임. 아니면 webhook으로)
   - secret 검증 (URL query) → update_id 중복 제거 (PropertiesService, retry 방지) → chat_id 화이트리스트 → 키워드 매칭 → LockService로 동시 처리 차단 → `tgRefreshAndPush`
 - **시장 리포트 큐** (수동 발송용으로 유지 — 자동 cron은 GitHub Actions로 이관 2026-06-03):
   - `TG_REPORT` — 시트명·트리거 핸들러·상태·헤더 상수
@@ -252,7 +252,7 @@ KIS API ─updateNewPriceHistory→ 현재가_이력 (거래일만, 날짜×종�
 - `mcCloseCheck(sheet, prevRow, codes, prevPrices)` — 장중 첫 갱신에서 1회: 앞 행(직전 거래일) 값 = 오늘 KIS 기준가(`KIS_API._baseMap`)인지 대조. **잠기지 않았던 날**의 불일치만(차이 15% 이내) 기준가로 보정, 잠긴 날은 개수만. 속성 `kr_close_check`, 로그 `closeCheck:`
 - `mcEnsureMarketSnapshot` / `_mcFetchMarket` — 마감 +5분부터 18:30까지, 그날 치가 없으면 네이버에서 업종 등락(79개)·급등락 상위 10·코스피/코스닥 종가·등락률·거래대금을 받아 속성 `kr_market_close`(한 칸 덮어쓰기)에 저장. 애프터마켓 시작 뒤에 받았으면 `late:true`
 - `mcKrCloseTable(ss)` — 보유 원화 종목(국내 형식 코드 + KIS 시세 대상 분류 — 잠금의 국내 종목 판정과 같은 기준, 계좌 중복은 한 줄)의 `{date, locked, closeHHMM, items:[{code,name,close,changePct}]}`. 수량·금액 없음. 리포트(`getPortfolioMetrics().krClose`)와 알림이 공용
-- `mcAfterMarketAlert` / `_mcFormatAmAlert` — 거래일 20:03~21:00에 하루 1통(`am_alert_date`): 보유 원화 종목 **전부**의 변화율(정규장 종가 → 네이버 `/basic` 20시 이후 값 = 애프터마켓 종료가). 크기로 거르지 않고, 조회 실패 종목도 "실패"로 표기
+- `mcAfterMarketAlert` / `_mcFormatAmAlert` — 거래일 20:03~21:00에 하루 1통(`am_alert_date`): 보유 원화 종목 **전부**의 변화율(정규장 종가 → 네이버 `/basic` 20시 이후 값 = 애프터마켓 종료가). 크기로 거르지 않고, 조회 실패 종목도 "실패"로 표기 한 곳에도 도착하지 않으면 `send-fail`을 돌려주고 그날 표시를 지워 다음 신호에서 다시 보낸다(2026-11-21)
 - `_mcNaverRegularCloses`(분봉의 정규장 마감 값 — 실행 시각 무관) / `_mcNaverBasicPrices` / `_mcFetchJsonAll` — 네이버 공개 API
 - 다른 파일의 접점: `NewSystem.js updateNewPriceHistory`(잠금·대조 호출, 실패 시 새 값 그대로) · `KIS_API.getKisPricesBatch`(기준가 `stck_sdpr`를 `KIS_API._baseMap`에) · `Telegram.js _tgHandlePushPost` · `Main.js scheduledHourlyUpdate` · `MobileAPI.js getPortfolioMetrics`(`krClose`·`marketClose`) · `Diag.js`(`krCloseLock`·`closeCheck`·`marketClose`·`amAlertDate`)
 
@@ -329,7 +329,7 @@ KIS 키 갱신 (2026-11-13 v35 배포 — 사용자 리허설 후 확정): **시
 
 ## scripts/ — 로컬 스크립트·git 훅
 
-- `gas-tests/` (2026-11-21) — **GAS 스텁 시험**. `harness.js`(가짜 시계·시트·속성·락·UrlFetch 위에서 `apps-script-v2`의 실제 코드를 돌림) · `test_close_backfill.js`(소급 보정 34건) · `test_wiring.js`(전 파일 로드·30분 트리거의 단계 순서와 격리 5건). 실행 `node scripts/gas-tests/<파일> [-v]`. `apps-script-v2` 밖이라 원격에 올라가지 않는다. 종목·가격은 전부 가짜
+- `gas-tests/` (2026-11-21) — **GAS 스텁 시험**. `harness.js`(가짜 시계·시트·속성·락·UrlFetch 위에서 `apps-script-v2`의 실제 코드를 돌림) · `test_close_backfill.js`(소급 보정 34건) · `test_wiring.js`(전 파일 로드·30분 트리거의 단계 순서와 격리 5건) · `test_update_and_send.js`(전체 갱신 반환·대시보드 한 번·푸시 결과 코드·발송 재시도·애프터마켓 알림 재시도·환율·17:30 락·매매 기록 입력 검증 33건). 실행 `node scripts/gas-tests/<파일> [-v]`. `apps-script-v2` 밖이라 원격에 올라가지 않는다. 종목·가격은 전부 가짜
 - `run.sh` — 실행@ 기계 단계 (히스토리 재정렬 자기복구·pull·리포트 clone/pull·memory 복원·전역 CLAUDE.md/skill 동기화·pre-commit 훅 활성화)
 - `save.sh` — 저장! 기계 단계 (memory 미러 + add/commit/push + 인덱스 누락 hint)
 - `check_stale.sh` — 인덱스 vs 코드 정합 검사 (GAS public 함수·desk 컴포넌트 등재 여부 + last updated 경과)

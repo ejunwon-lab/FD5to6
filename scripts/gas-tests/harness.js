@@ -20,6 +20,7 @@ class FakeSheet {
       getValue: () => rng.getValues()[0][0],
       setValues: v => { sh.writes = (sh.writes || 0) + 1; v.forEach((row, i) => { while (sh.d.length < r + i) sh.d.push([]); row.forEach((x, j) => { sh.d[r - 1 + i][c - 1 + j] = x; }); }); return rng; },
       setValue: v => rng.setValues([[v]]),
+      setFormula: f => rng.setValues([[sh.book.onFormula ? sh.book.onFormula(f) : f]]),
       setFontWeight: () => rng, setBackground: () => rng, setFontColor: () => rng, setNumberFormat: () => rng, clearContent: () => rng,
     };
     return rng;
@@ -51,7 +52,7 @@ function makeEnv(opts) {
     if (r.throw) throw new Error(r.throw);
     return { getResponseCode: () => r.code, getContentText: () => r.body };
   };
-  const ss = { getSheetByName: n => env.book.sheets[n] || null, getSheets: () => Object.values(env.book.sheets) };
+  const ss = { getSheetByName: n => env.book.sheets[n] || null, getSheets: () => Object.values(env.book.sheets), toast: () => {} };
   const ctx = vm.createContext({
     console, Date: FDate, unescape, encodeURIComponent,
     Utilities: { formatDate, sleep() {} },
@@ -59,8 +60,9 @@ function makeEnv(opts) {
     PropertiesService: { getScriptProperties: () => ({
       getProperty: k => env.store.has(k) ? env.store.get(k) : null, setProperty: (k, v) => { env.store.set(k, String(v)); },
       setProperties: o => Object.keys(o).forEach(k => env.store.set(k, String(o[k]))), deleteProperty: k => env.store.delete(k), getKeys: () => [...env.store.keys()] }) },
-    LockService: { getScriptLock: () => ({ tryLock: () => !env.lockBusy, releaseLock: () => {} }) },
-    SpreadsheetApp: { getActiveSpreadsheet: () => ss },
+    LockService: { getScriptLock: () => ({ tryLock: () => !env.lockBusy, waitLock: () => { if (env.lockBusy) throw new Error('락 대기 시간 초과'); }, releaseLock: () => { env.lockReleases = (env.lockReleases || 0) + 1; } }) },
+    SpreadsheetApp: { getActiveSpreadsheet: () => ss, flush: () => {} },
+    ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ setMimeType: () => t, text: t }) },
     UrlFetchApp: { fetchAll: reqs => reqs.map(respond), fetch: (u, o) => respond(Object.assign({ url: u }, o || {})) },
     SECRET: { KIS_BASE_URL: 'https://kis.example' },
     KIS_API: { getAccessToken: () => { if (env.tokenThrow) throw new Error('토큰 발급 실패'); return 'T'; } },
